@@ -91,6 +91,8 @@ export default function Home() {
   const [waDailyLimit, setWaDailyLimit] = useState(40);
   const [waDailyCount, setWaDailyCount] = useState(0);
   const [waPersistSent, setWaPersistSent] = useState<Set<string>>(new Set());
+  // Modo macro: cadência controlada por script externo (AutoHotkey). Atalho F2 dispara o envio.
+  const [waMacroMode, setWaMacroMode] = useState(false);
 
   const handleDiscoverRegions = async () => {
     if (!location.trim()) {
@@ -363,6 +365,22 @@ export default function Home() {
 
   const quotaReached = waDailyCount >= waDailyLimit;
 
+  // Atalho de teclado F2: dispara o envio do contato atual (para macro/AutoHotkey).
+  useEffect(() => {
+    if (!isWaModalOpen || !waRunning) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "F2") return;
+      e.preventDefault();
+      const ready = !waPaused && !quotaReached && waIndex < waQueue.length;
+      if (ready && (waMacroMode || waCountdown === 0)) {
+        sendCurrentWa();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isWaModalOpen, waRunning, waPaused, quotaReached, waIndex, waCountdown, waMacroMode]);
+
   const openWaCampaign = () => {
     const targets = results.filter((r) => selectedIds.has(r.id) && getWaNumber(r.phone));
     if (targets.length === 0) {
@@ -440,6 +458,9 @@ export default function Home() {
       const next = prev + 1;
       if (next >= waQueue.length) {
         setWaRunning(false);
+      } else if (waMacroMode) {
+        // No modo macro o script externo controla a cadência: libera imediatamente.
+        setWaCountdown(0);
       } else {
         // Próximo só libera após um intervalo aleatório (humanizado)
         setWaCountdown(randomBetween(waMinDelay, waMaxDelay));
@@ -831,6 +852,15 @@ export default function Home() {
                   Histórico: {waPersistSent.size} contato(s) já enviados.
                 </div>
 
+                <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", fontSize: "0.9rem", marginBottom: "0.5rem" }}>
+                  <input
+                    type="checkbox"
+                    checked={waMacroMode}
+                    onChange={(e) => setWaMacroMode(e.target.checked)}
+                  />
+                  Modo macro (AutoHotkey) — a cadência é controlada pelo script externo; use o atalho <strong>F2</strong> para disparar.
+                </label>
+
                 <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", marginTop: "1rem", flexWrap: "wrap" }}>
                   <div style={{ display: "flex", gap: "0.5rem" }}>
                     <button className="btn-secondary" onClick={clearWaHistory} style={{ fontSize: "0.8rem" }}>
@@ -926,6 +956,12 @@ export default function Home() {
                     <Send size={18} /> Abrir e enviar
                   </button>
                 </div>
+
+                <p style={{ textAlign: "center", fontSize: "0.8rem", color: "var(--text-muted, #888)", marginTop: "1rem" }}>
+                  {waMacroMode
+                    ? "Modo macro ativo: a tecla F2 dispara o envio. Deixe o AutoHotkey controlar a cadência."
+                    : "Dica: a tecla F2 também dispara o envio do contato atual quando estiver pronto."}
+                </p>
               </>
             )}
 
