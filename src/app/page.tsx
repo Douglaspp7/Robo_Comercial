@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Search, Loader2, Download, Send, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Loader2, Download, Send, X, MessageCircle, SkipForward, Pause, Play } from "lucide-react";
 import * as XLSX from "xlsx";
 import styles from "./page.module.css";
 
@@ -15,15 +15,38 @@ interface Business {
   email?: string;
 }
 
-const getWaLink = (phone: string) => {
+const getWaNumber = (phone: string): string | null => {
   if (!phone) return null;
   const clean = phone.replace(/\D/g, "");
   if (clean.length >= 10) {
     // Adiciona DDI do Brasil (55) se não houver
-    return clean.startsWith("55") ? `https://wa.me/${clean}` : `https://wa.me/55${clean}`;
+    return clean.startsWith("55") ? clean : `55${clean}`;
   }
   return null;
 };
+
+const getWaLink = (phone: string) => {
+  const num = getWaNumber(phone);
+  return num ? `https://wa.me/${num}` : null;
+};
+
+// Monta o link wa.me já com a mensagem personalizada (substitui {nome}) + URL do app
+const buildWaMessageLink = (
+  biz: { name: string; phone: string },
+  message: string,
+  appUrl: string
+): string | null => {
+  const num = getWaNumber(biz.phone);
+  if (!num) return null;
+  let text = (message || "").replace(/\{nome\}/gi, biz.name || "");
+  if (appUrl.trim()) {
+    text = `${text}\n\n${appUrl.trim()}`;
+  }
+  return `https://wa.me/${num}?text=${encodeURIComponent(text)}`;
+};
+
+const randomBetween = (min: number, max: number) =>
+  Math.floor(Math.random() * (max - min + 1)) + min;
 
 export default function Home() {
   const [niche, setNiche] = useState("");
@@ -42,6 +65,21 @@ export default function Home() {
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
   const [emailLoading, setEmailLoading] = useState(false);
+
+  // WhatsApp Campaign State
+  const [isWaModalOpen, setIsWaModalOpen] = useState(false);
+  const [waMessage, setWaMessage] = useState(
+    "Olá {nome}! Tudo bem? Tenho um app que pode ajudar o seu negócio. Dá uma olhada:"
+  );
+  const [waAppUrl, setWaAppUrl] = useState("");
+  const [waMinDelay, setWaMinDelay] = useState(30);
+  const [waMaxDelay, setWaMaxDelay] = useState(90);
+  const [waQueue, setWaQueue] = useState<Business[]>([]);
+  const [waIndex, setWaIndex] = useState(0);
+  const [waSentIds, setWaSentIds] = useState<Set<string>>(new Set());
+  const [waRunning, setWaRunning] = useState(false);
+  const [waPaused, setWaPaused] = useState(false);
+  const [waCountdown, setWaCountdown] = useState(0);
 
   const handleDiscoverRegions = async () => {
     if (!location.trim()) {
@@ -269,6 +307,79 @@ export default function Home() {
     }
   };
 
+  // ---------------------------------------------------------------
+  // CAMPANHA DE WHATSAPP (wa.me semi-automático, cadência aleatória)
+  // ---------------------------------------------------------------
+
+  // Cronômetro da cadência: decrementa enquanto a campanha estiver ativa e não pausada.
+  useEffect(() => {
+    if (!waRunning || waPaused) return;
+    const id = setInterval(() => {
+      setWaCountdown((c) => (c > 0 ? c - 1 : 0));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [waRunning, waPaused]);
+
+  const openWaCampaign = () => {
+    const targets = results.filter((r) => selectedIds.has(r.id) && getWaNumber(r.phone));
+    if (targets.length === 0) {
+      return alert("Nenhum dos contatos selecionados tem um telefone válido para WhatsApp.");
+    }
+    setWaQueue(targets);
+    setWaIndex(0);
+    setWaSentIds(new Set());
+    setWaRunning(false);
+    setWaPaused(false);
+    setWaCountdown(0);
+    setIsWaModalOpen(true);
+  };
+
+  const startWaCampaign = () => {
+    if (waMinDelay > waMaxDelay) {
+      return alert("O intervalo mínimo não pode ser maior que o máximo.");
+    }
+    if (!waMessage.trim()) {
+      return alert("Escreva a mensagem padrão antes de iniciar.");
+    }
+    setWaRunning(true);
+    setWaPaused(false);
+    setWaCountdown(0); // o primeiro contato fica disponível imediatamente
+  };
+
+  const advanceWaQueue = () => {
+    setWaIndex((prev) => {
+      const next = prev + 1;
+      if (next >= waQueue.length) {
+        setWaRunning(false);
+      } else {
+        // Próximo só libera após um intervalo aleatório (humanizado)
+        setWaCountdown(randomBetween(waMinDelay, waMaxDelay));
+      }
+      return next;
+    });
+  };
+
+  const sendCurrentWa = () => {
+    const biz = waQueue[waIndex];
+    if (!biz) return;
+    const link = buildWaMessageLink(biz, waMessage, waAppUrl);
+    if (link) {
+      window.open(link, "_blank", "noopener,noreferrer");
+      setWaSentIds((prev) => new Set(prev).add(biz.id));
+    }
+    advanceWaQueue();
+  };
+
+  const skipCurrentWa = () => {
+    advanceWaQueue();
+  };
+
+  const stopWaCampaign = () => {
+    setWaRunning(false);
+    setWaPaused(false);
+    setWaCountdown(0);
+  };
+
   return (
     <main className={styles.container}>
       <header className={styles.header}>
@@ -371,6 +482,15 @@ export default function Home() {
               <button className="btn-secondary" onClick={handleExportExcel}>
                 <Download size={18} style={{ marginRight: 8, display: "inline" }} />
                 Exportar Excel ({results.length})
+              </button>
+              <button
+                className="btn-secondary"
+                onClick={openWaCampaign}
+                disabled={selectedIds.size === 0}
+                style={{ color: "#25D366", borderColor: "#25D366", display: "inline-flex", alignItems: "center", gap: "0.5rem" }}
+              >
+                <MessageCircle size={18} />
+                Disparar WhatsApp ({selectedIds.size})
               </button>
               <button
                 className="btn-primary"
@@ -518,6 +638,177 @@ export default function Home() {
                 {emailLoading ? "Enviando..." : "Disparar E-mails"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Campanha WhatsApp */}
+      {isWaModalOpen && (
+        <div className={styles.modalOverlay}>
+          <div className={`glass-panel ${styles.modalContent}`}>
+            <div className={styles.modalHeader}>
+              <h2 className={styles.modalTitle}>
+                <MessageCircle size={22} style={{ display: "inline", marginRight: 8, color: "#25D366" }} />
+                Disparo WhatsApp
+              </h2>
+              <button
+                className={styles.closeButton}
+                onClick={() => {
+                  stopWaCampaign();
+                  setIsWaModalOpen(false);
+                }}
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* FASE 1: configuração */}
+            {!waRunning && waIndex === 0 && (
+              <>
+                <p style={{ fontSize: "0.85rem", color: "var(--text-muted, #888)", marginBottom: "1rem" }}>
+                  {waQueue.length} contato(s) com WhatsApp válido na fila. O envio é semi-automático:
+                  o app abre cada conversa já preenchida na vez certa e você dá o clique final em enviar.
+                  O logo aparece no preview se a URL do app tiver Open Graph configurado.
+                </p>
+
+                <div className={styles.inputGroup}>
+                  <label className={styles.label}>Mensagem padrão (use {"{nome}"} para personalizar)</label>
+                  <textarea
+                    className={styles.textareaGlass}
+                    value={waMessage}
+                    onChange={(e) => setWaMessage(e.target.value)}
+                    rows={4}
+                  />
+                </div>
+
+                <div className={styles.inputGroup}>
+                  <label className={styles.label}>URL do app (puxa o logo no preview do link)</label>
+                  <input
+                    type="text"
+                    className="input-glass"
+                    placeholder="https://meuapp.com.br"
+                    value={waAppUrl}
+                    onChange={(e) => setWaAppUrl(e.target.value)}
+                  />
+                </div>
+
+                <div style={{ display: "flex", gap: "1rem" }}>
+                  <div className={styles.inputGroup} style={{ flex: 1 }}>
+                    <label className={styles.label}>Intervalo mín. (s)</label>
+                    <input
+                      type="number"
+                      min={5}
+                      className="input-glass"
+                      value={waMinDelay}
+                      onChange={(e) => setWaMinDelay(Math.max(0, Number(e.target.value)))}
+                    />
+                  </div>
+                  <div className={styles.inputGroup} style={{ flex: 1 }}>
+                    <label className={styles.label}>Intervalo máx. (s)</label>
+                    <input
+                      type="number"
+                      min={5}
+                      className="input-glass"
+                      value={waMaxDelay}
+                      onChange={(e) => setWaMaxDelay(Math.max(0, Number(e.target.value)))}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem", marginTop: "1rem" }}>
+                  <button className="btn-secondary" onClick={() => setIsWaModalOpen(false)}>
+                    Cancelar
+                  </button>
+                  <button
+                    className="btn-primary"
+                    onClick={startWaCampaign}
+                    style={{ background: "#25D366", borderColor: "#25D366" }}
+                  >
+                    <Play size={18} /> Iniciar disparo
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* FASE 2: em andamento */}
+            {waRunning && waIndex < waQueue.length && (
+              <>
+                <div style={{ marginBottom: "1rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", marginBottom: "0.5rem" }}>
+                    <span>Progresso: {waIndex} / {waQueue.length}</span>
+                    <span>Enviados: {waSentIds.size}</span>
+                  </div>
+                  <div style={{ height: "8px", background: "rgba(255,255,255,0.1)", borderRadius: "4px", overflow: "hidden" }}>
+                    <div
+                      style={{
+                        height: "100%",
+                        width: `${(waIndex / waQueue.length) * 100}%`,
+                        background: "#25D366",
+                        transition: "width 0.3s",
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="glass-panel" style={{ padding: "1rem", marginBottom: "1rem" }}>
+                  <div style={{ fontSize: "0.8rem", color: "var(--text-muted, #888)" }}>Próximo contato:</div>
+                  <div style={{ fontWeight: 700, fontSize: "1.1rem" }}>{waQueue[waIndex]?.name}</div>
+                  <div style={{ fontSize: "0.9rem" }}>{waQueue[waIndex]?.phone}</div>
+                </div>
+
+                {waCountdown > 0 ? (
+                  <div style={{ textAlign: "center", marginBottom: "1rem" }}>
+                    <div style={{ fontSize: "2rem", fontWeight: 700, color: "#25D366" }}>{waCountdown}s</div>
+                    <div style={{ fontSize: "0.85rem", color: "var(--text-muted, #888)" }}>
+                      {waPaused ? "Pausado" : "Aguardando intervalo (anti-spam)..."}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ textAlign: "center", marginBottom: "1rem", color: "#25D366", fontWeight: 600 }}>
+                    Pronto para enviar!
+                  </div>
+                )}
+
+                <div style={{ display: "flex", justifyContent: "center", gap: "1rem", flexWrap: "wrap" }}>
+                  <button
+                    className="btn-secondary"
+                    onClick={() => setWaPaused((p) => !p)}
+                    style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}
+                  >
+                    {waPaused ? <Play size={18} /> : <Pause size={18} />}
+                    {waPaused ? "Retomar" : "Pausar"}
+                  </button>
+                  <button
+                    className="btn-secondary"
+                    onClick={skipCurrentWa}
+                    style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}
+                  >
+                    <SkipForward size={18} /> Pular
+                  </button>
+                  <button
+                    className="btn-primary"
+                    onClick={sendCurrentWa}
+                    disabled={waCountdown > 0 || waPaused}
+                    style={{ background: "#25D366", borderColor: "#25D366", display: "inline-flex", alignItems: "center", gap: "0.5rem" }}
+                  >
+                    <Send size={18} /> Abrir e enviar
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* FASE 3: concluído */}
+            {!waRunning && waIndex >= waQueue.length && waQueue.length > 0 && (
+              <div style={{ textAlign: "center", padding: "1rem" }}>
+                <h3 style={{ marginBottom: "0.5rem" }}>Campanha concluída! 🎉</h3>
+                <p style={{ color: "var(--text-muted, #888)", marginBottom: "1.5rem" }}>
+                  {waSentIds.size} de {waQueue.length} contatos processados.
+                </p>
+                <button className="btn-primary" onClick={() => setIsWaModalOpen(false)}>
+                  Fechar
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
