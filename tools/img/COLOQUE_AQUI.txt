@@ -1,0 +1,13 @@
+Salve aqui a imagem de referência do BOTÃO DE ENVIAR do WhatsApp Web:
+
+    send_button.png
+
+Como capturar (veja detalhes no ../README.md):
+1. Abra um chat no WhatsApp Web e digite qualquer texto (o ícone de enviar
+   - aviãozinho de papel - aparece no canto inferior direito).
+2. Use a Ferramenta de Captura do Windows (Win+Shift+S) e recorte BEM JUSTO
+   apenas o ícone de enviar.
+3. Salve como send_button.png nesta pasta.
+
+IMPORTANTE: a captura precisa ser feita na MESMA tela, resolução, zoom do
+navegador e tema (claro/escuro) que você vai usar no disparo.

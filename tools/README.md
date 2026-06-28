@@ -58,3 +58,61 @@ Ctrl+W -> fecha a aba e volta para o app
 - Comece com **poucos contatos** para calibrar os tempos.
 - A **cota diária** do app continua valendo: ao atingir, o app para de
   enviar mesmo que o macro pressione F2.
+
+---
+
+# Versão avançada: detecção de imagem (mais confiável)
+
+Arquivo: **`whatsapp-autoclicker-imagesearch.ahk`**
+
+Em vez de esperar um tempo **fixo** para o WhatsApp carregar, esta versão
+**espera o botão de enviar aparecer na tela** antes de mandar o `Enter`.
+Como esse botão (aviãozinho) só surge quando há texto no campo, ele é um
+sinal perfeito de que o chat carregou e a mensagem está pronta — elimina
+mensagens vazias ou enviadas cedo demais.
+
+## Como capturar a imagem do botão de enviar
+
+> A captura precisa ser feita na **mesma tela, resolução, zoom do navegador
+> e tema (claro/escuro)** que você usará no disparo. Se mudar qualquer um
+> desses, recapture.
+
+1. Abra um chat no WhatsApp Web e **digite qualquer texto** — o ícone de
+   enviar (aviãozinho de papel) aparece no canto inferior direito.
+2. Pressione **`Win + Shift + S`** (Ferramenta de Captura) e recorte
+   **bem justo** apenas o ícone de enviar.
+3. Cole no Paint e salve como **`send_button.png`** dentro de `tools/img/`.
+
+## Uso
+
+1. Faça os mesmos passos da versão simples (app em **Modo macro**,
+   **Iniciar disparo**).
+2. Dê dois cliques em `whatsapp-autoclicker-imagesearch.ahk`.
+3. Foque a aba do app e pressione **F8**.
+
+## Ajustes (topo do .ahk)
+
+| Variável      | O que é                                             | Padrão |
+|---------------|-----------------------------------------------------|--------|
+| `findTimeout` | tempo máx. esperando o botão aparecer (ms)          | 20000  |
+| `variation`   | tolerância de cor (0–255). Aumente se não detectar  | 50     |
+| `stabilize`   | estabilização após detectar o botão (ms)            | 400    |
+| `sendWait`    | espera após o Enter (ms)                             | 1200   |
+| `afterClose`  | espera após fechar a aba (ms)                        | 1000   |
+| `minDelay` / `maxDelay` | intervalo aleatório entre disparos (ms)   | 30000 / 90000 |
+
+## Comportamento de segurança
+
+- Se o botão **não for detectado** dentro de `findTimeout`, o script **não
+  envia nada**: fecha a aba e segue para o próximo contato (evita disparo
+  errado). Você verá o aviso "Botão enviar não detectado - pulando este".
+- Se a imagem `send_button.png` não existir, o script avisa e não inicia.
+
+## Resolução de problemas
+
+- **Nunca detecta o botão:** confira o caminho `tools/img/send_button.png`,
+  recapture na resolução/tema atuais e **aumente `variation`** (ex.: 80).
+- **Detecta no lugar errado:** recorte a imagem mais justa/única (inclua só
+  o ícone, sem fundo repetitivo).
+- **Tela com escala (DPI) diferente:** capture com a mesma escala do Windows
+  usada no disparo.
