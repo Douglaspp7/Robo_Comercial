@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Download, Send, X, Loader2 } from "lucide-react";
-import Papa from "papaparse";
+import { Search, Loader2, Download, Send, CheckCircle2, AlertCircle } from "lucide-react";
+import * as XLSX from "xlsx";
 import styles from "./page.module.css";
 
 interface Business {
@@ -12,6 +12,7 @@ interface Business {
   rating: number;
   phone: string;
   website: string;
+  email?: string;
 }
 
 const getWaLink = (phone: string) => {
@@ -106,41 +107,62 @@ export default function Home() {
     }
   };
 
-  const handleExportCSV = () => {
+  const handleExportExcel = () => {
     if (results.length === 0) return;
-    const csv = Papa.unparse(results);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", `empresas_${niche || "importado"}_${location || "lista"}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    
+    const formattedData = results.map(biz => ({
+      "ID Interno": biz.id,
+      "Nome": biz.name,
+      "Endereço": biz.address,
+      "Avaliação": biz.rating || "",
+      "Telefone": biz.phone || "",
+      "Link WhatsApp": getWaLink(biz.phone) || "",
+      "E-mail": biz.email || "",
+      "Website": biz.website || ""
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(formattedData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Empresas");
+    XLSX.writeFile(workbook, `empresas_${niche || "lista"}_${location || "exportada"}.xlsx`);
   };
 
-  const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (resultsObj) => {
-        const parsedData = resultsObj.data as Business[];
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const workbook = XLSX.read(bstr, { type: "binary" });
+        const wsname = workbook.SheetNames[0];
+        const ws = workbook.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+        
+        const parsedData = data.map((row: any) => ({
+          id: row["ID Interno"] || String(Math.random()),
+          name: row["Nome"] || "",
+          address: row["Endereço"] || "",
+          rating: row["Avaliação"] || 0,
+          phone: row["Telefone"] || "",
+          email: row["E-mail"] || "",
+          website: row["Website"] || ""
+        })) as Business[];
+
         setResults((prev) => {
           const existingIds = new Set(prev.map(p => p.id));
           const newUnique = parsedData.filter((r) => r.id && !existingIds.has(r.id));
           return [...prev, ...newUnique];
         });
         setNextPageToken(null);
-        alert("Lista importada e adicionada à tabela com sucesso!");
-      },
-      error: (error) => {
-        console.error(error);
-        alert("Erro ao ler o arquivo CSV.");
+        alert("Planilha importada e adicionada à tabela com sucesso!");
+      } catch (err) {
+        console.error(err);
+        alert("Erro ao ler o arquivo Excel.");
       }
-    });
+    };
+    reader.readAsBinaryString(file);
   };
 
   const handleClear = () => {
@@ -232,10 +254,10 @@ export default function Home() {
           </button>
           
           <div className={styles.inputGroup} style={{ flex: 0 }}>
-            <label className={styles.label}>Ou Importe um CSV</label>
+            <label className={styles.label}>Ou Importe Excel</label>
             <label className="btn-secondary" style={{ cursor: "pointer", textAlign: "center", display: "inline-block" }}>
               Carregar Arquivo
-              <input type="file" accept=".csv" style={{ display: "none" }} onChange={handleImportCSV} />
+              <input type="file" accept=".xlsx, .xls" style={{ display: "none" }} onChange={handleImportExcel} />
             </label>
           </div>
         </form>
@@ -251,9 +273,9 @@ export default function Home() {
               <button className="btn-secondary" onClick={handleClear} style={{ color: "var(--error)", borderColor: "var(--error)" }}>
                 Limpar Lista
               </button>
-              <button className="btn-secondary" onClick={handleExportCSV}>
+              <button className="btn-secondary" onClick={handleExportExcel}>
                 <Download size={18} style={{ marginRight: 8, display: "inline" }} />
-                Exportar CSV ({results.length})
+                Exportar Excel ({results.length})
               </button>
               <button
                 className="btn-primary"
@@ -280,6 +302,7 @@ export default function Home() {
                   <th className={styles.th}>Nome</th>
                   <th className={styles.th}>Endereço</th>
                   <th className={styles.th}>Telefone</th>
+                  <th className={styles.th}>E-mail</th>
                   <th className={styles.th}>Website</th>
                 </tr>
               </thead>
@@ -328,6 +351,7 @@ export default function Home() {
                         "-"
                       )}
                     </td>
+                    <td className={styles.td}>{biz.email || "-"}</td>
                     <td className={styles.td}>
                       {biz.website ? (
                         <a href={biz.website} target="_blank" rel="noreferrer" style={{ color: "var(--primary)" }}>
