@@ -14,11 +14,23 @@ interface Business {
   website: string;
 }
 
+const getWaLink = (phone: string) => {
+  if (!phone) return null;
+  const clean = phone.replace(/\D/g, "");
+  if (clean.length >= 10) {
+    // Adiciona DDI do Brasil (55) se não houver
+    return clean.startsWith("55") ? `https://wa.me/${clean}` : `https://wa.me/55${clean}`;
+  }
+  return null;
+};
+
 export default function Home() {
   const [niche, setNiche] = useState("");
   const [location, setLocation] = useState("");
   const [results, setResults] = useState<Business[]>([]);
+  const [nextPageToken, setNextPageToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Email Modal State
@@ -32,6 +44,9 @@ export default function Home() {
     if (!niche || !location) return;
 
     setLoading(true);
+    setNextPageToken(null);
+    // Removemos o setResults([]) para que ele não apague a lista atual
+    
     try {
       const res = await fetch("/api/search", {
         method: "POST",
@@ -40,7 +55,14 @@ export default function Home() {
       });
       const data = await res.json();
       if (data.results) {
-        setResults(data.results);
+        // Agora ele soma os resultados novos com os antigos que já estão na tela
+        setResults((prev) => {
+          // Filtra duplicatas pelo ID (caso pesquise a mesma coisa sem querer)
+          const existingIds = new Set(prev.map(p => p.id));
+          const newUnique = data.results.filter((r: Business) => !existingIds.has(r.id));
+          return [...prev, ...newUnique];
+        });
+        setNextPageToken(data.nextPageToken);
       } else {
         alert("Erro ao buscar resultados: " + (data.error || "Desconhecido"));
       }
@@ -52,6 +74,38 @@ export default function Home() {
     }
   };
 
+  const handleLoadMore = async () => {
+    if (!niche || !location || !nextPageToken) return;
+
+    setLoadingMore(true);
+    try {
+      const res = await fetch("/api/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          query: `${niche} in ${location}`,
+          pageToken: nextPageToken
+        }),
+      });
+      const data = await res.json();
+      if (data.results) {
+        setResults((prev) => {
+          const existingIds = new Set(prev.map(p => p.id));
+          const newUnique = data.results.filter((r: Business) => !existingIds.has(r.id));
+          return [...prev, ...newUnique];
+        });
+        setNextPageToken(data.nextPageToken);
+      } else {
+        alert("Erro ao buscar mais resultados: " + (data.error || "Desconhecido"));
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Falha na conexão com a API.");
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   const handleExportCSV = () => {
     if (results.length === 0) return;
     const csv = Papa.unparse(results);
@@ -59,10 +113,42 @@ export default function Home() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", `empresas_${niche}_${location}.csv`);
+    link.setAttribute("download", `empresas_${niche || "importado"}_${location || "lista"}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (resultsObj) => {
+        const parsedData = resultsObj.data as Business[];
+        setResults((prev) => {
+          const existingIds = new Set(prev.map(p => p.id));
+          const newUnique = parsedData.filter((r) => r.id && !existingIds.has(r.id));
+          return [...prev, ...newUnique];
+        });
+        setNextPageToken(null);
+        alert("Lista importada e adicionada à tabela com sucesso!");
+      },
+      error: (error) => {
+        console.error(error);
+        alert("Erro ao ler o arquivo CSV.");
+      }
+    });
+  };
+
+  const handleClear = () => {
+    if (confirm("Tem certeza que deseja limpar a lista inteira?")) {
+      setResults([]);
+      setNextPageToken(null);
+      setSelectedIds(new Set());
+    }
   };
 
   const toggleSelect = (id: string) => {
@@ -123,7 +209,7 @@ export default function Home() {
             <input
               type="text"
               className="input-glass"
-              placeholder="Ex: Barbearia, Salão de Beleza, Petshop..."
+              placeholder="Ex: Barbearia, Salão de Beleza..."
               value={niche}
               onChange={(e) => setNiche(e.target.value)}
               required
@@ -144,6 +230,14 @@ export default function Home() {
             {loading ? <Loader2 className="animate-spin" /> : <Search size={20} />}
             Buscar
           </button>
+          
+          <div className={styles.inputGroup} style={{ flex: 0 }}>
+            <label className={styles.label}>Ou Importe um CSV</label>
+            <label className="btn-secondary" style={{ cursor: "pointer", textAlign: "center", display: "inline-block" }}>
+              Carregar Arquivo
+              <input type="file" accept=".csv" style={{ display: "none" }} onChange={handleImportCSV} />
+            </label>
+          </div>
         </form>
       </section>
 
@@ -154,9 +248,12 @@ export default function Home() {
               {results.length} empresas encontradas
             </h2>
             <div className={styles.actions}>
+              <button className="btn-secondary" onClick={handleClear} style={{ color: "var(--error)", borderColor: "var(--error)" }}>
+                Limpar Lista
+              </button>
               <button className="btn-secondary" onClick={handleExportCSV}>
                 <Download size={18} style={{ marginRight: 8, display: "inline" }} />
-                Exportar CSV
+                Exportar CSV ({results.length})
               </button>
               <button
                 className="btn-primary"
@@ -205,7 +302,32 @@ export default function Home() {
                       )}
                     </td>
                     <td className={styles.td}>{biz.address}</td>
-                    <td className={styles.td}>{biz.phone || "-"}</td>
+                    <td className={styles.td}>
+                      {biz.phone ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          {biz.phone}
+                          {getWaLink(biz.phone) && (
+                            <a 
+                              href={getWaLink(biz.phone)!} 
+                              target="_blank" 
+                              rel="noreferrer"
+                              style={{
+                                background: "#25D366",
+                                color: "white",
+                                padding: "4px 8px",
+                                borderRadius: "4px",
+                                fontSize: "0.8rem",
+                                fontWeight: "bold"
+                              }}
+                            >
+                              WhatsApp
+                            </a>
+                          )}
+                        </div>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
                     <td className={styles.td}>
                       {biz.website ? (
                         <a href={biz.website} target="_blank" rel="noreferrer" style={{ color: "var(--primary)" }}>
@@ -220,6 +342,19 @@ export default function Home() {
               </tbody>
             </table>
           </div>
+
+          {nextPageToken && (
+            <div style={{ display: "flex", justifyContent: "center", marginTop: "2rem" }}>
+              <button 
+                className="btn-secondary" 
+                onClick={handleLoadMore} 
+                disabled={loadingMore}
+                style={{ width: "200px", justifyContent: "center", display: "flex" }}
+              >
+                {loadingMore ? <Loader2 className="animate-spin" /> : "Carregar Mais Resultados"}
+              </button>
+            </div>
+          )}
         </section>
       )}
 

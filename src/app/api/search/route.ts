@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
   try {
-    const { query } = await request.json();
+    const { query, pageToken } = await request.json();
 
     if (!query) {
       return NextResponse.json({ error: "A query de busca é obrigatória" }, { status: 400 });
@@ -21,11 +21,15 @@ export async function POST(request: Request) {
     // https://developers.google.com/maps/documentation/places/web-service/text-search
     const url = "https://places.googleapis.com/v1/places:searchText";
     
-    const requestBody = {
+    const requestBody: any = {
       textQuery: query,
       languageCode: "pt-BR",
       maxResultCount: 20, // Limite de resultados por requisição (max 20)
     };
+
+    if (pageToken) {
+      requestBody.pageToken = pageToken;
+    }
 
     const response = await fetch(url, {
       method: "POST",
@@ -33,7 +37,7 @@ export async function POST(request: Request) {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": apiKey,
         // Especifique os campos que você deseja que a API retorne (isso impacta no custo)
-        "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.rating,places.nationalPhoneNumber,places.websiteUri",
+        "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.rating,places.nationalPhoneNumber,places.websiteUri,nextPageToken",
       },
       body: JSON.stringify(requestBody),
     });
@@ -56,7 +60,10 @@ export async function POST(request: Request) {
       website: place.websiteUri || "",
     }));
 
-    return NextResponse.json({ results });
+    return NextResponse.json({ 
+      results,
+      nextPageToken: data.nextPageToken || null 
+    });
   } catch (error) {
     console.error("Erro interno no /api/search:", error);
     return NextResponse.json({ error: "Erro interno no servidor" }, { status: 500 });
