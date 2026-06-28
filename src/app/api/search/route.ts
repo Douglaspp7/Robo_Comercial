@@ -1,8 +1,87 @@
 import { NextResponse } from "next/server";
 
+const PLACES_URL = "https://places.googleapis.com/v1/places:searchText";
+const FIELD_MASK =
+  "places.id,places.displayName,places.formattedAddress,places.rating,places.nationalPhoneNumber,places.websiteUri,nextPageToken";
+
+// Limites de segurança para evitar custo descontrolado na API do Google
+const MAX_PAGES_PER_QUERY = 3; // A Text Search do Google retorna no máximo ~60 resultados (3 páginas de 20)
+const MAX_REGIONS = 40; // Teto de regiões/bairros processados em uma única busca profunda
+
+interface PlaceResult {
+  id: string;
+  name: string;
+  address: string;
+  rating: number | null;
+  phone: string;
+  website: string;
+}
+
+function mapPlaces(data: any): PlaceResult[] {
+  return (data.places || []).map((place: any) => ({
+    id: place.id,
+    name: place.displayName?.text || "Nome Indisponível",
+    address: place.formattedAddress || "Endereço Indisponível",
+    rating: place.rating ?? null,
+    phone: place.nationalPhoneNumber || "",
+    website: place.websiteUri || "",
+  }));
+}
+
+async function fetchPlacesPage(
+  apiKey: string,
+  textQuery: string,
+  pageToken?: string
+): Promise<{ data: any; ok: boolean }> {
+  const requestBody: any = {
+    textQuery,
+    languageCode: "pt-BR",
+    maxResultCount: 20,
+  };
+  if (pageToken) {
+    requestBody.pageToken = pageToken;
+  }
+
+  const response = await fetch(PLACES_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": apiKey,
+      "X-Goog-FieldMask": FIELD_MASK,
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    console.error("Erro da API do Google:", errorData);
+    return { data: errorData, ok: false };
+  }
+
+  return { data: await response.json(), ok: true };
+}
+
+// Busca TODAS as páginas disponíveis de uma única consulta (auto-paginação)
+async function fetchAllPages(apiKey: string, textQuery: string): Promise<PlaceResult[]> {
+  const collected: PlaceResult[] = [];
+  let pageToken: string | undefined = undefined;
+
+  for (let page = 0; page < MAX_PAGES_PER_QUERY; page++) {
+    const { data, ok } = await fetchPlacesPage(apiKey, textQuery, pageToken);
+    if (!ok) break;
+
+    collected.push(...mapPlaces(data));
+
+    if (!data.nextPageToken) break;
+    pageToken = data.nextPageToken;
+  }
+
+  return collected;
+}
+
 export async function POST(request: Request) {
   try {
-    const { query, pageToken } = await request.json();
+    const { query, pageToken, deep, regions } = await request.json();
 
     if (!query) {
       return NextResponse.json({ error: "A query de busca é obrigatória" }, { status: 400 });
@@ -17,52 +96,49 @@ export async function POST(request: Request) {
       );
     }
 
-    // Usando a Text Search API (New) do Google Places
-    // https://developers.google.com/maps/documentation/places/web-service/text-search
-    const url = "https://places.googleapis.com/v1/places:searchText";
-    
-    const requestBody: any = {
-      textQuery: query,
-      languageCode: "pt-BR",
-      maxResultCount: 20, // Limite de resultados por requisição (max 20)
-    };
+    // ---------------------------------------------------------------
+    // MODO BUSCA PROFUNDA (por bairros/regiões + auto-paginação)
+    // ---------------------------------------------------------------
+    if (deep) {
+      // Monta a lista de consultas: a query base + uma para cada bairro/região informado.
+      const cleanRegions: string[] = Array.isArray(regions)
+        ? regions
+            .map((r: unknown) => String(r).trim())
+            .filter((r: string) => r.length > 0)
+            .slice(0, MAX_REGIONS)
+        : [];
 
-    if (pageToken) {
-      requestBody.pageToken = pageToken;
+      const queries = [query, ...cleanRegions.map((region) => `${query} ${region}`)];
+
+      const dedup = new Map<string, PlaceResult>();
+      for (const q of queries) {
+        const pageResults = await fetchAllPages(apiKey, q);
+        for (const r of pageResults) {
+          if (r.id && !dedup.has(r.id)) {
+            dedup.set(r.id, r);
+          }
+        }
+      }
+
+      return NextResponse.json({
+        results: Array.from(dedup.values()),
+        nextPageToken: null,
+        deep: true,
+        queriesRun: queries.length,
+      });
     }
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Goog-Api-Key": apiKey,
-        // Especifique os campos que você deseja que a API retorne (isso impacta no custo)
-        "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.rating,places.nationalPhoneNumber,places.websiteUri,nextPageToken",
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error("Erro da API do Google:", errorData);
+    // ---------------------------------------------------------------
+    // MODO PADRÃO (página única — compatível com "Carregar Mais")
+    // ---------------------------------------------------------------
+    const { data, ok } = await fetchPlacesPage(apiKey, query, pageToken);
+    if (!ok) {
       return NextResponse.json({ error: "Erro ao consultar a API do Google Places" }, { status: 500 });
     }
 
-    const data = await response.json();
-
-    // Mapear os resultados para o formato esperado pelo frontend
-    const results = (data.places || []).map((place: any) => ({
-      id: place.id,
-      name: place.displayName?.text || "Nome Indisponível",
-      address: place.formattedAddress || "Endereço Indisponível",
-      rating: place.rating || null,
-      phone: place.nationalPhoneNumber || "",
-      website: place.websiteUri || "",
-    }));
-
-    return NextResponse.json({ 
-      results,
-      nextPageToken: data.nextPageToken || null 
+    return NextResponse.json({
+      results: mapPlaces(data),
+      nextPageToken: data.nextPageToken || null,
     });
   } catch (error) {
     console.error("Erro interno no /api/search:", error);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Loader2, Download, Send, CheckCircle2, AlertCircle, X } from "lucide-react";
+import { Search, Loader2, Download, Send, X } from "lucide-react";
 import * as XLSX from "xlsx";
 import styles from "./page.module.css";
 
@@ -28,6 +28,8 @@ const getWaLink = (phone: string) => {
 export default function Home() {
   const [niche, setNiche] = useState("");
   const [location, setLocation] = useState("");
+  const [deepSearch, setDeepSearch] = useState(false);
+  const [regionsText, setRegionsText] = useState("");
   const [results, setResults] = useState<Business[]>([]);
   const [nextPageToken, setNextPageToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -47,12 +49,22 @@ export default function Home() {
     setLoading(true);
     setNextPageToken(null);
     // Removemos o setResults([]) para que ele não apague a lista atual
-    
+
+    // Bairros/regiões: um por linha (ou separados por vírgula)
+    const regions = regionsText
+      .split(/[\n,]/)
+      .map((r) => r.trim())
+      .filter((r) => r.length > 0);
+
     try {
       const res = await fetch("/api/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: `${niche} in ${location}` }),
+        body: JSON.stringify({
+          query: `${niche} in ${location}`,
+          deep: deepSearch,
+          regions: deepSearch ? regions : undefined,
+        }),
       });
       const data = await res.json();
       if (data.results) {
@@ -250,15 +262,46 @@ export default function Home() {
           </div>
           <button type="submit" className="btn-primary" disabled={loading}>
             {loading ? <Loader2 className="animate-spin" /> : <Search size={20} />}
-            Buscar
+            {loading && deepSearch ? "Buscando tudo..." : "Buscar"}
           </button>
-          
+
           <div className={styles.inputGroup} style={{ flex: 0 }}>
             <label className={styles.label}>Ou Importe Excel</label>
             <label className="btn-secondary" style={{ cursor: "pointer", textAlign: "center", display: "inline-block" }}>
               Carregar Arquivo
               <input type="file" accept=".xlsx, .xls" style={{ display: "none" }} onChange={handleImportExcel} />
             </label>
+          </div>
+
+          {/* Busca Profunda */}
+          <div style={{ flexBasis: "100%", marginTop: "0.5rem" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", fontWeight: 600 }}>
+              <input
+                type="checkbox"
+                checked={deepSearch}
+                onChange={(e) => setDeepSearch(e.target.checked)}
+              />
+              Busca Profunda (varre todas as páginas e cobre a cidade por bairros)
+            </label>
+
+            {deepSearch && (
+              <div className={styles.inputGroup} style={{ marginTop: "0.75rem" }}>
+                <label className={styles.label}>
+                  Bairros / Regiões (opcional — um por linha ou separados por vírgula)
+                </label>
+                <textarea
+                  className={styles.textareaGlass}
+                  placeholder={"Centro\nMoema\nPinheiros\nTatuapé..."}
+                  value={regionsText}
+                  onChange={(e) => setRegionsText(e.target.value)}
+                  rows={4}
+                />
+                <p style={{ fontSize: "0.8rem", color: "var(--text-muted, #888)", marginTop: "0.25rem" }}>
+                  Deixe em branco para varrer apenas a cidade (até ~60 resultados). Informe bairros para
+                  cobrir muito mais da cidade. Cada bairro gera chamadas extras à API do Google.
+                </p>
+              </div>
+            )}
           </div>
         </form>
       </section>
