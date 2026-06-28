@@ -30,6 +30,7 @@ export default function Home() {
   const [location, setLocation] = useState("");
   const [deepSearch, setDeepSearch] = useState(false);
   const [regionsText, setRegionsText] = useState("");
+  const [discoveringRegions, setDiscoveringRegions] = useState(false);
   const [results, setResults] = useState<Business[]>([]);
   const [nextPageToken, setNextPageToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -41,6 +42,45 @@ export default function Home() {
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
   const [emailLoading, setEmailLoading] = useState(false);
+
+  const handleDiscoverRegions = async () => {
+    if (!location.trim()) {
+      alert("Informe a cidade antes de descobrir os bairros.");
+      return;
+    }
+    setDiscoveringRegions(true);
+    try {
+      const res = await fetch("/api/regions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ city: location }),
+      });
+      const data = await res.json();
+      if (data.regions && data.regions.length > 0) {
+        // Mescla com o que já estiver no campo, sem duplicar
+        const existing = regionsText
+          .split(/[\n,]/)
+          .map((r: string) => r.trim())
+          .filter((r: string) => r.length > 0);
+        const merged = Array.from(new Set([...existing, ...data.regions]));
+        setRegionsText(merged.join("\n"));
+        if (!data.strict) {
+          alert(
+            `Encontrei ${data.regions.length} regiões aproximadas para "${location}". Revise a lista antes de buscar.`
+          );
+        }
+      } else {
+        alert(
+          "Não consegui descobrir bairros automaticamente para essa cidade. Tente digitar manualmente."
+        );
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Falha ao descobrir os bairros.");
+    } finally {
+      setDiscoveringRegions(false);
+    }
+  };
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -286,9 +326,21 @@ export default function Home() {
 
             {deepSearch && (
               <div className={styles.inputGroup} style={{ marginTop: "0.75rem" }}>
-                <label className={styles.label}>
-                  Bairros / Regiões (opcional — um por linha ou separados por vírgula)
-                </label>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
+                  <label className={styles.label}>
+                    Bairros / Regiões (opcional — um por linha ou separados por vírgula)
+                  </label>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={handleDiscoverRegions}
+                    disabled={discoveringRegions}
+                    style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}
+                  >
+                    {discoveringRegions ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
+                    {discoveringRegions ? "Descobrindo..." : "Descobrir bairros"}
+                  </button>
+                </div>
                 <textarea
                   className={styles.textareaGlass}
                   placeholder={"Centro\nMoema\nPinheiros\nTatuapé..."}
