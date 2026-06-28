@@ -48,6 +48,13 @@ const buildWaMessageLink = (
 const randomBetween = (min: number, max: number) =>
   Math.floor(Math.random() * (max - min + 1)) + min;
 
+// Persistência da campanha de WhatsApp (cota diária + histórico de enviados)
+const LS_WA_DAILY = "robo_wa_daily"; // { date: "YYYY-MM-DD", count: number }
+const LS_WA_LIMIT = "robo_wa_limit"; // number
+const LS_WA_SENT = "robo_wa_sent"; // string[] de ids já enviados
+
+const todayStr = () => new Date().toISOString().slice(0, 10);
+
 export default function Home() {
   const [niche, setNiche] = useState("");
   const [location, setLocation] = useState("");
@@ -80,6 +87,10 @@ export default function Home() {
   const [waRunning, setWaRunning] = useState(false);
   const [waPaused, setWaPaused] = useState(false);
   const [waCountdown, setWaCountdown] = useState(0);
+  // Cota diária + histórico persistente (resume)
+  const [waDailyLimit, setWaDailyLimit] = useState(40);
+  const [waDailyCount, setWaDailyCount] = useState(0);
+  const [waPersistSent, setWaPersistSent] = useState<Set<string>>(new Set());
 
   const handleDiscoverRegions = async () => {
     if (!location.trim()) {
@@ -320,18 +331,96 @@ export default function Home() {
     return () => clearInterval(id);
   }, [waRunning, waPaused]);
 
+  // Carrega cota/histórico do localStorage ao iniciar (reseta a contagem se virou o dia).
+  useEffect(() => {
+    try {
+      const today = todayStr();
+      const rawDaily = localStorage.getItem(LS_WA_DAILY);
+      if (rawDaily) {
+        const d = JSON.parse(rawDaily);
+        if (d.date === today) {
+          setWaDailyCount(d.count || 0);
+        } else {
+          localStorage.setItem(LS_WA_DAILY, JSON.stringify({ date: today, count: 0 }));
+          setWaDailyCount(0);
+        }
+      }
+      const rawLimit = localStorage.getItem(LS_WA_LIMIT);
+      if (rawLimit) setWaDailyLimit(Number(rawLimit) || 40);
+      const rawSent = localStorage.getItem(LS_WA_SENT);
+      if (rawSent) setWaPersistSent(new Set(JSON.parse(rawSent)));
+    } catch (e) {
+      console.error("Falha ao ler campanha salva:", e);
+    }
+  }, []);
+
+  // Persiste o limite diário sempre que ele mudar.
+  useEffect(() => {
+    try {
+      localStorage.setItem(LS_WA_LIMIT, String(waDailyLimit));
+    } catch {}
+  }, [waDailyLimit]);
+
+  const quotaReached = waDailyCount >= waDailyLimit;
+
   const openWaCampaign = () => {
     const targets = results.filter((r) => selectedIds.has(r.id) && getWaNumber(r.phone));
     if (targets.length === 0) {
       return alert("Nenhum dos contatos selecionados tem um telefone válido para WhatsApp.");
     }
-    setWaQueue(targets);
+    // Resume: pula quem já foi enviado em campanhas anteriores
+    const remaining = targets.filter((r) => !waPersistSent.has(r.id));
+    const already = targets.length - remaining.length;
+    if (remaining.length === 0) {
+      return alert(
+        `Todos os ${targets.length} contatos selecionados já foram enviados antes. ` +
+          "Use 'Limpar histórico' se quiser enviar novamente."
+      );
+    }
+    if (already > 0) {
+      alert(`${already} contato(s) já enviados anteriormente foram pulados (resume).`);
+    }
+    setWaQueue(remaining);
     setWaIndex(0);
     setWaSentIds(new Set());
     setWaRunning(false);
     setWaPaused(false);
     setWaCountdown(0);
     setIsWaModalOpen(true);
+  };
+
+  // Registra um envio: incrementa a cota diária e grava no histórico persistente.
+  const recordSent = (id: string) => {
+    const today = todayStr();
+    setWaDailyCount((c) => {
+      const nc = c + 1;
+      try {
+        localStorage.setItem(LS_WA_DAILY, JSON.stringify({ date: today, count: nc }));
+      } catch {}
+      return nc;
+    });
+    setWaPersistSent((prev) => {
+      const ns = new Set(prev).add(id);
+      try {
+        localStorage.setItem(LS_WA_SENT, JSON.stringify([...ns]));
+      } catch {}
+      return ns;
+    });
+  };
+
+  const clearWaHistory = () => {
+    if (!confirm("Limpar o histórico de enviados? Os contatos poderão ser enviados novamente.")) return;
+    setWaPersistSent(new Set());
+    try {
+      localStorage.removeItem(LS_WA_SENT);
+    } catch {}
+  };
+
+  const resetWaQuota = () => {
+    setWaDailyCount(0);
+    try {
+      localStorage.setItem(LS_WA_DAILY, JSON.stringify({ date: todayStr(), count: 0 }));
+    } catch {}
   };
 
   const startWaCampaign = () => {
@@ -360,12 +449,16 @@ export default function Home() {
   };
 
   const sendCurrentWa = () => {
+    if (quotaReached) {
+      return alert(`Cota diária atingida (${waDailyCount}/${waDailyLimit}). Continue amanhã.`);
+    }
     const biz = waQueue[waIndex];
     if (!biz) return;
     const link = buildWaMessageLink(biz, waMessage, waAppUrl);
     if (link) {
       window.open(link, "_blank", "noopener,noreferrer");
       setWaSentIds((prev) => new Set(prev).add(biz.id));
+      recordSent(biz.id);
     }
     advanceWaQueue();
   };
@@ -713,9 +806,41 @@ export default function Home() {
                       onChange={(e) => setWaMaxDelay(Math.max(0, Number(e.target.value)))}
                     />
                   </div>
+                  <div className={styles.inputGroup} style={{ flex: 1 }}>
+                    <label className={styles.label}>Cota diária (msgs)</label>
+                    <input
+                      type="number"
+                      min={1}
+                      className="input-glass"
+                      value={waDailyLimit}
+                      onChange={(e) => setWaDailyLimit(Math.max(1, Number(e.target.value)))}
+                    />
+                  </div>
                 </div>
 
-                <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem", marginTop: "1rem" }}>
+                <div
+                  style={{
+                    fontSize: "0.85rem",
+                    color: quotaReached ? "var(--error)" : "var(--text-muted, #888)",
+                    marginBottom: "0.5rem",
+                  }}
+                >
+                  Enviadas hoje: {waDailyCount}/{waDailyLimit}
+                  {quotaReached && " — cota atingida, continue amanhã."}
+                  {" · "}
+                  Histórico: {waPersistSent.size} contato(s) já enviados.
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", marginTop: "1rem", flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                    <button className="btn-secondary" onClick={clearWaHistory} style={{ fontSize: "0.8rem" }}>
+                      Limpar histórico
+                    </button>
+                    <button className="btn-secondary" onClick={resetWaQuota} style={{ fontSize: "0.8rem" }}>
+                      Zerar cota de hoje
+                    </button>
+                  </div>
+                  <div style={{ display: "flex", gap: "1rem" }}>
                   <button className="btn-secondary" onClick={() => setIsWaModalOpen(false)}>
                     Cancelar
                   </button>
@@ -726,6 +851,7 @@ export default function Home() {
                   >
                     <Play size={18} /> Iniciar disparo
                   </button>
+                  </div>
                 </div>
               </>
             )}
@@ -736,7 +862,9 @@ export default function Home() {
                 <div style={{ marginBottom: "1rem" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", marginBottom: "0.5rem" }}>
                     <span>Progresso: {waIndex} / {waQueue.length}</span>
-                    <span>Enviados: {waSentIds.size}</span>
+                    <span style={{ color: quotaReached ? "var(--error)" : undefined }}>
+                      Cota hoje: {waDailyCount}/{waDailyLimit}
+                    </span>
                   </div>
                   <div style={{ height: "8px", background: "rgba(255,255,255,0.1)", borderRadius: "4px", overflow: "hidden" }}>
                     <div
@@ -756,7 +884,11 @@ export default function Home() {
                   <div style={{ fontSize: "0.9rem" }}>{waQueue[waIndex]?.phone}</div>
                 </div>
 
-                {waCountdown > 0 ? (
+                {quotaReached ? (
+                  <div style={{ textAlign: "center", marginBottom: "1rem", color: "var(--error)", fontWeight: 600 }}>
+                    Cota diária atingida ({waDailyCount}/{waDailyLimit}). Continue amanhã ou ajuste a cota.
+                  </div>
+                ) : waCountdown > 0 ? (
                   <div style={{ textAlign: "center", marginBottom: "1rem" }}>
                     <div style={{ fontSize: "2rem", fontWeight: 700, color: "#25D366" }}>{waCountdown}s</div>
                     <div style={{ fontSize: "0.85rem", color: "var(--text-muted, #888)" }}>
@@ -788,7 +920,7 @@ export default function Home() {
                   <button
                     className="btn-primary"
                     onClick={sendCurrentWa}
-                    disabled={waCountdown > 0 || waPaused}
+                    disabled={waCountdown > 0 || waPaused || quotaReached}
                     style={{ background: "#25D366", borderColor: "#25D366", display: "inline-flex", alignItems: "center", gap: "0.5rem" }}
                   >
                     <Send size={18} /> Abrir e enviar
