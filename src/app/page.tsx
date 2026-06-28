@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Loader2, Download, Send, CheckCircle2, AlertCircle } from "lucide-react";
+import { Search, Loader2, Download, Send, CheckCircle2, AlertCircle, X } from "lucide-react";
 import * as XLSX from "xlsx";
 import styles from "./page.module.css";
 
