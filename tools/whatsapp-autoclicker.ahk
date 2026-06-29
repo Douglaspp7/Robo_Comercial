@@ -30,6 +30,7 @@ maxDelay   := 90000   ; intervalo máximo entre disparos (90s)
 loadWait   := 8000    ; tempo para o WhatsApp Web abrir e carregar o chat
 sendWait   := 1500    ; espera após o Enter (confirmar envio)
 afterClose := 1000    ; espera após fechar a aba (voltar ao app)
+beepOnSend := true    ; bipe curto a cada envio
 ; ----------------------------------------------------------------------------
 
 running := false
@@ -54,7 +55,7 @@ Esc:: {
 }
 
 Cycle() {
-    global running, minDelay, maxDelay, loadWait, sendWait, afterClose
+    global running, minDelay, maxDelay, loadWait, sendWait, afterClose, beepOnSend
     if !running
         return
 
@@ -67,6 +68,8 @@ Cycle() {
 
     ; 3) envia a mensagem
     Send("{Enter}")
+    if beepOnSend
+        SoundBeep(900, 90)
     if !WaitOrStop(sendWait)
         return
 

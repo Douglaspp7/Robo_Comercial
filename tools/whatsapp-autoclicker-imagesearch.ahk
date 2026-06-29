@@ -29,6 +29,8 @@ sendWait    := 1200    ; espera após enviar (ms)
 afterClose  := 1000    ; espera após fechar a aba (ms)
 minDelay    := 30000   ; intervalo mínimo entre disparos (ms)
 maxDelay    := 90000   ; intervalo máximo entre disparos (ms)
+beepOnSend  := true    ; bipe curto a cada envio bem-sucedido
+beepOnFail  := true    ; bipe de alerta quando NÃO detecta o botão
 ; ----------------------------------------------------------------------------
 
 running := false
@@ -57,7 +59,7 @@ Esc:: {
 }
 
 Cycle() {
-    global running, sendWait, afterClose, sendMode, imgSend
+    global running, sendWait, afterClose, sendMode, imgSend, beepOnSend, beepOnFail
     if !running
         return
 
@@ -69,6 +71,10 @@ Cycle() {
     if !pos {
         ; Não carregou a tempo: não envia nada, fecha e segue para o próximo.
         Notify("Botão enviar não detectado - pulando este")
+        if beepOnFail {
+            SoundBeep(400, 250)
+            SoundBeep(300, 250)
+        }
         Send("^w")
         WaitOrStop(afterClose)
         ScheduleNext()
@@ -86,6 +92,8 @@ Cycle() {
     } else {
         Send("{Enter}")
     }
+    if beepOnSend
+        SoundBeep(900, 90)
     if !WaitOrStop(sendWait)
         return
 

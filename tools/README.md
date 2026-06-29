@@ -114,6 +114,13 @@ seu caso (ex.: layout/atalho diferente).
 | `sendWait`    | espera após o Enter (ms)                             | 1200   |
 | `afterClose`  | espera após fechar a aba (ms)                        | 1000   |
 | `minDelay` / `maxDelay` | intervalo aleatório entre disparos (ms)   | 30000 / 90000 |
+| `beepOnSend`  | bipe curto a cada envio bem-sucedido                | true   |
+| `beepOnFail`  | bipe de alerta quando NÃO detecta o botão           | true   |
+
+> **Bipes:** o script toca um bipe agudo a cada envio e um bipe grave duplo
+> quando a detecção falha — assim você opera de ouvido, sem olhar a tela.
+> O próprio app também emite um som ao **terminar a campanha** e ao **atingir
+> a cota diária**.
 
 ## Comportamento de segurança
 

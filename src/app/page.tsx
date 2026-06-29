@@ -453,11 +453,35 @@ export default function Home() {
     setWaCountdown(0); // o primeiro contato fica disponível imediatamente
   };
 
+  // Bipe sonoro via Web Audio (sem arquivo). type: "done" | "warn"
+  const playBeep = (type: "done" | "warn") => {
+    try {
+      const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const ctx = new Ctx();
+      const notes = type === "done" ? [660, 880] : [400, 300];
+      notes.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = freq;
+        gain.gain.value = 0.12;
+        const start = ctx.currentTime + i * 0.18;
+        osc.start(start);
+        osc.stop(start + 0.16);
+      });
+      setTimeout(() => ctx.close(), 600);
+    } catch {
+      // navegador sem suporte / bloqueio de áudio: ignora silenciosamente
+    }
+  };
+
   const advanceWaQueue = () => {
     setWaIndex((prev) => {
       const next = prev + 1;
       if (next >= waQueue.length) {
         setWaRunning(false);
+        playBeep("done"); // fim da campanha
       } else if (waMacroMode) {
         // No modo macro o script externo controla a cadência: libera imediatamente.
         setWaCountdown(0);
@@ -471,6 +495,7 @@ export default function Home() {
 
   const sendCurrentWa = () => {
     if (quotaReached) {
+      playBeep("warn");
       return alert(`Cota diária atingida (${waDailyCount}/${waDailyLimit}). Continue amanhã.`);
     }
     const biz = waQueue[waIndex];
