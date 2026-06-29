@@ -66,10 +66,23 @@ Ctrl+W -> fecha a aba e volta para o app
 Arquivo: **`whatsapp-autoclicker-imagesearch.ahk`**
 
 Em vez de esperar um tempo **fixo** para o WhatsApp carregar, esta versão
-**espera o botão de enviar aparecer na tela** antes de mandar o `Enter`.
+**espera o botão de enviar aparecer na tela** antes de disparar.
 Como esse botão (aviãozinho) só surge quando há texto no campo, ele é um
 sinal perfeito de que o chat carregou e a mensagem está pronta — elimina
 mensagens vazias ou enviadas cedo demais.
+
+### Como ele envia: Enter ou clique?
+
+O `ImageSearch` serve de **"sensor de pronto"** — ele varre os pixels e acha
+o aviãozinho. O que acontece depois depende de `sendMode`:
+
+- **`"enter"` (padrão):** detecta o botão (= chat pronto) e aperta **`Enter`**.
+  O mouse **não se move**. Mais simples e robusto.
+- **`"click"`:** detecta o botão, **move o mouse até o centro do ícone e
+  clica**. O script calcula o centro lendo o tamanho do `send_button.png`.
+
+Recomendado deixar em `"enter"`. Use `"click"` só se o Enter não enviar no
+seu caso (ex.: layout/atalho diferente).
 
 ## Como capturar a imagem do botão de enviar
 
@@ -94,6 +107,7 @@ mensagens vazias ou enviadas cedo demais.
 
 | Variável      | O que é                                             | Padrão |
 |---------------|-----------------------------------------------------|--------|
+| `sendMode`    | `"enter"` aperta Enter · `"click"` clica no aviãozinho | enter |
 | `findTimeout` | tempo máx. esperando o botão aparecer (ms)          | 20000  |
 | `variation`   | tolerância de cor (0–255). Aumente se não detectar  | 50     |
 | `stabilize`   | estabilização após detectar o botão (ms)            | 400    |

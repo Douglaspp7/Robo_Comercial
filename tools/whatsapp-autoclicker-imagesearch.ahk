@@ -21,10 +21,11 @@
 
 ; ---- Configurações ---------------------------------------------------------
 imgSend     := A_ScriptDir "\img\send_button.png"  ; imagem do botão de enviar
+sendMode    := "enter" ; "enter" = aperta Enter (recomendado) | "click" = clica no aviãozinho
 findTimeout := 20000   ; tempo máx. esperando o botão aparecer (ms)
 variation   := 50      ; tolerância de cor do ImageSearch (0-255; maior = mais flexível)
 stabilize   := 400     ; estabilização após detectar o botão (ms)
-sendWait    := 1200    ; espera após o Enter (ms)
+sendWait    := 1200    ; espera após enviar (ms)
 afterClose  := 1000    ; espera após fechar a aba (ms)
 minDelay    := 30000   ; intervalo mínimo entre disparos (ms)
 maxDelay    := 90000   ; intervalo máximo entre disparos (ms)
@@ -56,7 +57,7 @@ Esc:: {
 }
 
 Cycle() {
-    global running, sendWait, afterClose
+    global running, sendWait, afterClose, sendMode, imgSend
     if !running
         return
 
@@ -77,7 +78,14 @@ Cycle() {
     ; 3) pequena estabilização e envia
     if !WaitOrStop(stabilize)
         return
-    Send("{Enter}")
+    if (sendMode = "click") {
+        ; clica no CENTRO do aviãozinho (canto + metade do tamanho da imagem)
+        size := GetPngSize(imgSend)
+        MouseMove(pos.x + size.w // 2, pos.y + size.h // 2, 2)
+        Click()
+    } else {
+        Send("{Enter}")
+    }
     if !WaitOrStop(sendWait)
         return
 
@@ -135,4 +143,19 @@ WaitOrStop(ms) {
 Notify(text) {
     ToolTip(text)
     SetTimer(() => ToolTip(), -2000)
+}
+
+; Lê largura/altura de um PNG direto do cabeçalho IHDR (offset 16/20, big-endian).
+GetPngSize(path) {
+    f := FileOpen(path, "r")
+    f.Pos := 16
+    w := ReadBE32(f)
+    h := ReadBE32(f)
+    f.Close()
+    return { w: w, h: h }
+}
+
+ReadBE32(f) {
+    b1 := f.ReadUChar(), b2 := f.ReadUChar(), b3 := f.ReadUChar(), b4 := f.ReadUChar()
+    return (b1 << 24) | (b2 << 16) | (b3 << 8) | b4
 }
