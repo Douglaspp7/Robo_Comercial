@@ -15,6 +15,33 @@ interface Business {
   email?: string;
 }
 
+// Estado do worker de disparo na nuvem (Pi), lido de GET /api/wa-campaign.
+interface CloudCampaign {
+  id: number;
+  name: string;
+  status: string; // active | paused | done
+  created_at: number;
+  total: number;
+  sent: number | null;
+  pending: number | null;
+  failed: number | null;
+  invalid: number | null;
+}
+interface CloudStatus {
+  wa: {
+    status: string;
+    connected: boolean;
+    qr: string | null;
+    me: string | null;
+    lastError: string | null;
+  };
+  paused: boolean;
+  today: number;
+  limit: number;
+  campaigns: CloudCampaign[];
+  error?: string;
+}
+
 const getWaNumber = (phone: string): string | null => {
   if (!phone) return null;
   const clean = phone.replace(/\D/g, "");
@@ -95,6 +122,9 @@ export default function Home() {
   const [waMacroMode, setWaMacroMode] = useState(false);
   // Disparo na nuvem: envia a fila para o worker (Raspberry Pi) que dispara sozinho.
   const [cloudSending, setCloudSending] = useState(false);
+  // Painel de acompanhamento do robô na nuvem (Pi).
+  const [cloudPanelOpen, setCloudPanelOpen] = useState(false);
+  const [cloudStatus, setCloudStatus] = useState<CloudStatus | null>(null);
 
   const handleDiscoverRegions = async () => {
     if (!location.trim()) {
@@ -572,11 +602,81 @@ export default function Home() {
     }
   };
 
+  // Lê o estado do robô na nuvem (conexão, cota e progresso das campanhas).
+  const fetchCloudStatus = async () => {
+    try {
+      const res = await fetch("/api/wa-campaign", { cache: "no-store" });
+      const data = await res.json();
+      setCloudStatus(data);
+    } catch {
+      setCloudStatus({
+        wa: { status: "offline", connected: false, qr: null, me: null, lastError: null },
+        paused: false,
+        today: 0,
+        limit: 0,
+        campaigns: [],
+        error: "offline",
+      });
+    }
+  };
+
+  // Enquanto o painel estiver aberto, atualiza a cada 8s.
+  useEffect(() => {
+    if (!cloudPanelOpen) return;
+    fetchCloudStatus();
+    const id = setInterval(fetchCloudStatus, 8000);
+    return () => clearInterval(id);
+  }, [cloudPanelOpen]);
+
+  const toggleCloudPause = async () => {
+    const action = cloudStatus?.paused ? "resume" : "pause";
+    try {
+      await fetch("/api/wa-control", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      fetchCloudStatus();
+    } catch {
+      alert("Não consegui falar com o robô na nuvem.");
+    }
+  };
+
+  const cloudCampaignAction = async (id: number, action: string) => {
+    if (
+      action === "cancel" &&
+      !confirm("Cancelar esta campanha? Os contatos pendentes não serão enviados.")
+    ) {
+      return;
+    }
+    try {
+      await fetch("/api/wa-control", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ campaignId: id, action }),
+      });
+      fetchCloudStatus();
+    } catch {
+      alert("Não consegui falar com o robô na nuvem.");
+    }
+  };
+
   const stopWaCampaign = () => {
     setWaRunning(false);
     setWaPaused(false);
     setWaCountdown(0);
   };
+
+  // Cor/rótulo do indicador de conexão do robô na nuvem.
+  const waConn = cloudStatus?.wa;
+  const cloudConnMeta =
+    !cloudStatus || cloudStatus.error || waConn?.status === "offline"
+      ? { color: "#ef4444", label: "Offline — worker desligado?" }
+      : waConn?.connected
+      ? { color: "#22c55e", label: "Conectado" }
+      : waConn?.status === "qr"
+      ? { color: "#f59e0b", label: "Aguardando pareamento" }
+      : { color: "#f59e0b", label: "Conectando..." };
 
   return (
     <main className={styles.container}>
@@ -665,6 +765,125 @@ export default function Home() {
             )}
           </div>
         </form>
+      </section>
+
+      {/* Painel de acompanhamento do robô na nuvem (Pi) */}
+      <section className="glass-panel" style={{ padding: "1.5rem", marginTop: "1rem" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
+          <h2 className={styles.subtitle} style={{ margin: 0, display: "inline-flex", alignItems: "center", gap: "0.6rem" }}>
+            🤖 Robô na nuvem (Pi)
+            {cloudPanelOpen && (
+              <span style={{ fontSize: "0.8rem", fontWeight: 600, color: cloudConnMeta.color, display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+                <span style={{ width: 9, height: 9, borderRadius: "50%", background: cloudConnMeta.color, display: "inline-block" }} />
+                {cloudConnMeta.label}
+              </span>
+            )}
+          </h2>
+          <button className="btn-secondary" onClick={() => setCloudPanelOpen((o) => !o)}>
+            {cloudPanelOpen ? "Ocultar" : "Acompanhar disparos"}
+          </button>
+        </div>
+
+        {cloudPanelOpen && (
+          <div style={{ marginTop: "1.25rem" }}>
+            {/* Linha de estado + controle global */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem", marginBottom: "1rem" }}>
+              <div style={{ fontSize: "0.9rem" }}>
+                Enviadas hoje:{" "}
+                <strong>{cloudStatus?.today ?? 0}/{cloudStatus?.limit ?? 0}</strong>
+                {cloudStatus?.paused && (
+                  <span style={{ color: "var(--error)", marginLeft: "0.75rem", fontWeight: 600 }}>
+                    ⏸ Pausado
+                  </span>
+                )}
+              </div>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <button className="btn-secondary" onClick={fetchCloudStatus} style={{ fontSize: "0.8rem" }}>
+                  Atualizar
+                </button>
+                <button
+                  className="btn-secondary"
+                  onClick={toggleCloudPause}
+                  disabled={!cloudStatus || Boolean(cloudStatus.error)}
+                  style={{ fontSize: "0.8rem", display: "inline-flex", alignItems: "center", gap: "0.4rem" }}
+                >
+                  {cloudStatus?.paused ? <Play size={16} /> : <Pause size={16} />}
+                  {cloudStatus?.paused ? "Retomar tudo" : "Pausar tudo"}
+                </button>
+              </div>
+            </div>
+
+            {/* Aviso quando não está conectado */}
+            {cloudStatus && !cloudStatus.wa?.connected && (
+              <div style={{ fontSize: "0.85rem", color: "var(--text-muted, #888)", marginBottom: "1rem", padding: "0.75rem", background: "rgba(245,158,11,0.08)", borderRadius: "8px" }}>
+                {cloudStatus.error || cloudStatus.wa?.status === "offline"
+                  ? "O worker no Pi não respondeu. Confira se ele está ligado (npm start) e o WORKER_URL configurado."
+                  : typeof cloudStatus.wa?.qr === "string" && cloudStatus.wa.qr.startsWith("PAIR:")
+                  ? `Aguardando pareamento. Código: ${cloudStatus.wa.qr.replace("PAIR:", "")} — digite no celular do número (Aparelhos conectados › Conectar com número).`
+                  : "Número ainda não conectado. Pareie no Pi com “npm run pair”."}
+              </div>
+            )}
+
+            {/* Lista de campanhas */}
+            {cloudStatus && cloudStatus.campaigns.length === 0 ? (
+              <p style={{ fontSize: "0.9rem", color: "var(--text-muted, #888)" }}>
+                Nenhuma campanha ainda. Selecione contatos e use “Disparar na nuvem (Pi)”.
+              </p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                {(cloudStatus?.campaigns || []).map((c) => {
+                  const sent = c.sent || 0;
+                  const failed = c.failed || 0;
+                  const invalid = c.invalid || 0;
+                  const done = sent + failed + invalid;
+                  const pct = c.total > 0 ? Math.round((done / c.total) * 100) : 0;
+                  return (
+                    <div key={c.id} className="glass-panel" style={{ padding: "1rem" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
+                        <div style={{ fontWeight: 700 }}>
+                          {c.name}{" "}
+                          <span style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--text-muted, #888)" }}>
+                            ({c.status === "active" ? "ativa" : c.status === "paused" ? "pausada" : "concluída"})
+                          </span>
+                        </div>
+                        <div style={{ display: "flex", gap: "0.4rem" }}>
+                          {c.status !== "done" && (
+                            <button
+                              className="btn-secondary"
+                              onClick={() => cloudCampaignAction(c.id, c.status === "paused" ? "resume" : "pause")}
+                              style={{ fontSize: "0.75rem", padding: "0.3rem 0.6rem" }}
+                            >
+                              {c.status === "paused" ? "Retomar" : "Pausar"}
+                            </button>
+                          )}
+                          {c.status !== "done" && (
+                            <button
+                              className="btn-secondary"
+                              onClick={() => cloudCampaignAction(c.id, "cancel")}
+                              style={{ fontSize: "0.75rem", padding: "0.3rem 0.6rem", color: "var(--error)", borderColor: "var(--error)" }}
+                            >
+                              Cancelar
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div style={{ height: "8px", background: "rgba(255,255,255,0.1)", borderRadius: "4px", overflow: "hidden", margin: "0.6rem 0" }}>
+                        <div style={{ height: "100%", width: `${pct}%`, background: "#25D366", transition: "width 0.3s" }} />
+                      </div>
+                      <div style={{ fontSize: "0.8rem", color: "var(--text-muted, #888)", display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+                        <span>✅ {sent} enviadas</span>
+                        <span>⏳ {c.pending || 0} na fila</span>
+                        {failed > 0 && <span style={{ color: "var(--error)" }}>⚠ {failed} falhas</span>}
+                        {invalid > 0 && <span>🚫 {invalid} sem WhatsApp</span>}
+                        <span>· {c.total} total</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
       {results.length > 0 && (
