@@ -93,6 +93,8 @@ export default function Home() {
   const [waPersistSent, setWaPersistSent] = useState<Set<string>>(new Set());
   // Modo macro: cadência controlada por script externo (AutoHotkey). Atalho F2 dispara o envio.
   const [waMacroMode, setWaMacroMode] = useState(false);
+  // Disparo na nuvem: envia a fila para o worker (Raspberry Pi) que dispara sozinho.
+  const [cloudSending, setCloudSending] = useState(false);
 
   const handleDiscoverRegions = async () => {
     if (!location.trim()) {
@@ -513,6 +515,63 @@ export default function Home() {
     advanceWaQueue();
   };
 
+  // Envia a fila para o worker na nuvem (Pi), que dispara sozinho 24/7
+  // respeitando cota/intervalos do servidor. Não abre wa.me no navegador.
+  const sendCloudCampaign = async () => {
+    if (!waMessage.trim()) {
+      return alert("Escreva a mensagem padrão antes de disparar.");
+    }
+    if (waQueue.length === 0) {
+      return alert("Nenhum contato com WhatsApp válido na fila.");
+    }
+    if (
+      !confirm(
+        `Enviar ${waQueue.length} contato(s) pelo robô na nuvem (Pi)?\n\n` +
+          "O worker dispara aos poucos, sozinho, respeitando a cota diária e os " +
+          "intervalos configurados no servidor — você não precisa ficar clicando."
+      )
+    ) {
+      return;
+    }
+    setCloudSending(true);
+    try {
+      const res = await fetch("/api/wa-campaign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: `Campanha ${new Date().toLocaleDateString("pt-BR")}`,
+          message: waMessage,
+          app_url: waAppUrl,
+          contacts: waQueue.map((b) => ({
+            id: b.id,
+            name: b.name,
+            phone: b.phone,
+          })),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(
+          "Campanha enviada para o robô na nuvem! ✅\n" +
+            `${data.added} contato(s) na fila` +
+            (data.ignored ? `, ${data.ignored} já existiam (ignorados).` : ".") +
+            "\n\nO Pi vai disparar aos poucos, sozinho. Pode fechar o app."
+        );
+        setIsWaModalOpen(false);
+      } else {
+        alert(
+          "Não foi possível enviar para a nuvem: " +
+            (data.error || `erro ${res.status}`)
+        );
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Falha ao falar com o robô na nuvem. Ele está ligado no Pi?");
+    } finally {
+      setCloudSending(false);
+    }
+  };
+
   const stopWaCampaign = () => {
     setWaRunning(false);
     setWaPaused(false);
@@ -895,9 +954,19 @@ export default function Home() {
                       Zerar cota de hoje
                     </button>
                   </div>
-                  <div style={{ display: "flex", gap: "1rem" }}>
+                  <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
                   <button className="btn-secondary" onClick={() => setIsWaModalOpen(false)}>
                     Cancelar
+                  </button>
+                  <button
+                    className="btn-secondary"
+                    onClick={sendCloudCampaign}
+                    disabled={cloudSending}
+                    title="Envia a fila para o worker no Raspberry Pi, que dispara sozinho 24/7"
+                    style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}
+                  >
+                    {cloudSending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                    {cloudSending ? "Enviando..." : "Disparar na nuvem (Pi)"}
                   </button>
                   <button
                     className="btn-primary"
@@ -908,6 +977,11 @@ export default function Home() {
                   </button>
                   </div>
                 </div>
+                <p style={{ fontSize: "0.8rem", color: "var(--text-muted, #888)", marginTop: "0.75rem" }}>
+                  <strong>Iniciar disparo</strong>: semi-automático, aqui no navegador (abre cada conversa
+                  para você clicar). <strong>Disparar na nuvem (Pi)</strong>: manda a fila para o robô no
+                  Raspberry Pi, que envia sozinho 24/7 — não precisa deixar o computador ligado.
+                </p>
               </>
             )}
 

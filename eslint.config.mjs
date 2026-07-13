@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Worker de disparo: projeto Node independente, com lint próprio.
+    "worker/**",
   ]),
 ]);
 
