@@ -87,6 +87,10 @@ export default function Home() {
   const [location, setLocation] = useState("");
   const [deepSearch, setDeepSearch] = useState(false);
   const [regionsText, setRegionsText] = useState("");
+  // Fonte de leads: Google Maps (padrão) ou Instagram (perfis comerciais).
+  const [source, setSource] = useState<"google" | "instagram">("google");
+  const [igMode, setIgMode] = useState<"hashtag" | "profiles">("hashtag");
+  const [igQuery, setIgQuery] = useState("");
   const [discoveringRegions, setDiscoveringRegions] = useState(false);
   const [results, setResults] = useState<Business[]>([]);
   const [nextPageToken, setNextPageToken] = useState<string | null>(null);
@@ -167,6 +171,45 @@ export default function Home() {
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Fonte Instagram: fluxo próprio (por hashtag ou por lista de perfis).
+    if (source === "instagram") {
+      if (!igQuery.trim()) return;
+      setLoading(true);
+      setNextPageToken(null);
+      try {
+        const res = await fetch("/api/instagram", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: igMode, query: igQuery }),
+        });
+        const data = await res.json();
+        if (data.results) {
+          setResults((prev) => {
+            const existingIds = new Set(prev.map((p) => p.id));
+            const newUnique = data.results.filter(
+              (r: Business) => !existingIds.has(r.id)
+            );
+            return [...prev, ...newUnique];
+          });
+          if (data.results.length === 0) {
+            alert(
+              "Nenhum contato público encontrado. Tente outra hashtag ou perfis " +
+                "comerciais que tenham WhatsApp/telefone na bio."
+            );
+          }
+        } else {
+          alert("Erro no Instagram: " + (data.error || "Desconhecido"));
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Falha ao consultar o Instagram.");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (!niche || !location) return;
 
     setLoading(true);
@@ -687,28 +730,103 @@ export default function Home() {
 
       <section className="glass-panel">
         <form className={styles.searchForm} onSubmit={handleSearch}>
-          <div className={styles.inputGroup}>
-            <label className={styles.label}>Nicho de Mercado</label>
-            <input
-              type="text"
-              className="input-glass"
-              placeholder="Ex: Barbearia, Salão de Beleza..."
-              value={niche}
-              onChange={(e) => setNiche(e.target.value)}
-              required
-            />
+          {/* Seletor de fonte de leads */}
+          <div style={{ flexBasis: "100%", display: "flex", gap: "0.5rem", marginBottom: "0.25rem" }}>
+            <button
+              type="button"
+              className={source === "google" ? "btn-primary" : "btn-secondary"}
+              onClick={() => setSource("google")}
+            >
+              📍 Google Maps
+            </button>
+            <button
+              type="button"
+              className={source === "instagram" ? "btn-primary" : "btn-secondary"}
+              onClick={() => setSource("instagram")}
+            >
+              📸 Instagram
+            </button>
           </div>
-          <div className={styles.inputGroup}>
-            <label className={styles.label}>Localidade (Cidade/Estado)</label>
-            <input
-              type="text"
-              className="input-glass"
-              placeholder="Ex: São Paulo, SP"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              required
-            />
-          </div>
+
+          {source === "google" && (
+            <>
+              <div className={styles.inputGroup}>
+                <label className={styles.label}>Nicho de Mercado</label>
+                <input
+                  type="text"
+                  className="input-glass"
+                  placeholder="Ex: Barbearia, Salão de Beleza..."
+                  value={niche}
+                  onChange={(e) => setNiche(e.target.value)}
+                  required
+                />
+              </div>
+              <div className={styles.inputGroup}>
+                <label className={styles.label}>Localidade (Cidade/Estado)</label>
+                <input
+                  type="text"
+                  className="input-glass"
+                  placeholder="Ex: São Paulo, SP"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  required
+                />
+              </div>
+            </>
+          )}
+
+          {source === "instagram" && (
+            <div style={{ flexBasis: "100%" }}>
+              <div style={{ display: "flex", gap: "1rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", cursor: "pointer" }}>
+                  <input
+                    type="radio"
+                    name="igmode"
+                    checked={igMode === "hashtag"}
+                    onChange={() => setIgMode("hashtag")}
+                  />
+                  Por hashtag/nicho
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", cursor: "pointer" }}>
+                  <input
+                    type="radio"
+                    name="igmode"
+                    checked={igMode === "profiles"}
+                    onChange={() => setIgMode("profiles")}
+                  />
+                  Por perfis (@)
+                </label>
+              </div>
+              <div className={styles.inputGroup}>
+                <label className={styles.label}>
+                  {igMode === "hashtag"
+                    ? "Hashtag ou termo (sem #)"
+                    : "Perfis comerciais (@um, @dois — separados por espaço/vírgula)"}
+                </label>
+                {igMode === "hashtag" ? (
+                  <input
+                    type="text"
+                    className="input-glass"
+                    placeholder="Ex: barbeariasp, petshoprj..."
+                    value={igQuery}
+                    onChange={(e) => setIgQuery(e.target.value)}
+                  />
+                ) : (
+                  <textarea
+                    className={styles.textareaGlass}
+                    placeholder={"@barbearia.x\n@petshop.y\n@moda.z"}
+                    value={igQuery}
+                    onChange={(e) => setIgQuery(e.target.value)}
+                    rows={3}
+                  />
+                )}
+                <p style={{ fontSize: "0.8rem", color: "var(--text-muted, #888)", marginTop: "0.25rem" }}>
+                  Busca posts/perfis comerciais e extrai só quem tem WhatsApp/telefone
+                  público. Requer a API do Instagram configurada (ver docs/INSTAGRAM.md).
+                </p>
+              </div>
+            </div>
+          )}
           <button type="submit" className="btn-primary" disabled={loading}>
             {loading ? <Loader2 className="animate-spin" /> : <Search size={20} />}
             {loading && deepSearch ? "Buscando tudo..." : "Buscar"}
@@ -722,7 +840,8 @@ export default function Home() {
             </label>
           </div>
 
-          {/* Busca Profunda */}
+          {/* Busca Profunda (só no Google Maps) */}
+          {source === "google" && (
           <div style={{ flexBasis: "100%", marginTop: "0.5rem" }}>
             <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", fontWeight: 600 }}>
               <input
@@ -764,6 +883,7 @@ export default function Home() {
               </div>
             )}
           </div>
+          )}
         </form>
       </section>
 
