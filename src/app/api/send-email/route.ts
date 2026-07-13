@@ -30,43 +30,47 @@ export async function POST(request: Request) {
     });
 
     let successCount = 0;
-    const errors = [];
+    let skipped = 0; // sem e-mail válido (ex.: lead do Google Maps, que não traz e-mail)
+    const errors: string[] = [];
 
-    // Loop para enviar e-mails
-    // Nota: Em produção real, disparos em massa devem usar serviços profissionais como SendGrid/AWS SES
-    // e devem ter um "delay" entre os envios para não configurar SPAM no provedor SMTP.
+    const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+
+    // Loop de envio: manda para o e-mail REAL de cada lead (o extrator do
+    // Instagram preenche target.email a partir da bio/site). Quem não tem
+    // e-mail válido é pulado — não há mais destinatário de teste chumbado.
+    // Nota: para volume alto o ideal é um serviço dedicado (SendGrid/SES).
     for (const target of targets) {
-      // Como o Google Places não retorna e-mail (geralmente),
-      // este código simula o envio usando um e-mail fictício baseado no site ou
-      // usa um e-mail padrão para demonstração, já que o alvo não tem e-mail extraído diretamente.
-      
-      // ALERTA: Na vida real, você precisaria de uma etapa de enriquecimento de dados (ex: Hunter.io)
-      // para encontrar os e-mails dessas empresas. Para testes, vamos simular que estamos enviando
-      // para o seu próprio e-mail de teste ou registrar apenas o log.
-      
-      const recipientEmail = "seu-email-de-teste@exemplo.com"; // Substitua em produção
-      
+      const recipientEmail = String(target.email || "").trim();
+      if (!recipientEmail || !isValidEmail(recipientEmail)) {
+        skipped++;
+        continue;
+      }
+
       const personalizedBody = body.replace(/{nome}/g, target.name || "Empresa");
 
       try {
         await transporter.sendMail({
           from: userEmail,
-          to: recipientEmail, // Enviando para o email de teste
+          to: recipientEmail,
           subject: subject,
           text: personalizedBody,
-          // html: `<p>${personalizedBody.replace(/\n/g, "<br>")}</p>`, // Se quiser enviar em HTML
+          html: `<p>${personalizedBody.replace(/\n/g, "<br>")}</p>`,
         });
         successCount++;
-      } catch (err: any) {
-        console.error(`Erro ao enviar para ${target.name}:`, err);
-        errors.push(err.message);
+        // Respiro entre envios para não parecer spam no provedor SMTP.
+        await new Promise((r) => setTimeout(r, 800));
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`Erro ao enviar para ${target.name}:`, msg);
+        errors.push(`${target.name || recipientEmail}: ${msg}`);
       }
     }
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       sent: successCount,
-      errors: errors.length > 0 ? errors : undefined 
+      skipped,
+      errors: errors.length > 0 ? errors : undefined,
     });
   } catch (error) {
     console.error("Erro interno no /api/send-email:", error);

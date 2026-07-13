@@ -382,7 +382,11 @@ export default function Home() {
       });
       const data = await res.json();
       if (data.success) {
-        alert("E-mails enviados com sucesso!");
+        alert(
+          `E-mails enviados: ${data.sent}.` +
+            (data.skipped ? `\n${data.skipped} pulado(s) por não ter e-mail.` : "") +
+            (data.errors ? `\n${data.errors.length} com erro.` : "")
+        );
         setIsModalOpen(false);
       } else {
         alert("Erro ao enviar: " + data.error);
@@ -1144,6 +1148,14 @@ export default function Home() {
                 <X size={24} />
               </button>
             </div>
+
+            <p style={{ fontSize: "0.85rem", color: "var(--text-muted, #888)", marginBottom: "1rem" }}>
+              {(() => {
+                const sel = results.filter((r) => selectedIds.has(r.id));
+                const withEmail = sel.filter((r) => r.email).length;
+                return `${withEmail} de ${sel.length} selecionado(s) têm e-mail — os demais serão pulados. Bom fallback para leads do Instagram sem WhatsApp.`;
+              })()}
+            </p>
 
             <div className={styles.inputGroup}>
               <label className={styles.label}>Assunto do E-mail</label>
