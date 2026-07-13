@@ -1,0 +1,20 @@
+{
+  "name": "robo-comercial-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Worker de disparo de WhatsApp (Baileys) para rodar 24/7 num Raspberry Pi / servidor always-on.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/index.js",
+    "pair": "node --env-file-if-exists=.env src/pair.js"
+  },
+  "dependencies": {
+    "baileys": "^7.0.0-rc13",
+    "better-sqlite3": "^12.11.1",
+    "pino": "^10.3.1",
+    "qrcode-terminal": "^0.12.0"
+  }
+}
