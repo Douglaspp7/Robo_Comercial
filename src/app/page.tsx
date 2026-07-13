@@ -291,6 +291,7 @@ export default function Home() {
     const formattedData = results.map(biz => ({
       "ID Interno": biz.id,
       "Nome": biz.name,
+      "Canal": getWaLink(biz.phone) ? "WhatsApp" : biz.email ? "E-mail" : "Sem contato",
       "Endereço": biz.address,
       "Avaliação": biz.rating || "",
       "Telefone": biz.phone || "",
@@ -1056,6 +1057,7 @@ export default function Home() {
                     />
                   </th>
                   <th className={styles.th}>Nome</th>
+                  <th className={styles.th}>Canal</th>
                   <th className={styles.th}>Endereço</th>
                   <th className={styles.th}>Telefone</th>
                   <th className={styles.th}>E-mail</th>
@@ -1079,6 +1081,32 @@ export default function Home() {
                           ★ {biz.rating}
                         </div>
                       )}
+                    </td>
+                    <td className={styles.td}>
+                      {(() => {
+                        const badge = (bg: string, txt: string) => (
+                          <span
+                            style={{
+                              background: bg,
+                              color: "white",
+                              padding: "3px 8px",
+                              borderRadius: "999px",
+                              fontSize: "0.75rem",
+                              fontWeight: 700,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {txt}
+                          </span>
+                        );
+                        if (getWaLink(biz.phone)) return badge("#25D366", "📱 Zap");
+                        if (biz.email) return badge("#3b82f6", "✉️ E-mail");
+                        return (
+                          <span style={{ fontSize: "0.75rem", color: "var(--text-muted, #888)" }}>
+                            — sem contato
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className={styles.td}>{biz.address}</td>
                     <td className={styles.td}>
