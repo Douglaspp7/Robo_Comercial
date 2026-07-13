@@ -27,6 +27,19 @@ O painel fala com o worker por HTTP (padrão `http://<pi>:8787`).
 
 ## Instalação (no Pi)
 
+**Setup automatizado (recomendado):** instala dependências, cria o `.env` e
+já instala + habilita o serviço systemd:
+
+```bash
+cd worker
+bash deploy/setup-pi.sh
+```
+
+Ao final ele mostra os próximos passos (editar `.env`, parear, ligar). Depois
+é só parear o número e `sudo systemctl start robo-worker`.
+
+**Manual:**
+
 ```bash
 cd worker
 npm install
@@ -64,26 +77,22 @@ Sobe a API (`WORKER_PORT`, padrão 8787), conecta o WhatsApp e inicia o loop.
 
 ### Rodar sempre (systemd no Pi)
 
-```ini
-# /etc/systemd/system/robo-worker.service
-[Unit]
-Description=Robo Comercial - worker de disparo
-After=network-online.target
+O jeito fácil é o `bash deploy/setup-pi.sh` (acima), que instala o serviço
+por você a partir de `deploy/robo-worker.service`, preenchendo usuário,
+caminho e o binário do Node automaticamente.
 
-[Service]
-WorkingDirectory=/home/pi/Robo_Comercial/worker
-ExecStart=/usr/bin/node --env-file-if-exists=.env src/index.js
-Restart=always
-RestartSec=5
-User=pi
-
-[Install]
-WantedBy=multi-user.target
-```
+Comandos do dia a dia:
 
 ```bash
-sudo systemctl enable --now robo-worker
+sudo systemctl start robo-worker      # ligar
+sudo systemctl status robo-worker     # ver estado
+journalctl -u robo-worker -f          # logs ao vivo
+sudo systemctl restart robo-worker    # reiniciar
 ```
+
+Para instalar na mão, copie `deploy/robo-worker.service` para
+`/etc/systemd/system/`, troque os placeholders `__USER__` / `__WORKDIR__` /
+`__NODE__` pelos valores reais e rode `sudo systemctl enable --now robo-worker`.
 
 ## API (o painel consome)
 

@@ -1,0 +1,23 @@
+[Unit]
+Description=Robo Comercial - worker de disparo (WhatsApp/Baileys)
+After=network-online.target
+Wants=network-online.target
+# Se reiniciar 5x em 60s, para de tentar (evita loop apertado com algo quebrado).
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+# Os campos User/WorkingDirectory/ExecStart abaixo sao preenchidos pelo
+# deploy/setup-pi.sh. Para instalar na mao, troque pelos valores reais.
+User=__USER__
+WorkingDirectory=__WORKDIR__
+ExecStart=__NODE__ --env-file-if-exists=.env src/index.js
+Restart=always
+RestartSec=5
+# Logs vao para o journald: journalctl -u robo-worker -f
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
