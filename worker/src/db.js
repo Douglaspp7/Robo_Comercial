@@ -152,6 +152,11 @@ export const queries = {
   ),
   setJid: db.prepare(`UPDATE campaign_items SET jid=@jid WHERE id=@id`),
   setImage: db.prepare(`UPDATE campaigns SET image_path=@path WHERE id=@id`),
+  // Já foi enviado para este JID (qualquer campanha) desde @since? (não-recontato)
+  recentlyContacted: db.prepare(
+    `SELECT 1 FROM campaign_items
+     WHERE jid=@jid AND status='sent' AND sent_at >= @since LIMIT 1`
+  ),
   // Fecha campanhas sem itens pendentes.
   closeFinished: db.prepare(
     `UPDATE campaigns SET status='done'

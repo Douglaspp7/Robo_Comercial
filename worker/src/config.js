@@ -64,6 +64,11 @@ export const config = {
   // Teto de envios por hora, POR número (0 = sem teto). Suaviza picos.
   maxPerHour: num(process.env.WA_MAX_PER_HOUR, 0),
 
+  // Não recontatar o mesmo número entre campanhas dentro de N dias
+  // (0 = permite recontato sempre). Ex.: 30 = pula quem já recebeu nos últimos
+  // 30 dias, em qualquer campanha.
+  recontactDays: num(process.env.WA_RECONTACT_DAYS, 0),
+
   // Palavras que, recebidas de um contato, o removem da lista (opt-out).
   optoutKeywords: (process.env.WA_OPTOUT_KEYWORDS ||
     "sair,parar,pare,cancelar,stop,descadastrar,remover")

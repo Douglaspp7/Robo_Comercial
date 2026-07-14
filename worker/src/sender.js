@@ -124,6 +124,15 @@ async function tick(numberId) {
     return schedule(numberId, 300);
   }
 
+  // Não recontatar: já recebeu (em qualquer campanha) nos últimos N dias?
+  if (config.recontactDays > 0) {
+    const since = Date.now() - config.recontactDays * 86_400_000;
+    if (queries.recentlyContacted.get({ jid, since })) {
+      queries.markInvalid.run({ id: item.id, error: `já contatado (${config.recontactDays}d)` });
+      return schedule(numberId, 300);
+    }
+  }
+
   const camp = stmtCampaign.get(item.campaign_id);
   let text = renderMessage(camp.message, item.name, camp.app_url);
   if (config.optoutFooter) text += `\n\n${config.optoutFooter}`;
