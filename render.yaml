@@ -32,3 +32,36 @@ services:
         value: "30"
       - key: WA_MAX_DELAY_SEC
         value: "90"
+
+  # PAINEL (Next) — a interface web de busca de leads e disparo. Não segura
+  # sessão de WhatsApp, então pode ficar na free (hiberna quando ocioso e
+  # acorda ao abrir). Suba para "starter" se quiser sem cold-start.
+  - type: web
+    name: robo-painel
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Token compartilhado automaticamente com o worker (não precisa copiar).
+      - key: WORKER_API_TOKEN
+        fromService:
+          type: web
+          name: robo-worker
+          envVarKey: WORKER_API_TOKEN
+      # URL pública do worker — cole após o worker subir (ex.: https://robo-worker.onrender.com).
+      - key: WORKER_URL
+        sync: false
+      # Chaves das fontes/canais — você preenche no painel do Render.
+      - key: GOOGLE_PLACES_API_KEY
+        sync: false
+      - key: IG_ACCESS_TOKEN
+        sync: false
+      - key: IG_BUSINESS_ID
+        sync: false
+      - key: SMTP_EMAIL
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false

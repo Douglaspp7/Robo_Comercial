@@ -57,20 +57,26 @@ O WhatsApp não diferencia eSIM de chip físico — só importa o **número** e 
    `https://robo-worker.onrender.com`) é o `WORKER_URL`. Em **Environment**,
    copie o valor gerado de `WORKER_API_TOKEN`.
 
-## Ligar o painel ao worker
+## O painel já vem no Blueprint
 
-O painel (Next) pode ficar onde você quiser; ele só precisa alcançar o worker.
-No `.env` / variáveis do painel, defina:
+O mesmo `render.yaml` cria um 2º serviço, **robo-painel** (a interface web),
+na instância **free** (pode subir para starter se quiser sem cold-start). Ele
+se conecta ao worker assim:
 
-```
-WORKER_URL=https://robo-worker.onrender.com
-WORKER_API_TOKEN=<o token gerado no passo 6>
-```
+- **`WORKER_API_TOKEN`**: compartilhado **automaticamente** com o worker (não
+  precisa copiar nada).
+- **`WORKER_URL`**: preencha depois que o worker subir, com a URL dele
+  (ex.: `https://robo-worker.onrender.com`). É a única coisa manual aqui.
+- **Chaves das fontes/canais** (preencha no painel do Render, em robo-painel →
+  Environment): `GOOGLE_PLACES_API_KEY`, `IG_ACCESS_TOKEN`, `IG_BUSINESS_ID`,
+  `SMTP_EMAIL`, `SMTP_PASSWORD` — conforme os canais que você for usar.
 
-- **Painel local:** roda no seu PC apontando pro Render.
-- **Painel na Vercel:** as mesmas 2 variáveis no projeto da Vercel.
-- **Painel no Render:** crie um 2º web service (rootDir na raiz, build
-  `npm ci && npm run build`, start `npm start`) com as mesmas 2 variáveis.
+A URL pública do **robo-painel** (ex.: `https://robo-painel.onrender.com`) é o
+endereço que você abre no navegador para usar o robô.
+
+> Prefere o painel fora do Render (na Vercel ou no seu PC)? Dá também: basta
+> definir lá `WORKER_URL` e `WORKER_API_TOKEN`. Nesse caso, remova o serviço
+> `robo-painel` do `render.yaml`.
 
 ## Conferir se está funcionando
 
