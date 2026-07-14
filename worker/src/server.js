@@ -28,6 +28,15 @@ import {
   effectiveDailyLimit,
 } from "./sender.js";
 import { numberToJid, normalizeNumber, renderMessage } from "./phone.js";
+import {
+  planQueries,
+  addPlanLine,
+  seedPlan,
+  addLeads,
+  leadStats,
+  pendingWhatsappLeads,
+  markLeadsContacted,
+} from "./leads.js";
 
 // Estado por número (chip): conexão + cota do dia.
 function numbersStatus() {
@@ -48,7 +57,7 @@ function send(res, code, body) {
     "Content-Type": "application/json; charset=utf-8",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type, x-worker-token",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
   });
   res.end(data);
 }
@@ -241,6 +250,69 @@ const server = http.createServer(async (req, res) => {
       }
       queries.setCampaignStatus.run({ id, status });
       return send(res, 200, { id, status });
+    }
+
+    // ── Plano de busca ──────────────────────────────────────────────────────
+    if (req.method === "GET" && path === "/plan") {
+      return send(res, 200, { plan: planQueries.list.all() });
+    }
+    if (req.method === "POST" && path === "/plan") {
+      const body = await readJson(req);
+      const id = addPlanLine(body);
+      if (!id) return send(res, 400, { error: "consulta inválida" });
+      return send(res, 201, { id });
+    }
+    if (req.method === "POST" && path === "/plan/seed") {
+      return send(res, 200, { seeded: seedPlan() });
+    }
+    const pm = path.match(/^\/plan\/(\d+)$/);
+    if (req.method === "DELETE" && pm) {
+      planQueries.del.run(Number(pm[1]));
+      return send(res, 200, { ok: true });
+    }
+
+    // ── Pool de leads ───────────────────────────────────────────────────────
+    if (req.method === "POST" && path === "/leads") {
+      const body = await readJson(req);
+      const leads = Array.isArray(body.leads) ? body.leads : [];
+      const { added, ignored } = addLeads(leads);
+      return send(res, 200, { added, ignored, stats: leadStats() });
+    }
+    if (req.method === "GET" && path === "/leads/stats") {
+      return send(res, 200, leadStats());
+    }
+
+    // Cria campanha a partir dos leads pendentes (WhatsApp, não contatados).
+    if (req.method === "POST" && path === "/campaigns/from-pending") {
+      const body = await readJson(req);
+      const message = String(body.message || "").trim();
+      if (!message) return send(res, 400, { error: "mensagem obrigatória" });
+      const limit = Math.max(1, Math.min(5000, Number(body.limit) || 1000));
+      const pending = pendingWhatsappLeads(limit);
+      if (pending.length === 0) {
+        return send(res, 400, { error: "nenhum lead pendente" });
+      }
+      const items = pending.map((l) => ({
+        lead_id: l.dedup_key,
+        name: l.name,
+        phone: l.phone,
+        jid: l.jid,
+      }));
+      const { id, added } = createCampaign(
+        { name: body.name || "Campanha", message, app_url: body.app_url || "" },
+        items
+      );
+      let image = false;
+      if (body.image) {
+        const savedPath = saveCampaignImage(id, body.image);
+        if (savedPath) {
+          queries.setImage.run({ id, path: savedPath });
+          image = true;
+        }
+      }
+      // Marca os leads como contatados (não voltam para "pendentes").
+      markLeadsContacted(pending.map((l) => l.dedup_key));
+      return send(res, 201, { id, added, count: pending.length, image });
     }
 
     return send(res, 404, { error: "rota não encontrada" });
