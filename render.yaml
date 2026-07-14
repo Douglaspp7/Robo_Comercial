@@ -1,0 +1,67 @@
+# Blueprint do Render para o WORKER de disparo (Baileys).
+# O worker é o que roda 24/7 e segura a sessão do WhatsApp — por isso precisa
+# de instância paga (a free hiberna) e disco persistente (senão perde a sessão
+# a cada deploy). Ver worker/deploy/RENDER.md para o passo a passo e ressalvas.
+services:
+  - type: web
+    name: robo-worker
+    runtime: node
+    rootDir: worker
+    plan: starter            # NÃO use "free": ela hiberna e derruba a sessão do WhatsApp
+    buildCommand: npm ci
+    startCommand: node src/index.js
+    healthCheckPath: /health
+    disk:
+      name: robo-data        # guarda a sessão do WhatsApp + SQLite (persiste entre deploys)
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: WORKER_DATA_DIR
+        value: /var/data     # aponta a sessão/SQLite para o disco persistente
+      - key: WORKER_API_TOKEN
+        generateValue: true  # token forte gerado pelo Render (o painel usa no header)
+      - key: WA_PAIR_PHONE
+        sync: false          # você preenche no painel do Render: número do chip (ex.: 5511999999999)
+      - key: WA_DAILY_LIMIT
+        value: "40"
+      - key: WA_WARMUP_RAMP
+        value: "5,10,20"
+      - key: WA_MIN_DELAY_SEC
+        value: "30"
+      - key: WA_MAX_DELAY_SEC
+        value: "90"
+
+  # PAINEL (Next) — a interface web de busca de leads e disparo. Não segura
+  # sessão de WhatsApp, então pode ficar na free (hiberna quando ocioso e
+  # acorda ao abrir). Suba para "starter" se quiser sem cold-start.
+  - type: web
+    name: robo-painel
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Token compartilhado automaticamente com o worker (não precisa copiar).
+      - key: WORKER_API_TOKEN
+        fromService:
+          type: web
+          name: robo-worker
+          envVarKey: WORKER_API_TOKEN
+      # URL pública do worker — cole após o worker subir (ex.: https://robo-worker.onrender.com).
+      - key: WORKER_URL
+        sync: false
+      # Chaves das fontes/canais — você preenche no painel do Render.
+      - key: GOOGLE_PLACES_API_KEY
+        sync: false
+      - key: IG_ACCESS_TOKEN
+        sync: false
+      - key: IG_BUSINESS_ID
+        sync: false
+      - key: SMTP_EMAIL
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false

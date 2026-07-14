@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Search, Loader2, Download, Send, X, MessageCircle, SkipForward, Pause, Play } from "lucide-react";
 import * as XLSX from "xlsx";
+import QRCode from "qrcode";
 import styles from "./page.module.css";
 
 interface Business {
@@ -13,6 +14,33 @@ interface Business {
   phone: string;
   website: string;
   email?: string;
+}
+
+// Estado do worker de disparo na nuvem (Pi), lido de GET /api/wa-campaign.
+interface CloudCampaign {
+  id: number;
+  name: string;
+  status: string; // active | paused | done
+  created_at: number;
+  total: number;
+  sent: number | null;
+  pending: number | null;
+  failed: number | null;
+  invalid: number | null;
+}
+interface CloudStatus {
+  wa: {
+    status: string;
+    connected: boolean;
+    qr: string | null;
+    me: string | null;
+    lastError: string | null;
+  };
+  paused: boolean;
+  today: number;
+  limit: number;
+  campaigns: CloudCampaign[];
+  error?: string;
 }
 
 const getWaNumber = (phone: string): string | null => {
@@ -55,11 +83,61 @@ const LS_WA_SENT = "robo_wa_sent"; // string[] de ids já enviados
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
+// Link do atendente Zapien (CTA + preview + rastreio). Vai no campo "URL do app".
+const ZAPIEN_LINK = "https://zapien.app/a/HL517";
+
+// Modelos prontos de mensagem (preenchem o texto e o link de uma vez).
+// O 1º é o padrão que já vem no modal ao abrir.
+const WA_PRESETS = [
+  {
+    label: "Direto",
+    appUrl: ZAPIEN_LINK,
+    text:
+      "Oi {nome}, tudo bem? 😊 Aqui é do Zapien. Esse atendimento que você está " +
+      "recebendo é feito por uma IA — a mesma que pode atender os seus clientes " +
+      "no WhatsApp e vender por você, 24h. Dá uma olhada (pode até conversar com ela):",
+  },
+  {
+    label: "Curto",
+    appUrl: ZAPIEN_LINK,
+    text:
+      "Oi {nome}! Uma IA pode atender seus clientes no WhatsApp e fechar venda por " +
+      "você, sem parar. Quer testar conversando com ela agora? 👇",
+  },
+  {
+    label: "Prova",
+    appUrl: ZAPIEN_LINK,
+    text:
+      "Oi {nome}, rapidinho: essa própria mensagem faz parte de um atendimento com " +
+      "IA (Zapien). Ela responde, tira dúvida e vende — no seu WhatsApp, 24h. Fala " +
+      "com ela e sente como seria pro seu negócio:",
+  },
+];
+
+const EMAIL_PRESETS = [
+  {
+    label: "Zapien",
+    subject: "{nome}, seu WhatsApp vendendo sozinho 24h?",
+    body:
+      "Olá {nome}, tudo bem?\n\n" +
+      "Imagina uma IA atendendo seus clientes no WhatsApp na hora — tirando dúvida " +
+      "e fechando venda, 24 horas, sem você precisar estar online.\n\n" +
+      "É o Zapien. Você pode conversar agora com um atendente nosso (feito com a " +
+      "própria ferramenta) e sentir como funcionaria no seu negócio:\n" +
+      ZAPIEN_LINK +
+      "\n\nQualquer dúvida, é só responder este e-mail. Abraço!",
+  },
+];
+
 export default function Home() {
   const [niche, setNiche] = useState("");
   const [location, setLocation] = useState("");
   const [deepSearch, setDeepSearch] = useState(false);
   const [regionsText, setRegionsText] = useState("");
+  // Fonte de leads: Google Maps (padrão) ou Instagram (perfis comerciais).
+  const [source, setSource] = useState<"google" | "instagram">("google");
+  const [igMode, setIgMode] = useState<"hashtag" | "profiles">("hashtag");
+  const [igQuery, setIgQuery] = useState("");
   const [discoveringRegions, setDiscoveringRegions] = useState(false);
   const [results, setResults] = useState<Business[]>([]);
   const [nextPageToken, setNextPageToken] = useState<string | null>(null);
@@ -69,16 +147,14 @@ export default function Home() {
 
   // Email Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [emailSubject, setEmailSubject] = useState("");
-  const [emailBody, setEmailBody] = useState("");
+  const [emailSubject, setEmailSubject] = useState(EMAIL_PRESETS[0].subject);
+  const [emailBody, setEmailBody] = useState(EMAIL_PRESETS[0].body);
   const [emailLoading, setEmailLoading] = useState(false);
 
-  // WhatsApp Campaign State
+  // WhatsApp Campaign State — já começa com o modelo Zapien (texto + link).
   const [isWaModalOpen, setIsWaModalOpen] = useState(false);
-  const [waMessage, setWaMessage] = useState(
-    "Olá {nome}! Tudo bem? Tenho um app que pode ajudar o seu negócio. Dá uma olhada:"
-  );
-  const [waAppUrl, setWaAppUrl] = useState("");
+  const [waMessage, setWaMessage] = useState(WA_PRESETS[0].text);
+  const [waAppUrl, setWaAppUrl] = useState(WA_PRESETS[0].appUrl);
   const [waMinDelay, setWaMinDelay] = useState(30);
   const [waMaxDelay, setWaMaxDelay] = useState(90);
   const [waQueue, setWaQueue] = useState<Business[]>([]);
@@ -93,6 +169,21 @@ export default function Home() {
   const [waPersistSent, setWaPersistSent] = useState<Set<string>>(new Set());
   // Modo macro: cadência controlada por script externo (AutoHotkey). Atalho F2 dispara o envio.
   const [waMacroMode, setWaMacroMode] = useState(false);
+  // Disparo na nuvem: envia a fila para o worker (Raspberry Pi) que dispara sozinho.
+  const [cloudSending, setCloudSending] = useState(false);
+  // Imagem opcional anexada à mensagem (data URL base64) — só no disparo na nuvem.
+  const [waImage, setWaImage] = useState<string | null>(null);
+  const [waImageName, setWaImageName] = useState<string>("");
+  // Imagem opcional embutida no e-mail (inline).
+  const [emailImage, setEmailImage] = useState<string | null>(null);
+  const [emailImageName, setEmailImageName] = useState<string>("");
+  // Teste de disparo para um número avulso.
+  const [waTestPhone, setWaTestPhone] = useState("");
+  const [waTestSending, setWaTestSending] = useState(false);
+  // Painel de acompanhamento do robô na nuvem (Pi).
+  const [cloudPanelOpen, setCloudPanelOpen] = useState(false);
+  const [cloudStatus, setCloudStatus] = useState<CloudStatus | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
 
   const handleDiscoverRegions = async () => {
     if (!location.trim()) {
@@ -135,6 +226,45 @@ export default function Home() {
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Fonte Instagram: fluxo próprio (por hashtag ou por lista de perfis).
+    if (source === "instagram") {
+      if (!igQuery.trim()) return;
+      setLoading(true);
+      setNextPageToken(null);
+      try {
+        const res = await fetch("/api/instagram", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: igMode, query: igQuery }),
+        });
+        const data = await res.json();
+        if (data.results) {
+          setResults((prev) => {
+            const existingIds = new Set(prev.map((p) => p.id));
+            const newUnique = data.results.filter(
+              (r: Business) => !existingIds.has(r.id)
+            );
+            return [...prev, ...newUnique];
+          });
+          if (data.results.length === 0) {
+            alert(
+              "Nenhum contato público encontrado. Tente outra hashtag ou perfis " +
+                "comerciais que tenham WhatsApp/telefone na bio."
+            );
+          }
+        } else {
+          alert("Erro no Instagram: " + (data.error || "Desconhecido"));
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Falha ao consultar o Instagram.");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (!niche || !location) return;
 
     setLoading(true);
@@ -216,6 +346,7 @@ export default function Home() {
     const formattedData = results.map(biz => ({
       "ID Interno": biz.id,
       "Nome": biz.name,
+      "Canal": getWaLink(biz.phone) ? "WhatsApp" : biz.email ? "E-mail" : "Sem contato",
       "Endereço": biz.address,
       "Avaliação": biz.rating || "",
       "Telefone": biz.phone || "",
@@ -303,11 +434,15 @@ export default function Home() {
       const res = await fetch("/api/send-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targets, subject: emailSubject, body: emailBody }),
+        body: JSON.stringify({ targets, subject: emailSubject, body: emailBody, image: emailImage || undefined }),
       });
       const data = await res.json();
       if (data.success) {
-        alert("E-mails enviados com sucesso!");
+        alert(
+          `E-mails enviados: ${data.sent}.` +
+            (data.skipped ? `\n${data.skipped} pulado(s) por não ter e-mail.` : "") +
+            (data.errors ? `\n${data.errors.length} com erro.` : "")
+        );
         setIsModalOpen(false);
       } else {
         alert("Erro ao enviar: " + data.error);
@@ -513,11 +648,223 @@ export default function Home() {
     advanceWaQueue();
   };
 
+  // Lê um arquivo de imagem para data URL base64, validando tipo e tamanho.
+  const readImageAsDataUrl = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    onDone: (dataUrl: string, name: string) => void
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!/^image\/(png|jpe?g|webp)$/i.test(file.type)) {
+      return alert("Envie uma imagem PNG, JPG ou WEBP.");
+    }
+    if (file.size > 6 * 1024 * 1024) {
+      return alert("Imagem muito grande (máx. 6 MB).");
+    }
+    const reader = new FileReader();
+    reader.onload = () => onDone(String(reader.result), file.name);
+    reader.readAsDataURL(file);
+  };
+
+  const handleWaImageChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+    readImageAsDataUrl(e, (d, n) => {
+      setWaImage(d);
+      setWaImageName(n);
+    });
+  const clearWaImage = () => {
+    setWaImage(null);
+    setWaImageName("");
+  };
+
+  const handleEmailImageChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+    readImageAsDataUrl(e, (d, n) => {
+      setEmailImage(d);
+      setEmailImageName(n);
+    });
+  const clearEmailImage = () => {
+    setEmailImage(null);
+    setEmailImageName("");
+  };
+
+  // Envia a mensagem atual (texto + link + imagem) para um número avulso, na hora.
+  const sendTestWa = async () => {
+    if (!waTestPhone.trim()) return alert("Informe um número para o teste.");
+    if (!waMessage.trim()) return alert("Escreva a mensagem antes de testar.");
+    setWaTestSending(true);
+    try {
+      const res = await fetch("/api/wa-test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: waTestPhone,
+          name: "Teste",
+          message: waMessage,
+          app_url: waAppUrl,
+          image: waImage || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        alert("Mensagem de teste enviada! ✅ Confira o WhatsApp do número.");
+      } else {
+        alert("Não foi possível enviar o teste: " + (data.error || `erro ${res.status}`));
+      }
+    } catch {
+      alert("Falha ao falar com o robô na nuvem. Ele está conectado?");
+    } finally {
+      setWaTestSending(false);
+    }
+  };
+
+  // Envia a fila para o worker na nuvem (Pi), que dispara sozinho 24/7
+  // respeitando cota/intervalos do servidor. Não abre wa.me no navegador.
+  const sendCloudCampaign = async () => {
+    if (!waMessage.trim()) {
+      return alert("Escreva a mensagem padrão antes de disparar.");
+    }
+    if (waQueue.length === 0) {
+      return alert("Nenhum contato com WhatsApp válido na fila.");
+    }
+    if (
+      !confirm(
+        `Enviar ${waQueue.length} contato(s) pelo robô na nuvem (Pi)?\n\n` +
+          "O worker dispara aos poucos, sozinho, respeitando a cota diária e os " +
+          "intervalos configurados no servidor — você não precisa ficar clicando."
+      )
+    ) {
+      return;
+    }
+    setCloudSending(true);
+    try {
+      const res = await fetch("/api/wa-campaign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: `Campanha ${new Date().toLocaleDateString("pt-BR")}`,
+          message: waMessage,
+          app_url: waAppUrl,
+          image: waImage || undefined,
+          contacts: waQueue.map((b) => ({
+            id: b.id,
+            name: b.name,
+            phone: b.phone,
+          })),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(
+          "Campanha enviada para o robô na nuvem! ✅\n" +
+            `${data.added} contato(s) na fila` +
+            (data.ignored ? `, ${data.ignored} já existiam (ignorados).` : ".") +
+            "\n\nO Pi vai disparar aos poucos, sozinho. Pode fechar o app."
+        );
+        setIsWaModalOpen(false);
+      } else {
+        alert(
+          "Não foi possível enviar para a nuvem: " +
+            (data.error || `erro ${res.status}`)
+        );
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Falha ao falar com o robô na nuvem. Ele está ligado no Pi?");
+    } finally {
+      setCloudSending(false);
+    }
+  };
+
+  // Lê o estado do robô na nuvem (conexão, cota e progresso das campanhas).
+  const fetchCloudStatus = async () => {
+    try {
+      const res = await fetch("/api/wa-campaign", { cache: "no-store" });
+      const data = await res.json();
+      setCloudStatus(data);
+    } catch {
+      setCloudStatus({
+        wa: { status: "offline", connected: false, qr: null, me: null, lastError: null },
+        paused: false,
+        today: 0,
+        limit: 0,
+        campaigns: [],
+        error: "offline",
+      });
+    }
+  };
+
+  // Enquanto o painel estiver aberto, atualiza a cada 8s.
+  useEffect(() => {
+    if (!cloudPanelOpen) return;
+    fetchCloudStatus();
+    const id = setInterval(fetchCloudStatus, 8000);
+    return () => clearInterval(id);
+  }, [cloudPanelOpen]);
+
+  // Gera a imagem do QR (modo QR) a partir do texto vindo do worker.
+  useEffect(() => {
+    const qr = cloudStatus?.wa?.qr;
+    let cancelled = false;
+    const gen =
+      qr && !qr.startsWith("PAIR:")
+        ? QRCode.toDataURL(qr, { width: 220, margin: 1 })
+        : Promise.resolve(null);
+    gen
+      .then((url) => !cancelled && setQrDataUrl(url))
+      .catch(() => !cancelled && setQrDataUrl(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [cloudStatus?.wa?.qr]);
+
+  const toggleCloudPause = async () => {
+    const action = cloudStatus?.paused ? "resume" : "pause";
+    try {
+      await fetch("/api/wa-control", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      fetchCloudStatus();
+    } catch {
+      alert("Não consegui falar com o robô na nuvem.");
+    }
+  };
+
+  const cloudCampaignAction = async (id: number, action: string) => {
+    if (
+      action === "cancel" &&
+      !confirm("Cancelar esta campanha? Os contatos pendentes não serão enviados.")
+    ) {
+      return;
+    }
+    try {
+      await fetch("/api/wa-control", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ campaignId: id, action }),
+      });
+      fetchCloudStatus();
+    } catch {
+      alert("Não consegui falar com o robô na nuvem.");
+    }
+  };
+
   const stopWaCampaign = () => {
     setWaRunning(false);
     setWaPaused(false);
     setWaCountdown(0);
   };
+
+  // Cor/rótulo do indicador de conexão do robô na nuvem.
+  const waConn = cloudStatus?.wa;
+  const cloudConnMeta =
+    !cloudStatus || cloudStatus.error || waConn?.status === "offline"
+      ? { color: "#ef4444", label: "Offline — worker desligado?" }
+      : waConn?.connected
+      ? { color: "#22c55e", label: "Conectado" }
+      : waConn?.status === "qr"
+      ? { color: "#f59e0b", label: "Aguardando pareamento" }
+      : { color: "#f59e0b", label: "Conectando..." };
 
   return (
     <main className={styles.container}>
@@ -528,28 +875,103 @@ export default function Home() {
 
       <section className="glass-panel">
         <form className={styles.searchForm} onSubmit={handleSearch}>
-          <div className={styles.inputGroup}>
-            <label className={styles.label}>Nicho de Mercado</label>
-            <input
-              type="text"
-              className="input-glass"
-              placeholder="Ex: Barbearia, Salão de Beleza..."
-              value={niche}
-              onChange={(e) => setNiche(e.target.value)}
-              required
-            />
+          {/* Seletor de fonte de leads */}
+          <div style={{ flexBasis: "100%", display: "flex", gap: "0.5rem", marginBottom: "0.25rem" }}>
+            <button
+              type="button"
+              className={source === "google" ? "btn-primary" : "btn-secondary"}
+              onClick={() => setSource("google")}
+            >
+              📍 Google Maps
+            </button>
+            <button
+              type="button"
+              className={source === "instagram" ? "btn-primary" : "btn-secondary"}
+              onClick={() => setSource("instagram")}
+            >
+              📸 Instagram
+            </button>
           </div>
-          <div className={styles.inputGroup}>
-            <label className={styles.label}>Localidade (Cidade/Estado)</label>
-            <input
-              type="text"
-              className="input-glass"
-              placeholder="Ex: São Paulo, SP"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              required
-            />
-          </div>
+
+          {source === "google" && (
+            <>
+              <div className={styles.inputGroup}>
+                <label className={styles.label}>Nicho de Mercado</label>
+                <input
+                  type="text"
+                  className="input-glass"
+                  placeholder="Ex: Barbearia, Salão de Beleza..."
+                  value={niche}
+                  onChange={(e) => setNiche(e.target.value)}
+                  required
+                />
+              </div>
+              <div className={styles.inputGroup}>
+                <label className={styles.label}>Localidade (Cidade/Estado)</label>
+                <input
+                  type="text"
+                  className="input-glass"
+                  placeholder="Ex: São Paulo, SP"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  required
+                />
+              </div>
+            </>
+          )}
+
+          {source === "instagram" && (
+            <div style={{ flexBasis: "100%" }}>
+              <div style={{ display: "flex", gap: "1rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", cursor: "pointer" }}>
+                  <input
+                    type="radio"
+                    name="igmode"
+                    checked={igMode === "hashtag"}
+                    onChange={() => setIgMode("hashtag")}
+                  />
+                  Por hashtag/nicho
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", cursor: "pointer" }}>
+                  <input
+                    type="radio"
+                    name="igmode"
+                    checked={igMode === "profiles"}
+                    onChange={() => setIgMode("profiles")}
+                  />
+                  Por perfis (@)
+                </label>
+              </div>
+              <div className={styles.inputGroup}>
+                <label className={styles.label}>
+                  {igMode === "hashtag"
+                    ? "Hashtag ou termo (sem #)"
+                    : "Perfis comerciais (@um, @dois — separados por espaço/vírgula)"}
+                </label>
+                {igMode === "hashtag" ? (
+                  <input
+                    type="text"
+                    className="input-glass"
+                    placeholder="Ex: barbeariasp, petshoprj..."
+                    value={igQuery}
+                    onChange={(e) => setIgQuery(e.target.value)}
+                  />
+                ) : (
+                  <textarea
+                    className={styles.textareaGlass}
+                    placeholder={"@barbearia.x\n@petshop.y\n@moda.z"}
+                    value={igQuery}
+                    onChange={(e) => setIgQuery(e.target.value)}
+                    rows={3}
+                  />
+                )}
+                <p style={{ fontSize: "0.8rem", color: "var(--text-muted, #888)", marginTop: "0.25rem" }}>
+                  Busca posts/perfis comerciais e extrai só quem tem WhatsApp/telefone
+                  público. Requer a API do Instagram configurada (ver docs/INSTAGRAM.md).
+                </p>
+              </div>
+            </div>
+          )}
           <button type="submit" className="btn-primary" disabled={loading}>
             {loading ? <Loader2 className="animate-spin" /> : <Search size={20} />}
             {loading && deepSearch ? "Buscando tudo..." : "Buscar"}
@@ -563,7 +985,8 @@ export default function Home() {
             </label>
           </div>
 
-          {/* Busca Profunda */}
+          {/* Busca Profunda (só no Google Maps) */}
+          {source === "google" && (
           <div style={{ flexBasis: "100%", marginTop: "0.5rem" }}>
             <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", fontWeight: 600 }}>
               <input
@@ -605,7 +1028,161 @@ export default function Home() {
               </div>
             )}
           </div>
+          )}
         </form>
+      </section>
+
+      {/* Painel de acompanhamento do robô na nuvem (Pi) */}
+      <section className="glass-panel" style={{ padding: "1.5rem", marginTop: "1rem" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
+          <h2 className={styles.subtitle} style={{ margin: 0, display: "inline-flex", alignItems: "center", gap: "0.6rem" }}>
+            🤖 Robô na nuvem (Pi)
+            {cloudPanelOpen && (
+              <span style={{ fontSize: "0.8rem", fontWeight: 600, color: cloudConnMeta.color, display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+                <span style={{ width: 9, height: 9, borderRadius: "50%", background: cloudConnMeta.color, display: "inline-block" }} />
+                {cloudConnMeta.label}
+              </span>
+            )}
+          </h2>
+          <button className="btn-secondary" onClick={() => setCloudPanelOpen((o) => !o)}>
+            {cloudPanelOpen ? "Ocultar" : "Acompanhar disparos"}
+          </button>
+        </div>
+
+        {cloudPanelOpen && (
+          <div style={{ marginTop: "1.25rem" }}>
+            {/* Linha de estado + controle global */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem", marginBottom: "1rem" }}>
+              <div style={{ fontSize: "0.9rem" }}>
+                Enviadas hoje:{" "}
+                <strong>{cloudStatus?.today ?? 0}/{cloudStatus?.limit ?? 0}</strong>
+                {cloudStatus?.paused && (
+                  <span style={{ color: "var(--error)", marginLeft: "0.75rem", fontWeight: 600 }}>
+                    ⏸ Pausado
+                  </span>
+                )}
+              </div>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <button className="btn-secondary" onClick={fetchCloudStatus} style={{ fontSize: "0.8rem" }}>
+                  Atualizar
+                </button>
+                <button
+                  className="btn-secondary"
+                  onClick={toggleCloudPause}
+                  disabled={!cloudStatus || Boolean(cloudStatus.error)}
+                  style={{ fontSize: "0.8rem", display: "inline-flex", alignItems: "center", gap: "0.4rem" }}
+                >
+                  {cloudStatus?.paused ? <Play size={16} /> : <Pause size={16} />}
+                  {cloudStatus?.paused ? "Retomar tudo" : "Pausar tudo"}
+                </button>
+              </div>
+            </div>
+
+            {/* Conexão do WhatsApp — mostra o código/QR direto aqui (sem olhar log) */}
+            {cloudStatus && !cloudStatus.wa?.connected && (() => {
+              const wa = cloudStatus.wa;
+              const offline = cloudStatus.error || wa?.status === "offline";
+              const pairCode =
+                typeof wa?.qr === "string" && wa.qr.startsWith("PAIR:")
+                  ? wa.qr.replace("PAIR:", "")
+                  : null;
+              return (
+                <div style={{ marginBottom: "1rem", padding: "1rem", background: "rgba(245,158,11,0.08)", borderRadius: "10px" }}>
+                  {offline ? (
+                    <div style={{ fontSize: "0.85rem", color: "var(--text-muted, #888)" }}>
+                      O robô não respondeu. Confira se o worker está ligado e o WORKER_URL configurado.
+                    </div>
+                  ) : pairCode ? (
+                    <div>
+                      <div style={{ fontWeight: 700, marginBottom: "0.5rem" }}>Conectar WhatsApp — código de pareamento</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+                        <span style={{ fontSize: "1.8rem", fontWeight: 800, letterSpacing: "0.15em", fontFamily: "monospace", color: "#f59e0b" }}>{pairCode}</span>
+                        <button className="btn-secondary" style={{ fontSize: "0.8rem" }} onClick={() => navigator.clipboard?.writeText(pairCode)}>
+                          Copiar
+                        </button>
+                      </div>
+                      <p style={{ fontSize: "0.8rem", color: "var(--text-muted, #888)", marginTop: "0.5rem" }}>
+                        No celular do número: WhatsApp › Aparelhos conectados › Conectar um aparelho › <strong>Conectar com número de telefone</strong> › digite o código.
+                      </p>
+                    </div>
+                  ) : qrDataUrl ? (
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontWeight: 700, marginBottom: "0.5rem" }}>Conectar WhatsApp — escaneie o QR</div>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={qrDataUrl} alt="QR de conexão" style={{ width: 200, height: 200, background: "#fff", borderRadius: 8, padding: 6 }} />
+                      <p style={{ fontSize: "0.8rem", color: "var(--text-muted, #888)", marginTop: "0.5rem" }}>
+                        No celular: WhatsApp › Aparelhos conectados › Conectar um aparelho › aponte a câmera para este QR.
+                      </p>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: "0.85rem", color: "var(--text-muted, #888)" }}>
+                      Conectando… o código de pareamento vai aparecer aqui.
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Lista de campanhas */}
+            {cloudStatus && cloudStatus.campaigns.length === 0 ? (
+              <p style={{ fontSize: "0.9rem", color: "var(--text-muted, #888)" }}>
+                Nenhuma campanha ainda. Selecione contatos e use “Disparar na nuvem (Pi)”.
+              </p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                {(cloudStatus?.campaigns || []).map((c) => {
+                  const sent = c.sent || 0;
+                  const failed = c.failed || 0;
+                  const invalid = c.invalid || 0;
+                  const done = sent + failed + invalid;
+                  const pct = c.total > 0 ? Math.round((done / c.total) * 100) : 0;
+                  return (
+                    <div key={c.id} className="glass-panel" style={{ padding: "1rem" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
+                        <div style={{ fontWeight: 700 }}>
+                          {c.name}{" "}
+                          <span style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--text-muted, #888)" }}>
+                            ({c.status === "active" ? "ativa" : c.status === "paused" ? "pausada" : "concluída"})
+                          </span>
+                        </div>
+                        <div style={{ display: "flex", gap: "0.4rem" }}>
+                          {c.status !== "done" && (
+                            <button
+                              className="btn-secondary"
+                              onClick={() => cloudCampaignAction(c.id, c.status === "paused" ? "resume" : "pause")}
+                              style={{ fontSize: "0.75rem", padding: "0.3rem 0.6rem" }}
+                            >
+                              {c.status === "paused" ? "Retomar" : "Pausar"}
+                            </button>
+                          )}
+                          {c.status !== "done" && (
+                            <button
+                              className="btn-secondary"
+                              onClick={() => cloudCampaignAction(c.id, "cancel")}
+                              style={{ fontSize: "0.75rem", padding: "0.3rem 0.6rem", color: "var(--error)", borderColor: "var(--error)" }}
+                            >
+                              Cancelar
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div style={{ height: "8px", background: "rgba(255,255,255,0.1)", borderRadius: "4px", overflow: "hidden", margin: "0.6rem 0" }}>
+                        <div style={{ height: "100%", width: `${pct}%`, background: "#25D366", transition: "width 0.3s" }} />
+                      </div>
+                      <div style={{ fontSize: "0.8rem", color: "var(--text-muted, #888)", display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+                        <span>✅ {sent} enviadas</span>
+                        <span>⏳ {c.pending || 0} na fila</span>
+                        {failed > 0 && <span style={{ color: "var(--error)" }}>⚠ {failed} falhas</span>}
+                        {invalid > 0 && <span>🚫 {invalid} sem WhatsApp</span>}
+                        <span>· {c.total} total</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
       {results.length > 0 && (
@@ -654,6 +1231,7 @@ export default function Home() {
                     />
                   </th>
                   <th className={styles.th}>Nome</th>
+                  <th className={styles.th}>Canal</th>
                   <th className={styles.th}>Endereço</th>
                   <th className={styles.th}>Telefone</th>
                   <th className={styles.th}>E-mail</th>
@@ -672,11 +1250,37 @@ export default function Home() {
                     </td>
                     <td className={styles.td}>
                       <strong>{biz.name}</strong>
-                      {biz.rating && (
+                      {biz.rating > 0 && (
                         <div style={{ fontSize: "0.8rem", color: "var(--accent)" }}>
                           ★ {biz.rating}
                         </div>
                       )}
+                    </td>
+                    <td className={styles.td}>
+                      {(() => {
+                        const badge = (bg: string, txt: string) => (
+                          <span
+                            style={{
+                              background: bg,
+                              color: "white",
+                              padding: "3px 8px",
+                              borderRadius: "999px",
+                              fontSize: "0.75rem",
+                              fontWeight: 700,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {txt}
+                          </span>
+                        );
+                        if (getWaLink(biz.phone)) return badge("#25D366", "📱 Zap");
+                        if (biz.email) return badge("#3b82f6", "✉️ E-mail");
+                        return (
+                          <span style={{ fontSize: "0.75rem", color: "var(--text-muted, #888)" }}>
+                            — sem contato
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className={styles.td}>{biz.address}</td>
                     <td className={styles.td}>
@@ -747,6 +1351,32 @@ export default function Home() {
               </button>
             </div>
 
+            <p style={{ fontSize: "0.85rem", color: "var(--text-muted, #888)", marginBottom: "1rem" }}>
+              {(() => {
+                const sel = results.filter((r) => selectedIds.has(r.id));
+                const withEmail = sel.filter((r) => r.email).length;
+                return `${withEmail} de ${sel.length} selecionado(s) têm e-mail — os demais serão pulados. Bom fallback para leads do Instagram sem WhatsApp.`;
+              })()}
+            </p>
+
+            <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap", marginBottom: "0.75rem", alignItems: "center" }}>
+              <span style={{ fontSize: "0.75rem", color: "var(--text-muted, #888)" }}>Modelos:</span>
+              {EMAIL_PRESETS.map((p) => (
+                <button
+                  key={p.label}
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => {
+                    setEmailSubject(p.subject);
+                    setEmailBody(p.body);
+                  }}
+                  style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem" }}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
             <div className={styles.inputGroup}>
               <label className={styles.label}>Assunto do E-mail</label>
               <input
@@ -766,6 +1396,29 @@ export default function Home() {
                 value={emailBody}
                 onChange={(e) => setEmailBody(e.target.value)}
               />
+            </div>
+
+            <div className={styles.inputGroup}>
+              <label className={styles.label}>Imagem (opcional — embutida no corpo do e-mail)</label>
+              {emailImage ? (
+                <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={emailImage}
+                    alt="prévia"
+                    style={{ maxHeight: "90px", maxWidth: "140px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.15)" }}
+                  />
+                  <span style={{ fontSize: "0.8rem", color: "var(--text-muted, #888)" }}>{emailImageName}</span>
+                  <button type="button" className="btn-secondary" onClick={clearEmailImage} style={{ fontSize: "0.8rem" }}>
+                    Remover imagem
+                  </button>
+                </div>
+              ) : (
+                <label className="btn-secondary" style={{ cursor: "pointer", display: "inline-block", textAlign: "center" }}>
+                  Escolher imagem (PNG/JPG/WEBP, até 6 MB)
+                  <input type="file" accept="image/png,image/jpeg,image/webp" style={{ display: "none" }} onChange={handleEmailImageChange} />
+                </label>
+              )}
             </div>
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem" }}>
@@ -811,7 +1464,28 @@ export default function Home() {
                 </p>
 
                 <div className={styles.inputGroup}>
-                  <label className={styles.label}>Mensagem padrão (use {"{nome}"} para personalizar)</label>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem", flexWrap: "wrap" }}>
+                    <label className={styles.label} style={{ margin: 0 }}>
+                      Mensagem padrão (use {"{nome}"} para personalizar)
+                    </label>
+                    <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
+                      <span style={{ fontSize: "0.75rem", color: "var(--text-muted, #888)", alignSelf: "center" }}>Modelos:</span>
+                      {WA_PRESETS.map((p) => (
+                        <button
+                          key={p.label}
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() => {
+                            setWaMessage(p.text);
+                            setWaAppUrl(p.appUrl);
+                          }}
+                          style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem" }}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <textarea
                     className={styles.textareaGlass}
                     value={waMessage}
@@ -829,6 +1503,58 @@ export default function Home() {
                     value={waAppUrl}
                     onChange={(e) => setWaAppUrl(e.target.value)}
                   />
+                </div>
+
+                {/* Imagem opcional (só no disparo na nuvem) */}
+                <div className={styles.inputGroup}>
+                  <label className={styles.label}>Imagem (opcional — enviada com a mensagem no disparo na nuvem)</label>
+                  {waImage ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={waImage}
+                        alt="prévia"
+                        style={{ maxHeight: "90px", maxWidth: "140px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.15)" }}
+                      />
+                      <span style={{ fontSize: "0.8rem", color: "var(--text-muted, #888)" }}>{waImageName}</span>
+                      <button type="button" className="btn-secondary" onClick={clearWaImage} style={{ fontSize: "0.8rem" }}>
+                        Remover imagem
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="btn-secondary" style={{ cursor: "pointer", display: "inline-block", textAlign: "center" }}>
+                      Escolher imagem (PNG/JPG/WEBP, até 6 MB)
+                      <input type="file" accept="image/png,image/jpeg,image/webp" style={{ display: "none" }} onChange={handleWaImageChange} />
+                    </label>
+                  )}
+                </div>
+
+                {/* Teste de disparo para um número avulso */}
+                <div className={styles.inputGroup} style={{ background: "rgba(37,211,102,0.06)", padding: "0.75rem", borderRadius: "8px" }}>
+                  <label className={styles.label}>Testar disparo (envia a mensagem atual para um número na hora)</label>
+                  <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                    <input
+                      type="text"
+                      className="input-glass"
+                      placeholder="Ex: (11) 99999-9999"
+                      value={waTestPhone}
+                      onChange={(e) => setWaTestPhone(e.target.value)}
+                      style={{ flex: 1, minWidth: "180px" }}
+                    />
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={sendTestWa}
+                      disabled={waTestSending}
+                      style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", whiteSpace: "nowrap" }}
+                    >
+                      {waTestSending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                      {waTestSending ? "Enviando..." : "Enviar teste"}
+                    </button>
+                  </div>
+                  <p style={{ fontSize: "0.75rem", color: "var(--text-muted, #888)", marginTop: "0.35rem" }}>
+                    Requer o robô conectado. Não conta na cota — use seu próprio número para validar texto, link e imagem.
+                  </p>
                 </div>
 
                 <div style={{ display: "flex", gap: "1rem" }}>
@@ -895,9 +1621,19 @@ export default function Home() {
                       Zerar cota de hoje
                     </button>
                   </div>
-                  <div style={{ display: "flex", gap: "1rem" }}>
+                  <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
                   <button className="btn-secondary" onClick={() => setIsWaModalOpen(false)}>
                     Cancelar
+                  </button>
+                  <button
+                    className="btn-secondary"
+                    onClick={sendCloudCampaign}
+                    disabled={cloudSending}
+                    title="Envia a fila para o worker no Raspberry Pi, que dispara sozinho 24/7"
+                    style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}
+                  >
+                    {cloudSending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                    {cloudSending ? "Enviando..." : "Disparar na nuvem (Pi)"}
                   </button>
                   <button
                     className="btn-primary"
@@ -908,6 +1644,11 @@ export default function Home() {
                   </button>
                   </div>
                 </div>
+                <p style={{ fontSize: "0.8rem", color: "var(--text-muted, #888)", marginTop: "0.75rem" }}>
+                  <strong>Iniciar disparo</strong>: semi-automático, aqui no navegador (abre cada conversa
+                  para você clicar). <strong>Disparar na nuvem (Pi)</strong>: manda a fila para o robô no
+                  Raspberry Pi, que envia sozinho 24/7 — não precisa deixar o computador ligado.
+                </p>
               </>
             )}
 
