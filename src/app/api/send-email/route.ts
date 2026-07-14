@@ -3,11 +3,25 @@ import nodemailer from "nodemailer";
 
 export async function POST(request: Request) {
   try {
-    const { targets, subject, body } = await request.json();
+    const { targets, subject, body, image } = await request.json();
 
     if (!targets || targets.length === 0 || !subject || !body) {
       return NextResponse.json({ error: "Parâmetros incompletos" }, { status: 400 });
     }
+
+    // Imagem opcional embutida no corpo (inline via CID).
+    const parseImage = (dataUrl: unknown) => {
+      const m = /^data:image\/(png|jpe?g|webp);base64,(.+)$/i.exec(String(dataUrl || ""));
+      if (!m) return null;
+      const ext = m[1].toLowerCase() === "jpeg" ? "jpg" : m[1].toLowerCase();
+      const content = Buffer.from(m[2], "base64");
+      if (content.length === 0 || content.length > 6 * 1024 * 1024) return null;
+      return { filename: `imagem.${ext}`, content, cid: "promo-img" };
+    };
+    const attachment = parseImage(image);
+    const imgHtml = attachment
+      ? `<img src="cid:${attachment.cid}" style="max-width:100%;height:auto" /><br/><br/>`
+      : "";
 
     const userEmail = process.env.SMTP_EMAIL;
     const userPassword = process.env.SMTP_PASSWORD;
@@ -54,7 +68,8 @@ export async function POST(request: Request) {
           to: recipientEmail,
           subject: subject,
           text: personalizedBody,
-          html: `<p>${personalizedBody.replace(/\n/g, "<br>")}</p>`,
+          html: `${imgHtml}<p>${personalizedBody.replace(/\n/g, "<br>")}</p>`,
+          attachments: attachment ? [attachment] : undefined,
         });
         successCount++;
         // Respiro entre envios para não parecer spam no provedor SMTP.

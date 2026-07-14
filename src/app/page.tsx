@@ -129,6 +129,9 @@ export default function Home() {
   // Imagem opcional anexada à mensagem (data URL base64) — só no disparo na nuvem.
   const [waImage, setWaImage] = useState<string | null>(null);
   const [waImageName, setWaImageName] = useState<string>("");
+  // Imagem opcional embutida no e-mail (inline).
+  const [emailImage, setEmailImage] = useState<string | null>(null);
+  const [emailImageName, setEmailImageName] = useState<string>("");
   // Painel de acompanhamento do robô na nuvem (Pi).
   const [cloudPanelOpen, setCloudPanelOpen] = useState(false);
   const [cloudStatus, setCloudStatus] = useState<CloudStatus | null>(null);
@@ -382,7 +385,7 @@ export default function Home() {
       const res = await fetch("/api/send-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targets, subject: emailSubject, body: emailBody }),
+        body: JSON.stringify({ targets, subject: emailSubject, body: emailBody, image: emailImage || undefined }),
       });
       const data = await res.json();
       if (data.success) {
@@ -620,7 +623,11 @@ export default function Home() {
     },
   ];
 
-  const handleWaImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Lê um arquivo de imagem para data URL base64, validando tipo e tamanho.
+  const readImageAsDataUrl = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    onDone: (dataUrl: string, name: string) => void
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!/^image\/(png|jpe?g|webp)$/i.test(file.type)) {
@@ -630,16 +637,28 @@ export default function Home() {
       return alert("Imagem muito grande (máx. 6 MB).");
     }
     const reader = new FileReader();
-    reader.onload = () => {
-      setWaImage(String(reader.result));
-      setWaImageName(file.name);
-    };
+    reader.onload = () => onDone(String(reader.result), file.name);
     reader.readAsDataURL(file);
   };
 
+  const handleWaImageChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+    readImageAsDataUrl(e, (d, n) => {
+      setWaImage(d);
+      setWaImageName(n);
+    });
   const clearWaImage = () => {
     setWaImage(null);
     setWaImageName("");
+  };
+
+  const handleEmailImageChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+    readImageAsDataUrl(e, (d, n) => {
+      setEmailImage(d);
+      setEmailImageName(n);
+    });
+  const clearEmailImage = () => {
+    setEmailImage(null);
+    setEmailImageName("");
   };
 
   // Envia a fila para o worker na nuvem (Pi), que dispara sozinho 24/7
@@ -1254,6 +1273,29 @@ export default function Home() {
                 value={emailBody}
                 onChange={(e) => setEmailBody(e.target.value)}
               />
+            </div>
+
+            <div className={styles.inputGroup}>
+              <label className={styles.label}>Imagem (opcional — embutida no corpo do e-mail)</label>
+              {emailImage ? (
+                <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={emailImage}
+                    alt="prévia"
+                    style={{ maxHeight: "90px", maxWidth: "140px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.15)" }}
+                  />
+                  <span style={{ fontSize: "0.8rem", color: "var(--text-muted, #888)" }}>{emailImageName}</span>
+                  <button type="button" className="btn-secondary" onClick={clearEmailImage} style={{ fontSize: "0.8rem" }}>
+                    Remover imagem
+                  </button>
+                </div>
+              ) : (
+                <label className="btn-secondary" style={{ cursor: "pointer", display: "inline-block", textAlign: "center" }}>
+                  Escolher imagem (PNG/JPG/WEBP, até 6 MB)
+                  <input type="file" accept="image/png,image/jpeg,image/webp" style={{ display: "none" }} onChange={handleEmailImageChange} />
+                </label>
+              )}
             </div>
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem" }}>
