@@ -67,14 +67,11 @@ node -v                    # deve mostrar v22.x
 ```bash
 git clone https://github.com/Douglaspp7/Robo_Comercial.git
 cd Robo_Comercial
-# o código está na branch de trabalho (ainda não no main):
-git checkout claude/zapien-promotion-strategy-xk2wl4
 ```
 
 > O repositório é privado — o `git clone` vai pedir seu login do GitHub. Use um
 > **token de acesso pessoal** como senha (github.com → Settings → Developer
-> settings → Personal access tokens), ou configure uma chave SSH. Quando esta
-> branch virar `main`, é só usar `main` (sem o `git checkout`).
+> settings → Personal access tokens), ou configure uma chave SSH.
 
 Feito isso, siga os passos abaixo (celular → worker → painel).
 
