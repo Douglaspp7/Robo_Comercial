@@ -50,6 +50,22 @@ db.exec(`
     PRIMARY KEY (number_id, day)
   );
 
+  -- Envios por HORA, por número (teto/hora anti-pico).
+  CREATE TABLE IF NOT EXISTS hour_counter (
+    number_id TEXT NOT NULL,
+    hour_key  TEXT NOT NULL,          -- YYYY-MM-DDTHH (local)
+    count     INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (number_id, hour_key)
+  );
+
+  -- Lista de supressão: quem deu opt-out (SAIR) ou não deve ser recontatado.
+  CREATE TABLE IF NOT EXISTS suppression (
+    jid        TEXT PRIMARY KEY,
+    phone      TEXT,
+    reason     TEXT,                  -- optout | manual | ...
+    created_at INTEGER NOT NULL
+  );
+
   -- Marca o 1º dia em que o número foi usado (para o aquecimento/warmup).
   CREATE TABLE IF NOT EXISTS settings (
     key   TEXT PRIMARY KEY,
@@ -202,4 +218,47 @@ const stmtTodayTotal = db.prepare(
 );
 export function todayTotal() {
   return stmtTodayTotal.get(todayStr()).t;
+}
+
+// ── Teto por hora ────────────────────────────────────────────────────────────
+function hourKey() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}`;
+}
+const stmtGetHour = db.prepare(
+  `SELECT count FROM hour_counter WHERE number_id=? AND hour_key=?`
+);
+const stmtBumpHour = db.prepare(
+  `INSERT INTO hour_counter (number_id, hour_key, count) VALUES (@number_id, @hour_key, 1)
+   ON CONFLICT(number_id, hour_key) DO UPDATE SET count = count + 1`
+);
+export function getHourCount(numberId) {
+  const row = stmtGetHour.get(numberId, hourKey());
+  return row ? row.count : 0;
+}
+export function incHourCount(numberId) {
+  stmtBumpHour.run({ number_id: numberId, hour_key: hourKey() });
+}
+
+// ── Supressão (opt-out / não recontatar) ─────────────────────────────────────
+const stmtIsSuppressed = db.prepare(`SELECT 1 FROM suppression WHERE jid=? LIMIT 1`);
+const stmtAddSuppression = db.prepare(
+  `INSERT OR IGNORE INTO suppression (jid, phone, reason, created_at)
+   VALUES (@jid, @phone, @reason, @created_at)`
+);
+const stmtSuppressionCount = db.prepare(`SELECT COUNT(*) AS c FROM suppression`);
+export function isSuppressed(jid) {
+  return Boolean(stmtIsSuppressed.get(jid));
+}
+export function addSuppression(jid, phone, reason) {
+  stmtAddSuppression.run({
+    jid,
+    phone: phone || null,
+    reason: reason || "manual",
+    created_at: Date.now(),
+  });
+}
+export function suppressionCount() {
+  return stmtSuppressionCount.get().c;
 }

@@ -56,7 +56,34 @@ export const config = {
 
   // DDI padrão para números sem código de país (Brasil = 55).
   defaultCountryCode: process.env.WA_DEFAULT_DDI || "55",
+
+  // Janela de horário de envio (hora local, 0-23). Ex.: "9-19" só envia das
+  // 9h às 19h. Vazio = 24h. Cadência humana: não parecer robô de madrugada.
+  sendWindow: parseWindow(process.env.WA_SEND_WINDOW),
+
+  // Teto de envios por hora, POR número (0 = sem teto). Suaviza picos.
+  maxPerHour: num(process.env.WA_MAX_PER_HOUR, 0),
+
+  // Palavras que, recebidas de um contato, o removem da lista (opt-out).
+  optoutKeywords: (process.env.WA_OPTOUT_KEYWORDS ||
+    "sair,parar,pare,cancelar,stop,descadastrar,remover")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean),
+
+  // Rodapé opcional anexado a cada mensagem (ex.: "Responda SAIR para não
+  // receber."). Vazio = não anexa.
+  optoutFooter: (process.env.WA_OPTOUT_FOOTER || "").trim(),
 };
+
+/** "9-19" -> { start: 9, end: 19 }; vazio/ inválido -> null (24h). */
+function parseWindow(raw) {
+  const m = /^(\d{1,2})\s*-\s*(\d{1,2})$/.exec((raw || "").trim());
+  if (!m) return null;
+  const start = Math.max(0, Math.min(23, Number(m[1])));
+  const end = Math.max(1, Math.min(24, Number(m[2])));
+  return end > start ? { start, end } : null;
+}
 
 export function randomDelaySec() {
   const { minDelaySec, maxDelaySec } = config;

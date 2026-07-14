@@ -12,6 +12,8 @@ import {
   queries,
   getTodayCount,
   todayTotal,
+  suppressionCount,
+  addSuppression,
 } from "./db.js";
 import {
   getAllStates,
@@ -131,8 +133,24 @@ const server = http.createServer(async (req, res) => {
         paused: isPaused(),
         today: todayTotal(),
         limit: aggregateLimit(),
+        suppressed: suppressionCount(),
         campaigns: queries.campaignStats.all(),
       });
+    }
+
+    // Adiciona telefones à lista de supressão (não recontatar).
+    if (req.method === "POST" && path === "/suppression") {
+      const body = await readJson(req);
+      const phones = Array.isArray(body.phones) ? body.phones : [];
+      let added = 0;
+      for (const p of phones) {
+        const jid = numberToJid(p);
+        if (jid) {
+          addSuppression(jid, normalizeNumber(p), body.reason || "manual");
+          added++;
+        }
+      }
+      return send(res, 200, { added, total: suppressionCount() });
     }
 
     // Cria campanha a partir dos contatos selecionados no painel.

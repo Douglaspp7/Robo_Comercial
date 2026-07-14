@@ -43,6 +43,7 @@ interface CloudStatus {
   paused: boolean;
   today: number;
   limit: number;
+  suppressed?: number;
   campaigns: CloudCampaign[];
   error?: string;
 }
@@ -97,7 +98,7 @@ const WA_PRESETS = [
     label: "Direto",
     appUrl: ZAPIEN_LINK,
     text:
-      "Oi {nome}, tudo bem? 😊 Aqui é do Zapien. Esse atendimento que você está " +
+      "{Oi|Olá|Opa} {nome}, tudo bem? 😊 Aqui é do Zapien. Esse atendimento que você está " +
       "recebendo é feito por uma IA — a mesma que pode atender os seus clientes " +
       "no WhatsApp e vender por você, 24h. Dá uma olhada (pode até conversar com ela):",
   },
@@ -105,14 +106,14 @@ const WA_PRESETS = [
     label: "Curto",
     appUrl: ZAPIEN_LINK,
     text:
-      "Oi {nome}! Uma IA pode atender seus clientes no WhatsApp e fechar venda por " +
+      "{Oi|Olá|Opa} {nome}! Uma IA pode atender seus clientes no WhatsApp e fechar venda por " +
       "você, sem parar. Quer testar conversando com ela agora? 👇",
   },
   {
     label: "Prova",
     appUrl: ZAPIEN_LINK,
     text:
-      "Oi {nome}, rapidinho: essa própria mensagem faz parte de um atendimento com " +
+      "{Oi|Olá} {nome}, rapidinho: essa própria mensagem faz parte de um atendimento com " +
       "IA (Zapien). Ela responde, tira dúvida e vende — no seu WhatsApp, 24h. Fala " +
       "com ela e sente como seria pro seu negócio:",
   },
@@ -1067,6 +1068,11 @@ export default function Home() {
               <div style={{ fontSize: "0.9rem" }}>
                 Enviadas hoje:{" "}
                 <strong>{cloudStatus?.today ?? 0}/{cloudStatus?.limit ?? 0}</strong>
+                {(cloudStatus?.suppressed ?? 0) > 0 && (
+                  <span style={{ marginLeft: "0.75rem", color: "var(--text-muted, #888)", fontSize: "0.82rem" }}>
+                    🚫 {cloudStatus?.suppressed} em supressão (opt-out)
+                  </span>
+                )}
                 {cloudStatus?.paused && (
                   <span style={{ color: "var(--error)", marginLeft: "0.75rem", fontWeight: 600 }}>
                     ⏸ Pausado
@@ -1506,6 +1512,10 @@ export default function Home() {
                     onChange={(e) => setWaMessage(e.target.value)}
                     rows={4}
                   />
+                  <p style={{ fontSize: "0.75rem", color: "var(--text-muted, #888)", marginTop: "0.25rem" }}>
+                    Anti-ban: use <strong>{"{opção1|opção2}"}</strong> para variar a mensagem
+                    (cada contato recebe uma versão diferente). Ex.: <em>{"{Oi|Olá|Opa}"} {"{nome}"}!</em>
+                  </p>
                 </div>
 
                 <div className={styles.inputGroup}>

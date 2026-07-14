@@ -14,6 +14,9 @@ import {
   getTodayCount,
   incTodayCount,
   usedDays,
+  getHourCount,
+  incHourCount,
+  isSuppressed,
 } from "./db.js";
 import { getSessionState, checkOnWhatsApp, sendText, sendImage } from "./wa.js";
 import { numberToJid, normalizeNumber, renderMessage } from "./phone.js";
@@ -46,6 +49,28 @@ function msUntilNextDay() {
   return next.getTime() - now.getTime();
 }
 
+// Janela de horário (cadência humana): só envia dentro de [start, end).
+function withinWindow() {
+  const w = config.sendWindow;
+  if (!w) return true;
+  const h = new Date().getHours();
+  return h >= w.start && h < w.end;
+}
+function msUntilWindowOpen() {
+  const w = config.sendWindow;
+  const now = new Date();
+  const target = new Date(now);
+  target.setHours(w.start, 0, 5, 0);
+  if (now.getHours() >= w.start) target.setDate(target.getDate() + 1); // fora = já passou de end
+  return Math.max(1000, target.getTime() - now.getTime());
+}
+function msUntilNextHour() {
+  const now = new Date();
+  const next = new Date(now);
+  next.setHours(now.getHours() + 1, 0, 5, 0);
+  return Math.max(1000, next.getTime() - now.getTime());
+}
+
 function schedule(numberId, ms) {
   if (stopped) return;
   clearTimeout(timers.get(numberId));
@@ -63,6 +88,12 @@ async function tick(numberId) {
   // Cota diária deste número.
   if (getTodayCount(numberId) >= effectiveDailyLimit(numberId)) {
     return schedule(numberId, msUntilNextDay());
+  }
+  // Janela de horário (não enviar de madrugada).
+  if (!withinWindow()) return schedule(numberId, msUntilWindowOpen());
+  // Teto por hora deste número (suaviza picos).
+  if (config.maxPerHour > 0 && getHourCount(numberId) >= config.maxPerHour) {
+    return schedule(numberId, msUntilNextHour());
   }
 
   // Reserva atômica do próximo pendente (marca 'sending' + este número).
@@ -87,8 +118,15 @@ async function tick(numberId) {
   const jid = canonicalJid || item.jid || numberToJid(item.phone);
   if (jid !== item.jid) queries.setJid.run({ id: item.id, jid });
 
+  // Supressão: opt-out (SAIR) ou "não recontatar" → não envia.
+  if (isSuppressed(jid)) {
+    queries.markInvalid.run({ id: item.id, error: "opt-out/supressão" });
+    return schedule(numberId, 300);
+  }
+
   const camp = stmtCampaign.get(item.campaign_id);
-  const text = renderMessage(camp.message, item.name, camp.app_url);
+  let text = renderMessage(camp.message, item.name, camp.app_url);
+  if (config.optoutFooter) text += `\n\n${config.optoutFooter}`;
   const tail = number.slice(-4);
   try {
     if (camp.image_path && fs.existsSync(camp.image_path)) {
@@ -98,6 +136,7 @@ async function tick(numberId) {
     }
     queries.markSent.run({ id: item.id, ts: Date.now() });
     incTodayCount(numberId);
+    incHourCount(numberId);
     console.log(
       `  [${numberId}] enviado ...${tail} ` +
         `(${getTodayCount(numberId)}/${effectiveDailyLimit(numberId)} hoje).`
