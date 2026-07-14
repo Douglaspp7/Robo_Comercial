@@ -28,14 +28,18 @@ interface CloudCampaign {
   failed: number | null;
   invalid: number | null;
 }
+interface CloudNumber {
+  id: string;
+  status: string;
+  connected: boolean;
+  qr: string | null;
+  me: string | null;
+  lastError: string | null;
+  today?: number;
+  limit?: number;
+}
 interface CloudStatus {
-  wa: {
-    status: string;
-    connected: boolean;
-    qr: string | null;
-    me: string | null;
-    lastError: string | null;
-  };
+  numbers: CloudNumber[];
   paused: boolean;
   today: number;
   limit: number;
@@ -183,7 +187,7 @@ export default function Home() {
   // Painel de acompanhamento do robô na nuvem (Pi).
   const [cloudPanelOpen, setCloudPanelOpen] = useState(false);
   const [cloudStatus, setCloudStatus] = useState<CloudStatus | null>(null);
-  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [qrDataUrls, setQrDataUrls] = useState<Record<string, string>>({});
 
   const handleDiscoverRegions = async () => {
     if (!location.trim()) {
@@ -782,7 +786,7 @@ export default function Home() {
       setCloudStatus(data);
     } catch {
       setCloudStatus({
-        wa: { status: "offline", connected: false, qr: null, me: null, lastError: null },
+        numbers: [],
         paused: false,
         today: 0,
         limit: 0,
@@ -800,21 +804,27 @@ export default function Home() {
     return () => clearInterval(id);
   }, [cloudPanelOpen]);
 
-  // Gera a imagem do QR (modo QR) a partir do texto vindo do worker.
+  // Gera a imagem do QR (modo QR) por número, a partir do texto do worker.
+  const qrSignature = JSON.stringify(
+    (cloudStatus?.numbers || []).map((n) => [n.id, n.qr])
+  );
   useEffect(() => {
-    const qr = cloudStatus?.wa?.qr;
+    const nums = cloudStatus?.numbers || [];
     let cancelled = false;
-    const gen =
-      qr && !qr.startsWith("PAIR:")
-        ? QRCode.toDataURL(qr, { width: 220, margin: 1 })
-        : Promise.resolve(null);
-    gen
-      .then((url) => !cancelled && setQrDataUrl(url))
-      .catch(() => !cancelled && setQrDataUrl(null));
+    Promise.all(
+      nums
+        .filter((n) => n.qr && !n.qr.startsWith("PAIR:"))
+        .map(async (n) =>
+          [n.id, await QRCode.toDataURL(n.qr as string, { width: 220, margin: 1 })] as const
+        )
+    )
+      .then((entries) => !cancelled && setQrDataUrls(Object.fromEntries(entries)))
+      .catch(() => !cancelled && setQrDataUrls({}));
     return () => {
       cancelled = true;
     };
-  }, [cloudStatus?.wa?.qr]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qrSignature]);
 
   const toggleCloudPause = async () => {
     const action = cloudStatus?.paused ? "resume" : "pause";
@@ -855,16 +865,17 @@ export default function Home() {
     setWaCountdown(0);
   };
 
-  // Cor/rótulo do indicador de conexão do robô na nuvem.
-  const waConn = cloudStatus?.wa;
+  // Indicador de conexão agregado (X/Y números conectados).
+  const cloudNumbers = cloudStatus?.numbers || [];
+  const connectedCount = cloudNumbers.filter((n) => n.connected).length;
   const cloudConnMeta =
-    !cloudStatus || cloudStatus.error || waConn?.status === "offline"
+    !cloudStatus || cloudStatus.error || cloudNumbers.length === 0
       ? { color: "#ef4444", label: "Offline — worker desligado?" }
-      : waConn?.connected
-      ? { color: "#22c55e", label: "Conectado" }
-      : waConn?.status === "qr"
-      ? { color: "#f59e0b", label: "Aguardando pareamento" }
-      : { color: "#f59e0b", label: "Conectando..." };
+      : connectedCount === cloudNumbers.length
+      ? { color: "#22c55e", label: `Conectado (${connectedCount}/${cloudNumbers.length})` }
+      : connectedCount > 0
+      ? { color: "#22c55e", label: `${connectedCount}/${cloudNumbers.length} conectados` }
+      : { color: "#f59e0b", label: "Aguardando pareamento" };
 
   return (
     <main className={styles.container}>
@@ -1078,50 +1089,53 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Conexão do WhatsApp — mostra o código/QR direto aqui (sem olhar log) */}
-            {cloudStatus && !cloudStatus.wa?.connected && (() => {
-              const wa = cloudStatus.wa;
-              const offline = cloudStatus.error || wa?.status === "offline";
-              const pairCode =
-                typeof wa?.qr === "string" && wa.qr.startsWith("PAIR:")
-                  ? wa.qr.replace("PAIR:", "")
-                  : null;
-              return (
-                <div style={{ marginBottom: "1rem", padding: "1rem", background: "rgba(245,158,11,0.08)", borderRadius: "10px" }}>
-                  {offline ? (
-                    <div style={{ fontSize: "0.85rem", color: "var(--text-muted, #888)" }}>
-                      O robô não respondeu. Confira se o worker está ligado e o WORKER_URL configurado.
-                    </div>
-                  ) : pairCode ? (
-                    <div>
-                      <div style={{ fontWeight: 700, marginBottom: "0.5rem" }}>Conectar WhatsApp — código de pareamento</div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
-                        <span style={{ fontSize: "1.8rem", fontWeight: 800, letterSpacing: "0.15em", fontFamily: "monospace", color: "#f59e0b" }}>{pairCode}</span>
-                        <button className="btn-secondary" style={{ fontSize: "0.8rem" }} onClick={() => navigator.clipboard?.writeText(pairCode)}>
-                          Copiar
-                        </button>
-                      </div>
+            {/* Conexão — um bloco por número que ainda não conectou (sem olhar log) */}
+            {cloudStatus && (cloudStatus.error || cloudNumbers.length === 0) && (
+              <div style={{ fontSize: "0.85rem", color: "var(--text-muted, #888)", marginBottom: "1rem", padding: "0.75rem", background: "rgba(239,68,68,0.08)", borderRadius: "8px" }}>
+                O robô não respondeu. Confira se o worker está ligado e o WORKER_URL configurado.
+              </div>
+            )}
+            {cloudStatus && !cloudStatus.error && cloudNumbers.filter((n) => !n.connected).length > 0 && (
+              <div style={{ marginBottom: "1rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                {cloudNumbers.filter((n) => !n.connected).map((n) => {
+                  const pairCode = typeof n.qr === "string" && n.qr.startsWith("PAIR:") ? n.qr.replace("PAIR:", "") : null;
+                  const qrImg = qrDataUrls[n.id];
+                  const label = n.id !== "default" ? `…${n.id.slice(-4)}` : "";
+                  return (
+                    <div key={n.id} style={{ padding: "1rem", background: "rgba(245,158,11,0.08)", borderRadius: "10px" }}>
+                      <div style={{ fontWeight: 700, marginBottom: "0.5rem" }}>Conectar número {label}</div>
+                      {pairCode ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+                          <span style={{ fontSize: "1.8rem", fontWeight: 800, letterSpacing: "0.15em", fontFamily: "monospace", color: "#f59e0b" }}>{pairCode}</span>
+                          <button className="btn-secondary" style={{ fontSize: "0.8rem" }} onClick={() => navigator.clipboard?.writeText(pairCode)}>Copiar</button>
+                        </div>
+                      ) : qrImg ? (
+                        <div style={{ textAlign: "center" }}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={qrImg} alt="QR de conexão" style={{ width: 180, height: 180, background: "#fff", borderRadius: 8, padding: 6 }} />
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: "0.85rem", color: "var(--text-muted, #888)" }}>Conectando… o código vai aparecer aqui.</div>
+                      )}
                       <p style={{ fontSize: "0.8rem", color: "var(--text-muted, #888)", marginTop: "0.5rem" }}>
-                        No celular do número: WhatsApp › Aparelhos conectados › Conectar um aparelho › <strong>Conectar com número de telefone</strong> › digite o código.
+                        No celular deste número: WhatsApp › Aparelhos conectados › Conectar um aparelho › {pairCode ? "Conectar com número de telefone › digite o código." : "aponte a câmera para o QR."}
                       </p>
                     </div>
-                  ) : qrDataUrl ? (
-                    <div style={{ textAlign: "center" }}>
-                      <div style={{ fontWeight: 700, marginBottom: "0.5rem" }}>Conectar WhatsApp — escaneie o QR</div>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={qrDataUrl} alt="QR de conexão" style={{ width: 200, height: 200, background: "#fff", borderRadius: 8, padding: 6 }} />
-                      <p style={{ fontSize: "0.8rem", color: "var(--text-muted, #888)", marginTop: "0.5rem" }}>
-                        No celular: WhatsApp › Aparelhos conectados › Conectar um aparelho › aponte a câmera para este QR.
-                      </p>
-                    </div>
-                  ) : (
-                    <div style={{ fontSize: "0.85rem", color: "var(--text-muted, #888)" }}>
-                      Conectando… o código de pareamento vai aparecer aqui.
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Resumo dos números conectados (cota do dia por chip) */}
+            {cloudStatus && !cloudStatus.error && cloudNumbers.some((n) => n.connected) && (
+              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1rem" }}>
+                {cloudNumbers.filter((n) => n.connected).map((n) => (
+                  <span key={n.id} style={{ fontSize: "0.78rem", padding: "0.25rem 0.6rem", borderRadius: "999px", background: "rgba(34,197,94,0.12)", color: "#16a34a", fontWeight: 600 }}>
+                    🟢 {n.id !== "default" ? `…${n.id.slice(-4)}` : "número"} · {n.today ?? 0}/{n.limit ?? 0}
+                  </span>
+                ))}
+              </div>
+            )}
 
             {/* Lista de campanhas */}
             {cloudStatus && cloudStatus.campaigns.length === 0 ? (

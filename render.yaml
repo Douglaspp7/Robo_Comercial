@@ -23,7 +23,9 @@ services:
       - key: WORKER_API_TOKEN
         generateValue: true  # token forte gerado pelo Render (o painel usa no header)
       - key: WA_PAIR_PHONE
-        sync: false          # você preenche no painel do Render: número do chip (ex.: 5511999999999)
+        sync: false          # 1 chip: número do pareamento (ex.: 5511999999999)
+      - key: WA_NUMBERS
+        sync: false          # 2+ chips: lista separada por vírgula (ex.: 5511111,5522222). Se preenchido, ignora WA_PAIR_PHONE.
       - key: WA_DAILY_LIMIT
         value: "40"
       - key: WA_WARMUP_RAMP

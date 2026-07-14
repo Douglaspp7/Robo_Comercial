@@ -42,10 +42,12 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_items_pending
     ON campaign_items(status, campaign_id);
 
-  -- Cota diária global (todos os envios contam contra o mesmo teto do número).
-  CREATE TABLE IF NOT EXISTS daily_counter (
-    day   TEXT PRIMARY KEY,           -- YYYY-MM-DD
-    count INTEGER NOT NULL DEFAULT 0
+  -- Cota diária POR NÚMERO (cada chip tem seu próprio teto/dia).
+  CREATE TABLE IF NOT EXISTS number_counter (
+    number_id TEXT NOT NULL,
+    day       TEXT NOT NULL,          -- YYYY-MM-DD
+    count     INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (number_id, day)
   );
 
   -- Marca o 1º dia em que o número foi usado (para o aquecimento/warmup).
@@ -56,11 +58,20 @@ db.exec(`
 `);
 
 // Migração idempotente: imagem opcional por campanha (caminho no disco).
-// Quando presente, o envio vai como imagem + legenda em vez de só texto.
 const campaignCols = db.prepare(`PRAGMA table_info(campaigns)`).all().map((c) => c.name);
 if (!campaignCols.includes("image_path")) {
   db.exec(`ALTER TABLE campaigns ADD COLUMN image_path TEXT`);
 }
+
+// Migração idempotente: qual número (chip) enviou cada item (atribuição).
+const itemCols = db.prepare(`PRAGMA table_info(campaign_items)`).all().map((c) => c.name);
+if (!itemCols.includes("number_id")) {
+  db.exec(`ALTER TABLE campaign_items ADD COLUMN number_id TEXT`);
+}
+
+// Recuperação de crash: itens que ficaram travados em 'sending' (reserva sem
+// conclusão) voltam para 'pending' no boot.
+db.exec(`UPDATE campaign_items SET status='pending' WHERE status='sending'`);
 
 // ── Campanhas ────────────────────────────────────────────────────────────────
 const stmtInsertCampaign = db.prepare(
@@ -97,11 +108,18 @@ export const createCampaign = db.transaction((camp, items) => {
 
 // ── Fila de envio ────────────────────────────────────────────────────────────
 export const queries = {
-  nextPending: db.prepare(
-    `SELECT i.* FROM campaign_items i
-     JOIN campaigns c ON c.id = i.campaign_id
-     WHERE i.status = 'pending' AND c.status = 'active'
-     ORDER BY i.id ASC LIMIT 1`
+  // Reserva atômica do próximo pendente para um número (evita que dois chips
+  // peguem o mesmo lead). Marca 'sending' e grava o número; RETURNING devolve
+  // o item reservado (ou undefined se não houver pendente).
+  claimNext: db.prepare(
+    `UPDATE campaign_items SET status='sending', number_id=@number_id
+     WHERE id = (
+       SELECT i.id FROM campaign_items i
+       JOIN campaigns c ON c.id = i.campaign_id
+       WHERE i.status='pending' AND c.status='active'
+       ORDER BY i.id ASC LIMIT 1
+     )
+     RETURNING *`
   ),
   markSent: db.prepare(
     `UPDATE campaign_items SET status='sent', sent_at=@ts, error=NULL WHERE id=@id`
@@ -109,8 +127,9 @@ export const queries = {
   markInvalid: db.prepare(
     `UPDATE campaign_items SET status='invalid', error=@error WHERE id=@id`
   ),
-  bumpAttempt: db.prepare(
-    `UPDATE campaign_items SET attempts=attempts+1, error=@error WHERE id=@id`
+  // Devolve à fila (falha transitória): volta para 'pending' e conta a tentativa.
+  requeue: db.prepare(
+    `UPDATE campaign_items SET status='pending', attempts=attempts+1, error=@error WHERE id=@id`
   ),
   markFailed: db.prepare(
     `UPDATE campaign_items SET status='failed', error=@error WHERE id=@id`
@@ -152,22 +171,35 @@ export function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
-const stmtGetCount = db.prepare(`SELECT count FROM daily_counter WHERE day=?`);
+const stmtGetCount = db.prepare(
+  `SELECT count FROM number_counter WHERE number_id=? AND day=?`
+);
 const stmtBumpCount = db.prepare(
-  `INSERT INTO daily_counter (day, count) VALUES (@day, 1)
-   ON CONFLICT(day) DO UPDATE SET count = count + 1`
+  `INSERT INTO number_counter (number_id, day, count) VALUES (@number_id, @day, 1)
+   ON CONFLICT(number_id, day) DO UPDATE SET count = count + 1`
 );
 
-export function getTodayCount() {
-  const row = stmtGetCount.get(todayStr());
+/** Enviados hoje por um número específico. */
+export function getTodayCount(numberId) {
+  const row = stmtGetCount.get(numberId, todayStr());
   return row ? row.count : 0;
 }
-export function incTodayCount() {
-  stmtBumpCount.run({ day: todayStr() });
+export function incTodayCount(numberId) {
+  stmtBumpCount.run({ number_id: numberId, day: todayStr() });
 }
 
-/** Nº de dias distintos em que já houve envio (para calcular o warmup). */
-const stmtUsedDays = db.prepare(`SELECT COUNT(*) AS d FROM daily_counter`);
-export function usedDays() {
-  return stmtUsedDays.get().d;
+/** Nº de dias distintos em que ESSE número já enviou (para o warmup). */
+const stmtUsedDays = db.prepare(
+  `SELECT COUNT(*) AS d FROM number_counter WHERE number_id=?`
+);
+export function usedDays(numberId) {
+  return stmtUsedDays.get(numberId).d;
+}
+
+/** Soma de envios de hoje somando todos os números (para exibir agregado). */
+const stmtTodayTotal = db.prepare(
+  `SELECT COALESCE(SUM(count), 0) AS t FROM number_counter WHERE day=?`
+);
+export function todayTotal() {
+  return stmtTodayTotal.get(todayStr()).t;
 }
