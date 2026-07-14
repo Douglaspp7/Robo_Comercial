@@ -14,7 +14,10 @@ import {
   todayTotal,
   suppressionCount,
   addSuppression,
+  getSetting,
+  setSetting,
 } from "./db.js";
+import { runPlanOnce } from "./scheduler.js";
 import {
   getAllStates,
   firstConnectedId,
@@ -280,6 +283,32 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === "GET" && path === "/leads/stats") {
       return send(res, 200, leadStats());
+    }
+
+    // ── Agendamento ─────────────────────────────────────────────────────────
+    if (req.method === "GET" && path === "/schedule") {
+      return send(res, 200, {
+        enabled: getSetting("schedule_enabled") === "1",
+        time: getSetting("schedule_time", "") || "",
+        auto_dispatch: getSetting("schedule_auto_dispatch") === "1",
+        message: getSetting("dispatch_message", "") || "",
+        app_url: getSetting("dispatch_app_url", "") || "",
+        last_run: getSetting("schedule_last_run", "") || "",
+      });
+    }
+    if (req.method === "POST" && path === "/schedule") {
+      const body = await readJson(req);
+      setSetting("schedule_enabled", body.enabled ? "1" : "0");
+      if (typeof body.time === "string") setSetting("schedule_time", body.time.trim());
+      setSetting("schedule_auto_dispatch", body.auto_dispatch ? "1" : "0");
+      if (typeof body.message === "string") setSetting("dispatch_message", body.message);
+      if (typeof body.app_url === "string") setSetting("dispatch_app_url", body.app_url);
+      return send(res, 200, { ok: true });
+    }
+    // Roda o plano agora (busca imediata pelo worker).
+    if (req.method === "POST" && path === "/plan/run") {
+      const out = await runPlanOnce();
+      return send(res, 200, { ...out, stats: leadStats() });
     }
 
     // Cria campanha a partir dos leads pendentes (WhatsApp, não contatados).

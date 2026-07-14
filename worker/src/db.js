@@ -267,3 +267,17 @@ export function addSuppression(jid, phone, reason) {
 export function suppressionCount() {
   return stmtSuppressionCount.get().c;
 }
+
+// ── Settings (chave/valor) — usado pelo agendador ────────────────────────────
+const stmtGetSetting = db.prepare(`SELECT value FROM settings WHERE key=?`);
+const stmtSetSetting = db.prepare(
+  `INSERT INTO settings (key, value) VALUES (@key, @value)
+   ON CONFLICT(key) DO UPDATE SET value=@value`
+);
+export function getSetting(key, def = null) {
+  const r = stmtGetSetting.get(key);
+  return r ? r.value : def;
+}
+export function setSetting(key, value) {
+  stmtSetSetting.run({ key, value: value == null ? null : String(value) });
+}

@@ -215,6 +215,11 @@ export default function Home() {
   const [planRunning, setPlanRunning] = useState(false);
   const [planProgress, setPlanProgress] = useState("");
   const [pendingSending, setPendingSending] = useState(false);
+  // Agendamento (roda a busca sozinho 1x/dia).
+  const [schedEnabled, setSchedEnabled] = useState(false);
+  const [schedTime, setSchedTime] = useState("09:00");
+  const [schedAuto, setSchedAuto] = useState(false);
+  const [schedSaving, setSchedSaving] = useState(false);
 
   const handleDiscoverRegions = async () => {
     if (!location.trim()) {
@@ -912,17 +917,46 @@ export default function Home() {
     Promise.all([
       fetch("/api/plan", { cache: "no-store" }).then((r) => r.json()),
       fetch("/api/leads", { cache: "no-store" }).then((r) => r.json()),
+      fetch("/api/schedule", { cache: "no-store" }).then((r) => r.json()),
     ])
-      .then(([p, s]) => {
+      .then(([p, s, sc]) => {
         if (!alive) return;
         setPlanLines(Array.isArray(p.plan) ? p.plan : []);
         setPoolStats(s && typeof s.total === "number" ? s : null);
+        if (sc && !sc.error) {
+          setSchedEnabled(Boolean(sc.enabled));
+          if (sc.time) setSchedTime(sc.time);
+          setSchedAuto(Boolean(sc.auto_dispatch));
+        }
       })
       .catch(() => {});
     return () => {
       alive = false;
     };
   }, [planOpen]);
+
+  const saveSchedule = async () => {
+    setSchedSaving(true);
+    try {
+      const res = await fetch("/api/schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabled: schedEnabled,
+          time: schedTime,
+          auto_dispatch: schedAuto,
+          message: waMessage,
+          app_url: waAppUrl,
+        }),
+      });
+      if (res.ok) alert("Agendamento salvo. ✅");
+      else alert("Não foi possível salvar (worker offline?).");
+    } catch {
+      alert("Falha ao salvar o agendamento.");
+    } finally {
+      setSchedSaving(false);
+    }
+  };
 
   const addPlanGoogle = async () => {
     if (!planGNiche.trim() || !planGLoc.trim()) return alert("Preencha nicho e cidade.");
@@ -1300,6 +1334,30 @@ export default function Home() {
                 ))}
               </div>
             )}
+
+            {/* Agendamento: rodar a busca sozinho 1x/dia */}
+            <div style={{ marginTop: "1.25rem", padding: "0.85rem", border: "1px solid var(--border, rgba(255,255,255,0.1))", borderRadius: "10px" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontWeight: 600, cursor: "pointer" }}>
+                <input type="checkbox" checked={schedEnabled} onChange={(e) => setSchedEnabled(e.target.checked)} />
+                ⏰ Rodar a busca automaticamente todo dia
+              </label>
+              <div style={{ display: "flex", gap: "1rem", alignItems: "center", flexWrap: "wrap", marginTop: "0.6rem", opacity: schedEnabled ? 1 : 0.5 }}>
+                <label style={{ fontSize: "0.85rem", display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+                  às
+                  <input type="time" className="input-glass" value={schedTime} onChange={(e) => setSchedTime(e.target.value)} disabled={!schedEnabled} style={{ width: "auto" }} />
+                </label>
+                <label style={{ fontSize: "0.85rem", display: "inline-flex", alignItems: "center", gap: "0.4rem", cursor: "pointer" }}>
+                  <input type="checkbox" checked={schedAuto} onChange={(e) => setSchedAuto(e.target.checked)} disabled={!schedEnabled} />
+                  já disparar os pendentes (usa a mensagem do “Disparar WhatsApp”)
+                </label>
+                <button className="btn-secondary" onClick={saveSchedule} disabled={schedSaving} style={{ fontSize: "0.8rem" }}>
+                  {schedSaving ? "Salvando..." : "Salvar agendamento"}
+                </button>
+              </div>
+              <p style={{ fontSize: "0.75rem", color: "var(--text-muted, #888)", marginTop: "0.5rem" }}>
+                O robô roda o plano no horário e junta os leads novos (sem repetir). Requer o worker e o painel ligados (ex.: no Pi/Render).
+              </p>
+            </div>
           </div>
         )}
       </section>

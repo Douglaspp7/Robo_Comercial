@@ -57,6 +57,10 @@ export const config = {
   // DDI padrão para números sem código de país (Brasil = 55).
   defaultCountryCode: process.env.WA_DEFAULT_DDI || "55",
 
+  // URL do painel Next (que tem as chaves Google/Instagram) — usada pelo
+  // agendador para rodar a busca sozinho. No Pi/Render o painel é local.
+  panelUrl: (process.env.PANEL_URL || "http://localhost:3000").replace(/\/$/, ""),
+
   // Janela de horário de envio (hora local, 0-23). Ex.: "9-19" só envia das
   // 9h às 19h. Vazio = 24h. Cadência humana: não parecer robô de madrugada.
   sendWindow: parseWindow(process.env.WA_SEND_WINDOW),
