@@ -23,6 +23,61 @@ menos risco de ban.
 - (Compilar `better-sqlite3`, se não houver binário pronto, precisa de
   `sudo apt install -y build-essential python3`.)
 
+## Passo 0 — preparar o Pi do zero (primeira vez)
+
+### 0.1 Gravar o sistema no cartão/SSD
+1. No seu PC, instale o **Raspberry Pi Imager** (raspberrypi.com/software).
+2. **Choose OS** → **Raspberry Pi OS Lite (64-bit)** (sem desktop, mais leve —
+   é um servidor).
+3. **Choose Storage** → seu cartão SD (ou SSD USB).
+4. Clique na **engrenagem (⚙️) / Edit Settings** e já configure (assim não
+   precisa monitor/teclado):
+   - **hostname**: ex. `robo`
+   - **Enable SSH** (com senha)
+   - **usuário e senha** (ex. usuário `pi`)
+   - **Wi-Fi**: seu SSID e senha
+   - **locale/fuso**: Brasil
+5. **Write**. Ao terminar, ponha o cartão/SSD no Pi e ligue.
+
+### 0.2 Entrar no Pi (SSH, sem monitor)
+Do seu PC (o Pi leva ~1-2 min pra subir na 1ª vez):
+
+```bash
+ssh pi@robo.local          # use o hostname que você definiu
+# se "robo.local" não resolver, descubra o IP no painel do seu roteador
+```
+
+### 0.3 Atualizar e instalar o básico
+
+```bash
+sudo apt update && sudo apt full-upgrade -y
+sudo apt install -y git build-essential python3
+```
+
+### 0.4 Instalar o Node.js 20+ (via NodeSource)
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt install -y nodejs
+node -v                    # deve mostrar v22.x
+```
+
+### 0.5 Baixar o Robo Comercial
+
+```bash
+git clone https://github.com/Douglaspp7/Robo_Comercial.git
+cd Robo_Comercial
+# o código está na branch de trabalho (ainda não no main):
+git checkout claude/zapien-promotion-strategy-xk2wl4
+```
+
+> O repositório é privado — o `git clone` vai pedir seu login do GitHub. Use um
+> **token de acesso pessoal** como senha (github.com → Settings → Developer
+> settings → Personal access tokens), ou configure uma chave SSH. Quando esta
+> branch virar `main`, é só usar `main` (sem o `git checkout`).
+
+Feito isso, siga os passos abaixo (celular → worker → painel).
+
 ## Passo 1 — o celular (o número)
 
 1. Ponha o chip (nano-SIM **ou** eSIM, se o aparelho suportar) no celular.
@@ -35,7 +90,7 @@ menos risco de ban.
 ## Passo 2 — o worker no Pi
 
 ```bash
-git clone <seu-repo> && cd Robo_Comercial/worker
+cd ~/Robo_Comercial/worker
 bash deploy/setup-pi.sh          # instala deps, cria .env e o servico systemd
 nano .env                        # defina WA_PAIR_PHONE=55DDDNUMERO (o número do chip)
 sudo systemctl start robo-worker
@@ -44,7 +99,7 @@ sudo systemctl start robo-worker
 ## Passo 3 — o painel no Pi
 
 ```bash
-cd Robo_Comercial/worker
+cd ~/Robo_Comercial/worker
 bash deploy/setup-pi-panel.sh    # builda o painel, cria .env.local e o servico
 nano ../.env.local               # preencha GOOGLE_PLACES_API_KEY, IG_*, SMTP_* conforme usar
 sudo systemctl restart robo-painel
