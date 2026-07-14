@@ -4,6 +4,8 @@
  * ver progresso e pausar/retomar. Protegida por um token simples opcional.
  */
 import http from "node:http";
+import fs from "node:fs";
+import path from "node:path";
 import { config } from "./config.js";
 import {
   createCampaign,
@@ -34,7 +36,8 @@ function readJson(req) {
     let buf = "";
     req.on("data", (c) => {
       buf += c;
-      if (buf.length > 5_000_000) reject(new Error("payload grande demais"));
+      // Maior que o padrão para caber uma imagem em base64 (~inflada ~33%).
+      if (buf.length > 12_000_000) reject(new Error("payload grande demais"));
     });
     req.on("end", () => {
       try {
@@ -50,6 +53,21 @@ function readJson(req) {
 function authorized(req) {
   if (!config.apiToken) return true; // token desligado
   return req.headers["x-worker-token"] === config.apiToken;
+}
+
+// Salva a imagem (data URL base64) de uma campanha no disco e devolve o caminho.
+const MEDIA_DIR = path.join(config.dataDir, "media");
+const MAX_IMAGE_BYTES = 6 * 1024 * 1024; // 6 MB
+function saveCampaignImage(id, dataUrl) {
+  const m = /^data:image\/(png|jpe?g|webp);base64,(.+)$/i.exec(dataUrl || "");
+  if (!m) return null;
+  const ext = m[1].toLowerCase() === "jpeg" ? "jpg" : m[1].toLowerCase();
+  const buf = Buffer.from(m[2], "base64");
+  if (buf.length === 0 || buf.length > MAX_IMAGE_BYTES) return null;
+  fs.mkdirSync(MEDIA_DIR, { recursive: true });
+  const file = path.join(MEDIA_DIR, `camp_${id}.${ext}`);
+  fs.writeFileSync(file, buf);
+  return file;
 }
 
 const server = http.createServer(async (req, res) => {
@@ -115,10 +133,20 @@ const server = http.createServer(async (req, res) => {
         },
         items
       );
+      // Imagem opcional da campanha (enviada como imagem + legenda).
+      let image = false;
+      if (body.image) {
+        const savedPath = saveCampaignImage(id, body.image);
+        if (savedPath) {
+          queries.setImage.run({ id, path: savedPath });
+          image = true;
+        }
+      }
       return send(res, 201, {
         id,
         added,
         ignored: items.length - added, // duplicados já existentes
+        image,
       });
     }
 

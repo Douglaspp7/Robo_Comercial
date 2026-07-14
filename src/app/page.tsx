@@ -126,6 +126,9 @@ export default function Home() {
   const [waMacroMode, setWaMacroMode] = useState(false);
   // Disparo na nuvem: envia a fila para o worker (Raspberry Pi) que dispara sozinho.
   const [cloudSending, setCloudSending] = useState(false);
+  // Imagem opcional anexada à mensagem (data URL base64) — só no disparo na nuvem.
+  const [waImage, setWaImage] = useState<string | null>(null);
+  const [waImageName, setWaImageName] = useState<string>("");
   // Painel de acompanhamento do robô na nuvem (Pi).
   const [cloudPanelOpen, setCloudPanelOpen] = useState(false);
   const [cloudStatus, setCloudStatus] = useState<CloudStatus | null>(null);
@@ -593,6 +596,52 @@ export default function Home() {
     advanceWaQueue();
   };
 
+  // Templates prontos de mensagem de prospecção (aplicam no campo de edição).
+  const WA_PRESETS = [
+    {
+      label: "Direto",
+      text:
+        "Olá {nome}! Tudo bem? 😊 Vi o trabalho de vocês e acho que consigo ajudar " +
+        "a atender mais clientes e vender mais pelo WhatsApp. Posso te mostrar " +
+        "rapidinho como funciona?",
+    },
+    {
+      label: "Curto",
+      text:
+        "Oi {nome}! Tenho uma ferramenta que automatiza o atendimento no WhatsApp " +
+        "e ajuda a fechar mais vendas. Faz sentido eu te enviar um resumo?",
+    },
+    {
+      label: "Oferta",
+      text:
+        "Olá {nome}! 👋 Ajudo negócios como o seu a não perder venda no WhatsApp — " +
+        "respondendo na hora e organizando os pedidos. Quer dar uma olhada? É rápido " +
+        "e sem compromisso.",
+    },
+  ];
+
+  const handleWaImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!/^image\/(png|jpe?g|webp)$/i.test(file.type)) {
+      return alert("Envie uma imagem PNG, JPG ou WEBP.");
+    }
+    if (file.size > 6 * 1024 * 1024) {
+      return alert("Imagem muito grande (máx. 6 MB).");
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setWaImage(String(reader.result));
+      setWaImageName(file.name);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const clearWaImage = () => {
+    setWaImage(null);
+    setWaImageName("");
+  };
+
   // Envia a fila para o worker na nuvem (Pi), que dispara sozinho 24/7
   // respeitando cota/intervalos do servidor. Não abre wa.me no navegador.
   const sendCloudCampaign = async () => {
@@ -620,6 +669,7 @@ export default function Home() {
           name: `Campanha ${new Date().toLocaleDateString("pt-BR")}`,
           message: waMessage,
           app_url: waAppUrl,
+          image: waImage || undefined,
           contacts: waQueue.map((b) => ({
             id: b.id,
             name: b.name,
@@ -1249,7 +1299,25 @@ export default function Home() {
                 </p>
 
                 <div className={styles.inputGroup}>
-                  <label className={styles.label}>Mensagem padrão (use {"{nome}"} para personalizar)</label>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem", flexWrap: "wrap" }}>
+                    <label className={styles.label} style={{ margin: 0 }}>
+                      Mensagem padrão (use {"{nome}"} para personalizar)
+                    </label>
+                    <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
+                      <span style={{ fontSize: "0.75rem", color: "var(--text-muted, #888)", alignSelf: "center" }}>Modelos:</span>
+                      {WA_PRESETS.map((p) => (
+                        <button
+                          key={p.label}
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() => setWaMessage(p.text)}
+                          style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem" }}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <textarea
                     className={styles.textareaGlass}
                     value={waMessage}
@@ -1267,6 +1335,30 @@ export default function Home() {
                     value={waAppUrl}
                     onChange={(e) => setWaAppUrl(e.target.value)}
                   />
+                </div>
+
+                {/* Imagem opcional (só no disparo na nuvem) */}
+                <div className={styles.inputGroup}>
+                  <label className={styles.label}>Imagem (opcional — enviada com a mensagem no disparo na nuvem)</label>
+                  {waImage ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={waImage}
+                        alt="prévia"
+                        style={{ maxHeight: "90px", maxWidth: "140px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.15)" }}
+                      />
+                      <span style={{ fontSize: "0.8rem", color: "var(--text-muted, #888)" }}>{waImageName}</span>
+                      <button type="button" className="btn-secondary" onClick={clearWaImage} style={{ fontSize: "0.8rem" }}>
+                        Remover imagem
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="btn-secondary" style={{ cursor: "pointer", display: "inline-block", textAlign: "center" }}>
+                      Escolher imagem (PNG/JPG/WEBP, até 6 MB)
+                      <input type="file" accept="image/png,image/jpeg,image/webp" style={{ display: "none" }} onChange={handleWaImageChange} />
+                    </label>
+                  )}
                 </div>
 
                 <div style={{ display: "flex", gap: "1rem" }}>

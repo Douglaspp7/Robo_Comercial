@@ -169,3 +169,11 @@ export async function sendText(jid, text) {
   }
   return res;
 }
+
+/** Envia uma imagem (buffer) com legenda opcional. */
+export async function sendImage(jid, buffer, caption) {
+  if (!state.sock || state.status !== "open") {
+    throw new Error("WhatsApp não conectado");
+  }
+  return state.sock.sendMessage(jid, { image: buffer, caption: caption || "" });
+}

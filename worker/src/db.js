@@ -55,6 +55,13 @@ db.exec(`
   );
 `);
 
+// Migração idempotente: imagem opcional por campanha (caminho no disco).
+// Quando presente, o envio vai como imagem + legenda em vez de só texto.
+const campaignCols = db.prepare(`PRAGMA table_info(campaigns)`).all().map((c) => c.name);
+if (!campaignCols.includes("image_path")) {
+  db.exec(`ALTER TABLE campaigns ADD COLUMN image_path TEXT`);
+}
+
 // ── Campanhas ────────────────────────────────────────────────────────────────
 const stmtInsertCampaign = db.prepare(
   `INSERT INTO campaigns (name, message, app_url, status, created_at)
@@ -109,6 +116,7 @@ export const queries = {
     `UPDATE campaign_items SET status='failed', error=@error WHERE id=@id`
   ),
   setJid: db.prepare(`UPDATE campaign_items SET jid=@jid WHERE id=@id`),
+  setImage: db.prepare(`UPDATE campaigns SET image_path=@path WHERE id=@id`),
   // Fecha campanhas sem itens pendentes.
   closeFinished: db.prepare(
     `UPDATE campaigns SET status='done'

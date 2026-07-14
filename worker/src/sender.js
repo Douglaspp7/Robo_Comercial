@@ -14,7 +14,8 @@ import {
   incTodayCount,
   usedDays,
 } from "./db.js";
-import { getWaState, checkOnWhatsApp, sendText } from "./wa.js";
+import fs from "node:fs";
+import { getWaState, checkOnWhatsApp, sendText, sendImage } from "./wa.js";
 import { numberToJid, normalizeNumber, renderMessage } from "./phone.js";
 
 let paused = false;
@@ -94,7 +95,12 @@ async function tick() {
   const text = renderMessage(camp.message, item.name, camp.app_url);
   const tail = number.slice(-4);
   try {
-    await sendText(jid, text);
+    // Com imagem anexada, envia imagem + legenda; senão, só texto.
+    if (camp.image_path && fs.existsSync(camp.image_path)) {
+      await sendImage(jid, fs.readFileSync(camp.image_path), text);
+    } else {
+      await sendText(jid, text);
+    }
     queries.markSent.run({ id: item.id, ts: Date.now() });
     incTodayCount();
     console.log(
