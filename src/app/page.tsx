@@ -38,6 +38,21 @@ interface CloudNumber {
   today?: number;
   limit?: number;
 }
+interface PlanLine {
+  id: number;
+  source: string; // google | instagram
+  mode: string | null; // instagram: hashtag | profiles
+  query: string;
+  location: string | null;
+  deep: number;
+}
+interface PoolStats {
+  total: number;
+  whatsapp: number;
+  email: number;
+  pending_wa: number;
+  contacted: number;
+}
 interface CloudStatus {
   numbers: CloudNumber[];
   paused: boolean;
@@ -189,6 +204,17 @@ export default function Home() {
   const [cloudPanelOpen, setCloudPanelOpen] = useState(false);
   const [cloudStatus, setCloudStatus] = useState<CloudStatus | null>(null);
   const [qrDataUrls, setQrDataUrls] = useState<Record<string, string>>({});
+  // Plano de busca + pool de leads (persistente no worker).
+  const [planOpen, setPlanOpen] = useState(false);
+  const [planLines, setPlanLines] = useState<PlanLine[]>([]);
+  const [poolStats, setPoolStats] = useState<PoolStats | null>(null);
+  const [planGNiche, setPlanGNiche] = useState("");
+  const [planGLoc, setPlanGLoc] = useState("");
+  const [planIgMode, setPlanIgMode] = useState<"hashtag" | "profiles">("hashtag");
+  const [planIgQuery, setPlanIgQuery] = useState("");
+  const [planRunning, setPlanRunning] = useState(false);
+  const [planProgress, setPlanProgress] = useState("");
+  const [pendingSending, setPendingSending] = useState(false);
 
   const handleDiscoverRegions = async () => {
     if (!location.trim()) {
@@ -866,6 +892,155 @@ export default function Home() {
     setWaCountdown(0);
   };
 
+  // ── Plano de busca + pool de leads ────────────────────────────────────────
+  const loadPlan = async () => {
+    try {
+      const [p, s] = await Promise.all([
+        fetch("/api/plan", { cache: "no-store" }).then((r) => r.json()),
+        fetch("/api/leads", { cache: "no-store" }).then((r) => r.json()),
+      ]);
+      setPlanLines(Array.isArray(p.plan) ? p.plan : []);
+      setPoolStats(s && typeof s.total === "number" ? s : null);
+    } catch {
+      /* worker offline */
+    }
+  };
+
+  useEffect(() => {
+    if (!planOpen) return;
+    let alive = true;
+    Promise.all([
+      fetch("/api/plan", { cache: "no-store" }).then((r) => r.json()),
+      fetch("/api/leads", { cache: "no-store" }).then((r) => r.json()),
+    ])
+      .then(([p, s]) => {
+        if (!alive) return;
+        setPlanLines(Array.isArray(p.plan) ? p.plan : []);
+        setPoolStats(s && typeof s.total === "number" ? s : null);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [planOpen]);
+
+  const addPlanGoogle = async () => {
+    if (!planGNiche.trim() || !planGLoc.trim()) return alert("Preencha nicho e cidade.");
+    await fetch("/api/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source: "google", query: planGNiche, location: planGLoc, deep: true }),
+    });
+    setPlanGNiche("");
+    loadPlan();
+  };
+  const addPlanInstagram = async () => {
+    if (!planIgQuery.trim()) return alert("Preencha a hashtag ou os perfis.");
+    await fetch("/api/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source: "instagram", mode: planIgMode, query: planIgQuery }),
+    });
+    setPlanIgQuery("");
+    loadPlan();
+  };
+  const removePlanLine = async (id: number) => {
+    await fetch(`/api/plan?id=${id}`, { method: "DELETE" });
+    loadPlan();
+  };
+  const seedPlanReq = async () => {
+    await fetch("/api/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ seed: true }),
+    });
+    loadPlan();
+  };
+
+  const runPlanSearch = async () => {
+    if (planLines.length === 0) return alert("Adicione linhas ao plano (ou use 'Sugerir Zapien').");
+    setPlanRunning(true);
+    const collected: (Business & { source?: string })[] = [];
+    try {
+      for (let i = 0; i < planLines.length; i++) {
+        const line = planLines[i];
+        setPlanProgress(`Buscando ${i + 1}/${planLines.length}: ${line.query}…`);
+        try {
+          const res =
+            line.source === "google"
+              ? await fetch("/api/search", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ query: `${line.query} in ${line.location || ""}`, deep: !!line.deep }),
+                })
+              : await fetch("/api/instagram", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ mode: line.mode || "hashtag", query: line.query }),
+                });
+          const data: { results?: Business[] } = await res.json();
+          if (Array.isArray(data.results)) {
+            collected.push(...data.results.map((r) => ({ ...r, source: line.source })));
+          }
+        } catch {
+          /* pula linha com erro (chave não configurada etc.) */
+        }
+      }
+      setPlanProgress(`Salvando ${collected.length} resultados no pool…`);
+      const res = await fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leads: collected }),
+      });
+      const out = await res.json();
+      setPoolStats(out.stats || null);
+      setPlanProgress(`Concluído: ${out.added || 0} novos, ${out.ignored || 0} repetidos/ignorados.`);
+      loadPlan();
+    } catch {
+      setPlanProgress("Falha na busca.");
+    } finally {
+      setPlanRunning(false);
+    }
+  };
+
+  const dispatchPending = async () => {
+    const n = poolStats?.pending_wa || 0;
+    if (n === 0) return alert("Nenhum lead pendente no pool. Rode a busca primeiro.");
+    if (!waMessage.trim()) return alert("Escreva a mensagem em 'Disparar WhatsApp' antes.");
+    if (
+      !confirm(
+        `Criar campanha com ${n} lead(s) pendente(s)?\n\n` +
+          "Vão para a fila do robô e serão marcados como contatados (não recontata)."
+      )
+    ) {
+      return;
+    }
+    setPendingSending(true);
+    try {
+      const res = await fetch("/api/campaign-from-pending", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: `Pendentes ${new Date().toLocaleDateString("pt-BR")}`,
+          message: waMessage,
+          app_url: waAppUrl,
+          image: waImage || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`Campanha criada com ${data.count} lead(s)! ✅ O robô vai disparar aos poucos.`);
+        loadPlan();
+      } else {
+        alert("Erro: " + (data.error || `status ${res.status}`));
+      }
+    } catch {
+      alert("Falha ao falar com o robô na nuvem.");
+    } finally {
+      setPendingSending(false);
+    }
+  };
+
   // Indicador de conexão agregado (X/Y números conectados).
   const cloudNumbers = cloudStatus?.numbers || [];
   const connectedCount = cloudNumbers.filter((n) => n.connected).length;
@@ -1042,6 +1217,91 @@ export default function Home() {
           </div>
           )}
         </form>
+      </section>
+
+      {/* Plano de busca + pool de leads (busca uma vez, dispara os pendentes) */}
+      <section className="glass-panel" style={{ padding: "1.5rem", marginTop: "1rem" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
+          <h2 className={styles.subtitle} style={{ margin: 0 }}>🎯 Plano de busca</h2>
+          <button className="btn-secondary" onClick={() => setPlanOpen((o) => !o)}>
+            {planOpen ? "Ocultar" : "Abrir plano"}
+          </button>
+        </div>
+
+        {planOpen && (
+          <div style={{ marginTop: "1.25rem" }}>
+            {/* Pool + ações principais */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem", marginBottom: "1rem" }}>
+              <div style={{ fontSize: "0.9rem" }}>
+                Pool: <strong>{poolStats?.total ?? 0}</strong> leads
+                {" · "}📱 {poolStats?.whatsapp ?? 0}
+                {" · "}⏳ <strong>{poolStats?.pending_wa ?? 0}</strong> pendentes
+                {" · "}✅ {poolStats?.contacted ?? 0} contatados
+              </div>
+              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                <button className="btn-primary" onClick={runPlanSearch} disabled={planRunning}
+                  style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+                  {planRunning ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
+                  {planRunning ? "Buscando..." : "Rodar busca"}
+                </button>
+                <button className="btn-primary" onClick={dispatchPending} disabled={pendingSending}
+                  style={{ background: "#25D366", borderColor: "#25D366", display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+                  {pendingSending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                  Disparar pendentes ({poolStats?.pending_wa ?? 0})
+                </button>
+              </div>
+            </div>
+            {planProgress && (
+              <div style={{ fontSize: "0.82rem", color: "var(--text-muted, #888)", marginBottom: "1rem" }}>{planProgress}</div>
+            )}
+            <p style={{ fontSize: "0.8rem", color: "var(--text-muted, #888)", marginBottom: "1rem" }}>
+              Monte a lista uma vez, clique <strong>Rodar busca</strong> pra juntar os contatos (sem repetir),
+              depois <strong>Disparar pendentes</strong> usa a mensagem do “Disparar WhatsApp”. No dia a dia é só repetir esses 2 passos.
+            </p>
+
+            {/* Adicionar linha ao plano */}
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
+              <input className="input-glass" placeholder="📍 Nicho (ex: pet shop)" value={planGNiche}
+                onChange={(e) => setPlanGNiche(e.target.value)} style={{ flex: "1 1 160px" }} />
+              <input className="input-glass" placeholder="Cidade (ex: São Paulo, SP)" value={planGLoc}
+                onChange={(e) => setPlanGLoc(e.target.value)} style={{ flex: "1 1 160px" }} />
+              <button className="btn-secondary" onClick={addPlanGoogle}>+ Google</button>
+            </div>
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
+              <select className="input-glass" value={planIgMode} onChange={(e) => setPlanIgMode(e.target.value as "hashtag" | "profiles")} style={{ flex: "0 0 auto" }}>
+                <option value="hashtag">📸 hashtag</option>
+                <option value="profiles">📸 perfis</option>
+              </select>
+              <input className="input-glass" placeholder={planIgMode === "hashtag" ? "hashtag (sem #)" : "@perfis"} value={planIgQuery}
+                onChange={(e) => setPlanIgQuery(e.target.value)} style={{ flex: "1 1 200px" }} />
+              <button className="btn-secondary" onClick={addPlanInstagram}>+ Instagram</button>
+              <button className="btn-secondary" onClick={seedPlanReq} title="Preenche com nichos/hashtags do Zapien">✨ Sugerir Zapien</button>
+            </div>
+
+            {/* Lista do plano */}
+            {planLines.length === 0 ? (
+              <p style={{ fontSize: "0.85rem", color: "var(--text-muted, #888)" }}>
+                Plano vazio. Adicione linhas acima ou clique “✨ Sugerir Zapien”.
+              </p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem", maxHeight: "220px", overflowY: "auto" }}>
+                {planLines.map((l) => (
+                  <div key={l.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem", padding: "0.4rem 0.6rem", border: "1px solid var(--border, rgba(255,255,255,0.1))", borderRadius: "8px", fontSize: "0.85rem" }}>
+                    <span>
+                      {l.source === "google" ? "📍" : "📸"}{" "}
+                      <strong>{l.query}</strong>
+                      {l.source === "google" && l.location ? ` · ${l.location}` : ""}
+                      {l.source === "instagram" ? ` · ${l.mode}` : ""}
+                    </span>
+                    <button className="btn-secondary" onClick={() => removePlanLine(l.id)} style={{ fontSize: "0.72rem", padding: "0.2rem 0.5rem", color: "var(--error)", borderColor: "var(--error)" }}>
+                      Remover
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
       {/* Painel de acompanhamento do robô na nuvem (Pi) */}
