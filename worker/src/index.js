@@ -6,6 +6,7 @@ import { config, getNumbers } from "./config.js";
 import { startServer } from "./server.js";
 import { startAll } from "./wa.js";
 import { startSender } from "./sender.js";
+import { startScheduler } from "./scheduler.js";
 
 const numbers = getNumbers();
 
@@ -18,6 +19,7 @@ console.log(
 
 startServer();
 startSender(numbers);
+startScheduler();
 startAll(numbers).catch((e) => {
   console.error("Falha ao iniciar as sessões:", e.message);
 });
