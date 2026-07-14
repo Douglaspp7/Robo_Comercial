@@ -132,6 +132,18 @@ rede local), não precisa fazer nada.
   qualquer lugar, sem abrir porta no roteador. Não exponha o painel direto na
   internet (ele não tem login).
 
+## Anti-ban (recomendado no `.env`)
+
+- `WA_SEND_WINDOW=9-19` — só dispara em horário comercial (nada de madrugada).
+- `WA_MAX_PER_HOUR=8` — teto por hora, por número (suaviza picos).
+- **Spintax** na mensagem: `{Oi|Olá|Opa} {nome}!` — cada contato recebe uma
+  variação (menos "assinatura" de spam). Escreve direto no campo do painel.
+- **Opt-out automático**: quem responder **SAIR/PARAR** entra na supressão e
+  nunca mais é contatado. Anexe o aviso com `WA_OPTOUT_FOOTER=Responda SAIR
+  para não receber.`
+- Junte com **cota + aquecimento + 2 chips**: é assim que se sobe volume sem
+  queimar número.
+
 ## Manutenção
 
 - Mantenha o **celular ligado** no wifi; reconecte-o de vez em quando.

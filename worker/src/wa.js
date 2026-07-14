@@ -20,6 +20,7 @@ import qrcode from "qrcode-terminal";
 import fs from "node:fs";
 import path from "node:path";
 import { config } from "./config.js";
+import { addSuppression } from "./db.js";
 
 const logger = pino({ level: process.env.WA_LOG_LEVEL || "silent" });
 
@@ -87,6 +88,31 @@ export async function startSession({ id, pairPhone }) {
   });
   s.sock = sock;
   sock.ev.on("creds.update", saveCreds);
+
+  // Inbound: opt-out (SAIR/PARAR...). Quem responder uma palavra de opt-out
+  // entra na lista de supressão e nunca mais é contatado.
+  sock.ev.on("messages.upsert", ({ messages, type }) => {
+    if (type !== "notify") return;
+    for (const msg of messages || []) {
+      if (msg.key?.fromMe) continue;
+      const jid = msg.key?.remoteJid;
+      if (!jid || jid.endsWith("@g.us")) continue; // ignora grupos
+      const text = (
+        msg.message?.conversation ||
+        msg.message?.extendedTextMessage?.text ||
+        ""
+      )
+        .trim()
+        .toLowerCase();
+      if (!text) continue;
+      const words = text.split(/\s+/);
+      if (words.some((w) => config.optoutKeywords.includes(w))) {
+        const phone = jid.split("@")[0];
+        addSuppression(jid, phone, "optout");
+        console.log(`  [${id}] opt-out recebido de ...${phone.slice(-4)} → supressão.`);
+      }
+    }
+  });
 
   sock.ev.on("connection.update", async (update) => {
     const { connection, lastDisconnect, qr } = update;
