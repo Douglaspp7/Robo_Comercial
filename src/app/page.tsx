@@ -1076,7 +1076,7 @@ export default function Home() {
                     </td>
                     <td className={styles.td}>
                       <strong>{biz.name}</strong>
-                      {biz.rating && (
+                      {biz.rating > 0 && (
                         <div style={{ fontSize: "0.8rem", color: "var(--accent)" }}>
                           ★ {biz.rating}
                         </div>
