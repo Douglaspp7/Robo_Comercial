@@ -1,55 +1,88 @@
-# Rodar o worker na nuvem (Render)
+# Rodar o worker na nuvem (Render) — passo a passo
 
-Alternativa ao Raspberry Pi: o worker roda 24/7 no Render e você **só deixa o
-celular com o chip ligado** (no wifi, numa gaveta) como "dono" do número.
+Alternativa ao Raspberry Pi: o worker roda 24/7 no Render e você **só deixa um
+celular com o eSIM ligado** (no wifi) como "dono" do número.
 
-> **Custo realista:** ~US$7/mês (instância Starter) + centavos do disco ≈ **R$40/mês**.
+> **Custo:** ~US$7/mês (instância Starter) + ~US$0,25/mês (disco 1 GB) ≈ **R$40/mês**.
+> Isso é **por serviço** — o plano Pro da sua workspace não inclui compute grátis,
+> mas você **não precisa mudar de plano** nem abrir outra conta: é só mais um
+> serviço ao lado do Zapien.
 
-## As 3 condições que NÃO podem faltar
+## As 3 condições que não podem faltar (o Blueprint já cuida das 2 primeiras)
 
-1. **Instância paga (Starter), nunca a Free.** A free do Render **hiberna** após
-   15 min sem tráfego — isso derruba a conexão do WhatsApp. Só a paga fica
-   sempre ligada.
-2. **Disco persistente.** O sistema de arquivos do Render é apagado a cada
-   deploy. Sem um **disco** montado, a sessão do WhatsApp some e você tem que
-   parear de novo toda hora. O `render.yaml` já cria um disco em `/var/data` e
-   aponta `WORKER_DATA_DIR` para lá (mesmo padrão que o Zapien usa pro SQLite).
-3. **O celular continua obrigatório.** O Render roda o *software*, mas o
-   **número** precisa morar num aparelho real que reconecta de tempos em tempos
-   (regra dos ~14 dias do multi-dispositivo). Isso não muda.
+1. **Instância paga (Starter), nunca a Free** — a free hiberna após 15 min sem
+   tráfego e derruba a conexão do WhatsApp. (`plan: starter` no `render.yaml`.)
+2. **Disco persistente** — o disco do Render é apagado a cada deploy; sem ele a
+   sessão do WhatsApp some e você repareia toda hora. (`disk` em `/var/data`, e
+   `WORKER_DATA_DIR` aponta a sessão + SQLite pra lá.)
+3. **Um celular com o chip ligado** — o Render roda o software, mas o número
+   mora num aparelho real que reconecta de tempos em tempos (~14 dias). Isso
+   não muda.
 
-## Passo a passo
+## O chip: eSIM ou físico (tanto faz pro WhatsApp)
 
-1. No Render: **New → Blueprint**, aponte para este repositório. Ele lê o
-   `render.yaml` da raiz e cria o serviço **robo-worker** com o disco.
-2. Nas variáveis do serviço, preencha **`WA_PAIR_PHONE`** com o número do chip
-   em formato internacional só dígitos (ex.: `5511999999999`). As demais já vêm
-   com padrão; `WORKER_API_TOKEN` é gerado automaticamente (anote-o).
-3. Faça o deploy. Abra a aba **Logs** do serviço: vai aparecer o
-   **código de pareamento de 8 dígitos**.
-4. No celular do número: WhatsApp → **Aparelhos conectados** → **Conectar um
-   aparelho** → **Conectar com número de telefone** → digite o código.
-5. Pronto: o worker está no ar. A URL pública do serviço (ex.:
-   `https://robo-worker.onrender.com`) é o `WORKER_URL` que o painel usa.
+O WhatsApp não diferencia eSIM de chip físico — só importa o **número** e o
+**código de registro**. Para usar eSIM:
 
-## Onde fica o painel?
+- O **celular precisa suportar eSIM** (muitos baratos/antigos não têm; nesse
+  caso um nano-SIM físico faz o mesmo papel).
+- Use um **eSIM de operadora de verdade** (um pré-pago normal que é eSIM).
+  **Evite** número virtual/eSIM "descartável" de portal de SMS: muitos já vêm
+  banidos ou nem recebem o OTP do WhatsApp.
+- É um **número dedicado** (descartável) só pro robô, não o seu pessoal.
 
-O painel (Next) pode ficar em qualquer lugar; ele só precisa alcançar o worker:
+## Antes de começar (checklist)
 
-- **Opção simples:** rode o painel onde quiser (Vercel, ou local) e configure
-  no `.env` dele: `WORKER_URL=https://robo-worker.onrender.com` e
-  `WORKER_API_TOKEN=<o token gerado>`. Aí "Disparar na nuvem" e o painel de
-  acompanhamento falam com o worker no Render.
-- **Tudo no Render:** crie um segundo serviço web para o painel (rootDir na
-  raiz, `npm ci` + `npm run build` + `npm start`) com as mesmas duas variáveis.
+- [ ] eSIM ativado num celular e **WhatsApp registrado** nesse número.
+- [ ] O número em formato internacional só dígitos (ex.: `5511999999999`).
+- [ ] Este repositório conectado à sua conta do GitHub no Render.
 
-> **Segurança:** como a API do worker fica pública no Render, mantenha o
-> `WORKER_API_TOKEN` definido (o `/health` é aberto, o resto exige o token).
+## Passo a passo no Render
+
+1. **Dashboard do Render → New (canto superior) → Blueprint.**
+2. **Conecte o repositório** `Robo_Comercial` e escolha a **branch** que tem o
+   `render.yaml` (a de trabalho atual, ou faça o merge para `main` antes e use
+   `main`).
+3. O Render lê o `render.yaml` e mostra que vai criar o serviço **robo-worker**
+   com um **disco de 1 GB**. Ele vai **pedir o valor de `WA_PAIR_PHONE`**
+   (marcado como "sync: false") — digite o número do eSIM (`5511999999999`).
+   As demais variáveis já vêm preenchidas; o **`WORKER_API_TOKEN` é gerado
+   automaticamente** (você vai copiar ele no passo 6).
+4. Clique em **Apply / Create** e aguarde o build + deploy (uns minutos).
+5. **Pareie o número:** abra o serviço → aba **Logs**. Vai aparecer um
+   **código de 8 dígitos**. No celular do eSIM: WhatsApp → **Aparelhos
+   conectados** → **Conectar um aparelho** → **Conectar com número de
+   telefone** → digite o código. Nos Logs deve aparecer "WhatsApp conectado".
+6. **Pegue a URL e o token:** a URL pública do serviço (ex.:
+   `https://robo-worker.onrender.com`) é o `WORKER_URL`. Em **Environment**,
+   copie o valor gerado de `WORKER_API_TOKEN`.
+
+## Ligar o painel ao worker
+
+O painel (Next) pode ficar onde você quiser; ele só precisa alcançar o worker.
+No `.env` / variáveis do painel, defina:
+
+```
+WORKER_URL=https://robo-worker.onrender.com
+WORKER_API_TOKEN=<o token gerado no passo 6>
+```
+
+- **Painel local:** roda no seu PC apontando pro Render.
+- **Painel na Vercel:** as mesmas 2 variáveis no projeto da Vercel.
+- **Painel no Render:** crie um 2º web service (rootDir na raiz, build
+  `npm ci && npm run build`, start `npm start`) com as mesmas 2 variáveis.
+
+## Conferir se está funcionando
+
+- `https://robo-worker.onrender.com/health` deve responder um JSON com
+  `"connected": true` depois do pareamento.
+- No painel, o card **🤖 Robô na nuvem (Pi)** mostra 🟢 Conectado, a cota do
+  dia e o progresso das campanhas.
 
 ## Ressalva honesta: risco de ban
 
 O Render é **datacenter** — o WhatsApp vê IP de datacenter, o que **aumenta o
-risco de banir o número** em comparação com o IP residencial do Pi. Para
-prospecção isso é contornável (número descartável + aquecimento + cota + os
-intervalos que já existem), mas espere um número mais frágil que no Pi. Se
-segurança do número for prioridade máxima, o Pi ainda é mais seguro.
+risco de banir o número** vs. o IP residencial do Pi. Contornável para
+prospecção (número descartável + aquecimento + cota + intervalos, tudo já
+embutido), mas espere um número mais frágil que no Pi. Comece com a cota baixa
+e o warmup ligados (padrão do `render.yaml`).
