@@ -1,0 +1,19 @@
+[Unit]
+Description=Robo Comercial - painel (Next)
+After=network-online.target robo-worker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Placeholders preenchidos pelo deploy/setup-pi-panel.sh.
+User=__USER__
+WorkingDirectory=__REPO__
+Environment=PORT=__PORT__
+ExecStart=__NPM__ start
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -77,6 +77,10 @@ cat <<MSG
       sudo systemctl start $SERVICE_NAME
       journalctl -u $SERVICE_NAME -f     # acompanhar os logs ao vivo
 
+ 3) (Opcional) Suba o PAINEL no mesmo Pi:
+      bash deploy/setup-pi-panel.sh
+    Depois conecte o WhatsApp pelo proprio painel (ver deploy/PI.md).
+
  Outros comandos uteis:
       sudo systemctl status $SERVICE_NAME
       sudo systemctl restart $SERVICE_NAME
