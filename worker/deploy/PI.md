@@ -84,12 +84,21 @@ Feito isso, siga os passos abaixo (celular → worker → painel).
 
 > Dica: use um **número dedicado/descartável** pro robô, não o seu pessoal.
 
+### Dois chips (celular dual-SIM)
+
+Um celular dual-SIM pode rodar **dois WhatsApp** (a conta principal + o
+WhatsApp Business, ou o recurso de duas contas). Registre um número em cada e
+o worker opera os **dois em paralelo** — cada um com cota/aquecimento próprios,
+e a fila é dividida entre eles (ex.: 2 × 40 = **80/dia** no total, com o mesmo
+risco por número). Basta listar os dois em `WA_NUMBERS` (Passo 2).
+
 ## Passo 2 — o worker no Pi
 
 ```bash
 cd ~/Robo_Comercial/worker
 bash deploy/setup-pi.sh          # instala deps, cria .env e o servico systemd
-nano .env                        # defina WA_PAIR_PHONE=55DDDNUMERO (o número do chip)
+nano .env                        # 1 chip:  WA_PAIR_PHONE=55DDDNUMERO
+                                 # 2 chips: WA_NUMBERS=55DDD1111,55DDD2222
 sudo systemctl start robo-worker
 ```
 

@@ -64,3 +64,26 @@ export function randomDelaySec() {
   const hi = Math.max(minDelaySec, maxDelaySec);
   return Math.floor(Math.random() * (hi - lo + 1)) + lo;
 }
+
+/**
+ * Números (chips) que o worker vai operar em paralelo.
+ * WA_NUMBERS = lista separada por vírgula de telefones de pareamento (formato
+ * internacional só dígitos, ex.: "5511999990001,5511999990002"). Cada um vira
+ * uma sessão própria (cota e aquecimento independentes).
+ *
+ * Compatibilidade: se WA_NUMBERS estiver vazio, usa WA_PAIR_PHONE (1 número).
+ * Se ambos vazios, sobe 1 sessão por QR (id "default").
+ *
+ * O id da sessão é o próprio número (ou "default"); a pasta de auth de cada
+ * um fica em <authDir>/<id>.
+ */
+export function getNumbers() {
+  const list = (process.env.WA_NUMBERS || "")
+    .split(",")
+    .map((s) => s.replace(/\D/g, ""))
+    .filter(Boolean);
+  const phones = list.length ? list : config.pairPhone ? [config.pairPhone] : [];
+  if (phones.length === 0) return [{ id: "default", pairPhone: "" }];
+  // Dedup preservando ordem.
+  return [...new Set(phones)].map((p) => ({ id: p, pairPhone: p }));
+}

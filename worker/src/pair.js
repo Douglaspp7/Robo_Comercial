@@ -1,33 +1,34 @@
 /**
- * Utilitário de pareamento/validação do número.
- * Sobe só a conexão do WhatsApp (sem API nem loop de disparo), mostra o
- * QR ou o código de pareamento e, quando conectar, envia uma mensagem de
- * teste para si mesmo — assim você valida o chip/celular antes de operar.
+ * Utilitário de pareamento/validação dos números.
+ * Sobe só as conexões (sem API nem loop de disparo), mostra o QR/código de
+ * cada número e, quando um conecta, envia uma mensagem de teste para si mesmo.
  *
  * Uso:
  *   node --env-file-if-exists=.env src/pair.js
  */
-import { startWhatsApp, getWaState, sendText } from "./wa.js";
+import { getNumbers } from "./config.js";
+import { startAll, getAllStates, sendText } from "./wa.js";
 
-await startWhatsApp();
-console.log("  Aguardando conexão... (pareie pelo QR ou código acima)\n");
+const numbers = getNumbers();
+await startAll(numbers);
+console.log(`  Aguardando conexão de ${numbers.length} número(s)... (pareie acima)\n`);
 
-let done = false;
+const done = new Set();
 const iv = setInterval(async () => {
-  const st = getWaState();
-  if (st.connected && !done) {
-    done = true;
-    const me = st.me?.split(":")[0]?.split("@")[0];
-    console.log(`\n  Conectado como ${me}. Enviando mensagem de teste...`);
-    try {
-      await sendText(
-        `${me}@s.whatsapp.net`,
-        "✅ Robo Comercial conectado — teste de envio pelo worker."
-      );
-      console.log("  Mensagem de teste enviada. Chip/celular validados.");
-    } catch (e) {
-      console.error("  Falha no envio de teste:", e.message);
+  for (const st of getAllStates()) {
+    if (st.connected && !done.has(st.id)) {
+      done.add(st.id);
+      const me = st.me?.split(":")[0]?.split("@")[0];
+      console.log(`\n  [${st.id}] conectado como ${me}. Enviando teste...`);
+      try {
+        await sendText(st.id, `${me}@s.whatsapp.net`, "✅ Robo Comercial conectado — teste de envio.");
+        console.log(`  [${st.id}] mensagem de teste enviada. OK.`);
+      } catch (e) {
+        console.error(`  [${st.id}] falha no teste:`, e.message);
+      }
     }
+  }
+  if (done.size >= numbers.length) {
     clearInterval(iv);
     setTimeout(() => process.exit(0), 2000);
   }

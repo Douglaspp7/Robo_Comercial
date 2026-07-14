@@ -11,14 +11,34 @@ import {
   createCampaign,
   queries,
   getTodayCount,
+  todayTotal,
 } from "./db.js";
-import { getWaState, checkOnWhatsApp, sendText, sendImage } from "./wa.js";
+import {
+  getAllStates,
+  firstConnectedId,
+  checkOnWhatsApp,
+  sendText,
+  sendImage,
+} from "./wa.js";
 import {
   isPaused,
   setPaused,
   effectiveDailyLimit,
 } from "./sender.js";
 import { numberToJid, normalizeNumber, renderMessage } from "./phone.js";
+
+// Estado por número (chip): conexão + cota do dia.
+function numbersStatus() {
+  return getAllStates().map((s) => ({
+    ...s,
+    today: getTodayCount(s.id),
+    limit: effectiveDailyLimit(s.id),
+  }));
+}
+// Teto agregado do dia (soma dos números).
+function aggregateLimit() {
+  return getAllStates().reduce((sum, s) => sum + effectiveDailyLimit(s.id), 0);
+}
 
 function send(res, code, body) {
   const data = JSON.stringify(body);
@@ -86,30 +106,31 @@ const server = http.createServer(async (req, res) => {
   try {
     // Saúde/estado — sempre liberado (sem dado sensível).
     if (req.method === "GET" && path === "/health") {
+      const numbers = numbersStatus();
       return send(res, 200, {
         ok: true,
-        wa: getWaState(),
+        numbers,
+        connected: numbers.some((n) => n.connected),
         paused: isPaused(),
-        today: getTodayCount(),
-        limit: effectiveDailyLimit(),
+        today: todayTotal(),
+        limit: aggregateLimit(),
       });
     }
 
     if (!authorized(req)) return send(res, 401, { error: "não autorizado" });
 
-    // QR / código de pareamento para o painel exibir.
+    // QR / código de pareamento de cada número, para o painel exibir.
     if (req.method === "GET" && path === "/qr") {
-      const { qr, status } = getWaState();
-      return send(res, 200, { status, qr });
+      return send(res, 200, { numbers: getAllStates() });
     }
 
-    // Lista de campanhas + estatísticas.
+    // Estado dos números + campanhas + progresso.
     if (req.method === "GET" && path === "/status") {
       return send(res, 200, {
-        wa: getWaState(),
+        numbers: numbersStatus(),
         paused: isPaused(),
-        today: getTodayCount(),
-        limit: effectiveDailyLimit(),
+        today: todayTotal(),
+        limit: aggregateLimit(),
         campaigns: queries.campaignStats.all(),
       });
     }
@@ -163,19 +184,18 @@ const server = http.createServer(async (req, res) => {
       const body = await readJson(req);
       const number = normalizeNumber(body.phone);
       if (!number) return send(res, 400, { error: "telefone inválido" });
-      if (!getWaState().connected) {
-        return send(res, 400, { error: "WhatsApp não conectado" });
-      }
+      const senderId = firstConnectedId();
+      if (!senderId) return send(res, 400, { error: "WhatsApp não conectado" });
       const message = String(body.message || "").trim();
       if (!message) return send(res, 400, { error: "mensagem obrigatória" });
-      const { exists, jid: canonicalJid } = await checkOnWhatsApp(number);
+      const { exists, jid: canonicalJid } = await checkOnWhatsApp(senderId, number);
       if (!exists) return send(res, 400, { error: "número não tem WhatsApp" });
       const jid = canonicalJid || numberToJid(number);
       const text = renderMessage(message, body.name || "", body.app_url || "");
       try {
         const img = body.image ? decodeImage(body.image) : null;
-        if (img) await sendImage(jid, img.buffer, text);
-        else await sendText(jid, text);
+        if (img) await sendImage(senderId, jid, img.buffer, text);
+        else await sendText(senderId, jid, text);
         return send(res, 200, { ok: true });
       } catch (e) {
         return send(res, 500, { error: e.message });

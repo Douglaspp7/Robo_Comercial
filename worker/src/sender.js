@@ -1,138 +1,129 @@
 /**
- * Loop de disparo. Um único worker processa a fila em série, respeitando:
- *  - cota diária (com aquecimento/warmup para número novo);
- *  - intervalo aleatório entre envios (cadência humana);
- *  - resume: quem já foi enviado nunca é reenviado (garantido pelo status);
- *  - validação: número sem WhatsApp é marcado 'invalid' e não gasta cota.
+ * Disparo com MÚLTIPLOS números: um loop independente por chip. Cada loop
+ * respeita a cota e o aquecimento DAQUELE número e puxa da fila compartilhada
+ * com reserva atômica (dois chips nunca pegam o mesmo lead).
  *
- * Reinício do Pi não perde nada: o estado vive no SQLite.
+ * Reinício do Pi não perde nada: o estado vive no SQLite; itens travados em
+ * 'sending' voltam para 'pending' no boot (ver db.js).
  */
+import fs from "node:fs";
 import { config, randomDelaySec } from "./config.js";
 import {
+  db,
   queries,
   getTodayCount,
   incTodayCount,
   usedDays,
 } from "./db.js";
-import fs from "node:fs";
-import { getWaState, checkOnWhatsApp, sendText, sendImage } from "./wa.js";
+import { getSessionState, checkOnWhatsApp, sendText, sendImage } from "./wa.js";
 import { numberToJid, normalizeNumber, renderMessage } from "./phone.js";
 
 let paused = false;
-let timer = null;
 let stopped = false;
+const timers = new Map(); // numberId -> timeout
+let activeNumbers = [];
 
 export function isPaused() {
   return paused;
 }
 export function setPaused(v) {
   paused = Boolean(v);
-  if (!paused) schedule(0); // retoma imediatamente
+  if (!paused) for (const id of activeNumbers) schedule(id, 0); // retoma já
 }
 
-/** Limite efetivo de hoje considerando o aquecimento (warmup). */
-export function effectiveDailyLimit() {
+/** Limite efetivo de hoje para UM número, considerando o aquecimento. */
+export function effectiveDailyLimit(numberId) {
   const ramp = config.warmupRamp;
   if (ramp.length === 0) return config.dailyLimit;
-  // Qual "dia de uso" é hoje? Se já houve envio hoje, hoje já está contado.
-  const dayIndex = getTodayCount() > 0 ? usedDays() : usedDays() + 1;
+  const dayIndex = getTodayCount(numberId) > 0 ? usedDays(numberId) : usedDays(numberId) + 1;
   return dayIndex <= ramp.length ? ramp[dayIndex - 1] : config.dailyLimit;
 }
 
 function msUntilNextDay() {
   const now = new Date();
   const next = new Date(now);
-  next.setHours(24, 0, 30, 0); // 00:00:30 do dia seguinte
+  next.setHours(24, 0, 30, 0);
   return next.getTime() - now.getTime();
 }
 
-function schedule(ms) {
+function schedule(numberId, ms) {
   if (stopped) return;
-  clearTimeout(timer);
-  timer = setTimeout(tick, ms);
+  clearTimeout(timers.get(numberId));
+  timers.set(numberId, setTimeout(() => tick(numberId), ms));
 }
 
-async function tick() {
+const stmtCampaign = db.prepare(`SELECT * FROM campaigns WHERE id=?`);
+
+async function tick(numberId) {
   if (stopped) return;
 
-  // WhatsApp precisa estar conectado.
-  if (!getWaState().connected) return schedule(5000);
-  if (paused) return schedule(3000);
+  if (!getSessionState(numberId).connected) return schedule(numberId, 5000);
+  if (paused) return schedule(numberId, 3000);
 
-  // Cota diária.
-  if (getTodayCount() >= effectiveDailyLimit()) {
-    console.log(
-      `  Cota diária atingida (${getTodayCount()}/${effectiveDailyLimit()}). ` +
-        "Pausando até o próximo dia."
-    );
-    return schedule(msUntilNextDay());
+  // Cota diária deste número.
+  if (getTodayCount(numberId) >= effectiveDailyLimit(numberId)) {
+    return schedule(numberId, msUntilNextDay());
   }
 
-  // Próximo contato pendente de campanha ativa.
-  const item = queries.nextPending.get();
+  // Reserva atômica do próximo pendente (marca 'sending' + este número).
+  const item = queries.claimNext.get({ number_id: numberId });
   if (!item) {
     queries.closeFinished.run();
-    return schedule(15000); // ocioso: aguarda novas campanhas
+    return schedule(numberId, 15000); // ocioso
   }
 
   const number = normalizeNumber(item.phone);
   if (!number) {
     queries.markInvalid.run({ id: item.id, error: "telefone inválido" });
-    return schedule(500);
+    return schedule(numberId, 500);
   }
 
-  // Confirma que o número tem WhatsApp (não gasta cota se não tiver).
-  const { exists, jid: canonicalJid } = await checkOnWhatsApp(number);
+  // Valida no WhatsApp usando ESTA sessão (não gasta cota se não existe).
+  const { exists, jid: canonicalJid } = await checkOnWhatsApp(numberId, number);
   if (!exists) {
     queries.markInvalid.run({ id: item.id, error: "sem WhatsApp" });
-    return schedule(1500);
+    return schedule(numberId, 1500);
   }
   const jid = canonicalJid || item.jid || numberToJid(item.phone);
   if (jid !== item.jid) queries.setJid.run({ id: item.id, jid });
 
-  // Monta e envia.
-  const camp = campaignFor(item.campaign_id);
+  const camp = stmtCampaign.get(item.campaign_id);
   const text = renderMessage(camp.message, item.name, camp.app_url);
   const tail = number.slice(-4);
   try {
-    // Com imagem anexada, envia imagem + legenda; senão, só texto.
     if (camp.image_path && fs.existsSync(camp.image_path)) {
-      await sendImage(jid, fs.readFileSync(camp.image_path), text);
+      await sendImage(numberId, jid, fs.readFileSync(camp.image_path), text);
     } else {
-      await sendText(jid, text);
+      await sendText(numberId, jid, text);
     }
     queries.markSent.run({ id: item.id, ts: Date.now() });
-    incTodayCount();
+    incTodayCount(numberId);
     console.log(
-      `  Enviado ...${tail} (${getTodayCount()}/${effectiveDailyLimit()} hoje).`
+      `  [${numberId}] enviado ...${tail} ` +
+        `(${getTodayCount(numberId)}/${effectiveDailyLimit(numberId)} hoje).`
     );
   } catch (e) {
     const attempts = item.attempts + 1;
-    queries.bumpAttempt.run({ id: item.id, error: e.message });
     if (attempts >= config.maxAttempts) {
       queries.markFailed.run({ id: item.id, error: e.message });
-      console.warn(`  Falha definitiva ...${tail}: ${e.message}`);
+      console.warn(`  [${numberId}] falha definitiva ...${tail}: ${e.message}`);
     } else {
-      console.warn(`  Erro ...${tail} (tentativa ${attempts}): ${e.message}`);
+      queries.requeue.run({ id: item.id, error: e.message });
+      console.warn(`  [${numberId}] erro ...${tail} (tentativa ${attempts}): ${e.message}`);
     }
   }
 
-  schedule(randomDelaySec() * 1000);
+  schedule(numberId, randomDelaySec() * 1000);
 }
 
-// Cache leve de campanhas (mensagem/app_url mudam raramente).
-import { db } from "./db.js";
-const stmtCampaign = db.prepare(`SELECT * FROM campaigns WHERE id=?`);
-function campaignFor(id) {
-  return stmtCampaign.get(id);
-}
-
-export function startSender() {
+export function startSender(numbers) {
   stopped = false;
-  schedule(1000);
-  console.log("  Loop de disparo iniciado.");
+  activeNumbers = numbers.map((n) => n.id);
+  for (const id of activeNumbers) schedule(id, 1000);
+  console.log(`  Loop de disparo iniciado (${activeNumbers.length} número(s)).`);
 }
 export function stopSender() {
   stopped = true;
-  clearTimeout(timer);
+  for (const t of timers.values()) clearTimeout(t);
+  timers.clear();
 }
