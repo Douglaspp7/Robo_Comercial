@@ -83,6 +83,52 @@ const LS_WA_SENT = "robo_wa_sent"; // string[] de ids já enviados
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
+// Link do atendente Zapien (CTA + preview + rastreio). Vai no campo "URL do app".
+const ZAPIEN_LINK = "https://zapien.app/a/HL517";
+
+// Modelos prontos de mensagem (preenchem o texto e o link de uma vez).
+// O 1º é o padrão que já vem no modal ao abrir.
+const WA_PRESETS = [
+  {
+    label: "Direto",
+    appUrl: ZAPIEN_LINK,
+    text:
+      "Oi {nome}, tudo bem? 😊 Aqui é do Zapien. Esse atendimento que você está " +
+      "recebendo é feito por uma IA — a mesma que pode atender os seus clientes " +
+      "no WhatsApp e vender por você, 24h. Dá uma olhada (pode até conversar com ela):",
+  },
+  {
+    label: "Curto",
+    appUrl: ZAPIEN_LINK,
+    text:
+      "Oi {nome}! Uma IA pode atender seus clientes no WhatsApp e fechar venda por " +
+      "você, sem parar. Quer testar conversando com ela agora? 👇",
+  },
+  {
+    label: "Prova",
+    appUrl: ZAPIEN_LINK,
+    text:
+      "Oi {nome}, rapidinho: essa própria mensagem faz parte de um atendimento com " +
+      "IA (Zapien). Ela responde, tira dúvida e vende — no seu WhatsApp, 24h. Fala " +
+      "com ela e sente como seria pro seu negócio:",
+  },
+];
+
+const EMAIL_PRESETS = [
+  {
+    label: "Zapien",
+    subject: "{nome}, seu WhatsApp vendendo sozinho 24h?",
+    body:
+      "Olá {nome}, tudo bem?\n\n" +
+      "Imagina uma IA atendendo seus clientes no WhatsApp na hora — tirando dúvida " +
+      "e fechando venda, 24 horas, sem você precisar estar online.\n\n" +
+      "É o Zapien. Você pode conversar agora com um atendente nosso (feito com a " +
+      "própria ferramenta) e sentir como funcionaria no seu negócio:\n" +
+      ZAPIEN_LINK +
+      "\n\nQualquer dúvida, é só responder este e-mail. Abraço!",
+  },
+];
+
 export default function Home() {
   const [niche, setNiche] = useState("");
   const [location, setLocation] = useState("");
@@ -101,16 +147,14 @@ export default function Home() {
 
   // Email Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [emailSubject, setEmailSubject] = useState("");
-  const [emailBody, setEmailBody] = useState("");
+  const [emailSubject, setEmailSubject] = useState(EMAIL_PRESETS[0].subject);
+  const [emailBody, setEmailBody] = useState(EMAIL_PRESETS[0].body);
   const [emailLoading, setEmailLoading] = useState(false);
 
-  // WhatsApp Campaign State
+  // WhatsApp Campaign State — já começa com o modelo Zapien (texto + link).
   const [isWaModalOpen, setIsWaModalOpen] = useState(false);
-  const [waMessage, setWaMessage] = useState(
-    "Olá {nome}! Tudo bem? Tenho um app que pode ajudar o seu negócio. Dá uma olhada:"
-  );
-  const [waAppUrl, setWaAppUrl] = useState("");
+  const [waMessage, setWaMessage] = useState(WA_PRESETS[0].text);
+  const [waAppUrl, setWaAppUrl] = useState(WA_PRESETS[0].appUrl);
   const [waMinDelay, setWaMinDelay] = useState(30);
   const [waMaxDelay, setWaMaxDelay] = useState(90);
   const [waQueue, setWaQueue] = useState<Business[]>([]);
@@ -603,52 +647,6 @@ export default function Home() {
   const skipCurrentWa = () => {
     advanceWaQueue();
   };
-
-  // Link do atendente Zapien (CTA + preview + rastreio). O painel coloca ele no
-  // campo "URL do app", que anexa a mensagem e gera o preview automático.
-  const ZAPIEN_LINK = "https://zapien.app/a/HL517";
-
-  // Modelos prontos de mensagem (preenchem o texto e o link de uma vez).
-  const WA_PRESETS = [
-    {
-      label: "Direto",
-      appUrl: ZAPIEN_LINK,
-      text:
-        "Oi {nome}, tudo bem? 😊 Aqui é do Zapien. Esse atendimento que você está " +
-        "recebendo é feito por uma IA — a mesma que pode atender os seus clientes " +
-        "no WhatsApp e vender por você, 24h. Dá uma olhada (pode até conversar com ela):",
-    },
-    {
-      label: "Curto",
-      appUrl: ZAPIEN_LINK,
-      text:
-        "Oi {nome}! Uma IA pode atender seus clientes no WhatsApp e fechar venda por " +
-        "você, sem parar. Quer testar conversando com ela agora? 👇",
-    },
-    {
-      label: "Prova",
-      appUrl: ZAPIEN_LINK,
-      text:
-        "Oi {nome}, rapidinho: essa própria mensagem faz parte de um atendimento com " +
-        "IA (Zapien). Ela responde, tira dúvida e vende — no seu WhatsApp, 24h. Fala " +
-        "com ela e sente como seria pro seu negócio:",
-    },
-  ];
-
-  const EMAIL_PRESETS = [
-    {
-      label: "Zapien",
-      subject: "{nome}, seu WhatsApp vendendo sozinho 24h?",
-      body:
-        "Olá {nome}, tudo bem?\n\n" +
-        "Imagina uma IA atendendo seus clientes no WhatsApp na hora — tirando dúvida " +
-        "e fechando venda, 24 horas, sem você precisar estar online.\n\n" +
-        "É o Zapien. Você pode conversar agora com um atendente nosso (feito com a " +
-        "própria ferramenta) e sentir como funcionaria no seu negócio:\n" +
-        ZAPIEN_LINK +
-        "\n\nQualquer dúvida, é só responder este e-mail. Abraço!",
-    },
-  ];
 
   // Lê um arquivo de imagem para data URL base64, validando tipo e tamanho.
   const readImageAsDataUrl = (
