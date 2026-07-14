@@ -12,13 +12,13 @@ import {
   queries,
   getTodayCount,
 } from "./db.js";
-import { getWaState } from "./wa.js";
+import { getWaState, checkOnWhatsApp, sendText, sendImage } from "./wa.js";
 import {
   isPaused,
   setPaused,
   effectiveDailyLimit,
 } from "./sender.js";
-import { numberToJid } from "./phone.js";
+import { numberToJid, normalizeNumber, renderMessage } from "./phone.js";
 
 function send(res, code, body) {
   const data = JSON.stringify(body);
@@ -55,18 +55,25 @@ function authorized(req) {
   return req.headers["x-worker-token"] === config.apiToken;
 }
 
-// Salva a imagem (data URL base64) de uma campanha no disco e devolve o caminho.
+// Decodifica uma imagem (data URL base64) em { buffer, ext }, validando tipo/tamanho.
 const MEDIA_DIR = path.join(config.dataDir, "media");
 const MAX_IMAGE_BYTES = 6 * 1024 * 1024; // 6 MB
-function saveCampaignImage(id, dataUrl) {
+function decodeImage(dataUrl) {
   const m = /^data:image\/(png|jpe?g|webp);base64,(.+)$/i.exec(dataUrl || "");
   if (!m) return null;
   const ext = m[1].toLowerCase() === "jpeg" ? "jpg" : m[1].toLowerCase();
-  const buf = Buffer.from(m[2], "base64");
-  if (buf.length === 0 || buf.length > MAX_IMAGE_BYTES) return null;
+  const buffer = Buffer.from(m[2], "base64");
+  if (buffer.length === 0 || buffer.length > MAX_IMAGE_BYTES) return null;
+  return { buffer, ext };
+}
+
+// Salva a imagem de uma campanha no disco e devolve o caminho.
+function saveCampaignImage(id, dataUrl) {
+  const img = decodeImage(dataUrl);
+  if (!img) return null;
   fs.mkdirSync(MEDIA_DIR, { recursive: true });
-  const file = path.join(MEDIA_DIR, `camp_${id}.${ext}`);
-  fs.writeFileSync(file, buf);
+  const file = path.join(MEDIA_DIR, `camp_${id}.${img.ext}`);
+  fs.writeFileSync(file, img.buffer);
   return file;
 }
 
@@ -148,6 +155,31 @@ const server = http.createServer(async (req, res) => {
         ignored: items.length - added, // duplicados já existentes
         image,
       });
+    }
+
+    // Teste de disparo para um número avulso — envio imediato, sem fila e
+    // sem contar na cota diária (é só um teste).
+    if (req.method === "POST" && path === "/test-send") {
+      const body = await readJson(req);
+      const number = normalizeNumber(body.phone);
+      if (!number) return send(res, 400, { error: "telefone inválido" });
+      if (!getWaState().connected) {
+        return send(res, 400, { error: "WhatsApp não conectado" });
+      }
+      const message = String(body.message || "").trim();
+      if (!message) return send(res, 400, { error: "mensagem obrigatória" });
+      const { exists, jid: canonicalJid } = await checkOnWhatsApp(number);
+      if (!exists) return send(res, 400, { error: "número não tem WhatsApp" });
+      const jid = canonicalJid || numberToJid(number);
+      const text = renderMessage(message, body.name || "", body.app_url || "");
+      try {
+        const img = body.image ? decodeImage(body.image) : null;
+        if (img) await sendImage(jid, img.buffer, text);
+        else await sendText(jid, text);
+        return send(res, 200, { ok: true });
+      } catch (e) {
+        return send(res, 500, { error: e.message });
+      }
     }
 
     // Pausa/retoma o worker inteiro.

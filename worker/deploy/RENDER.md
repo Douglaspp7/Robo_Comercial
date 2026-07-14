@@ -49,10 +49,12 @@ O WhatsApp não diferencia eSIM de chip físico — só importa o **número** e 
    As demais variáveis já vêm preenchidas; o **`WORKER_API_TOKEN` é gerado
    automaticamente** (você vai copiar ele no passo 6).
 4. Clique em **Apply / Create** e aguarde o build + deploy (uns minutos).
-5. **Pareie o número:** abra o serviço → aba **Logs**. Vai aparecer um
-   **código de 8 dígitos**. No celular do eSIM: WhatsApp → **Aparelhos
-   conectados** → **Conectar um aparelho** → **Conectar com número de
-   telefone** → digite o código. Nos Logs deve aparecer "WhatsApp conectado".
+5. **Pareie o número:** o jeito mais fácil é abrir o **painel** (robo-painel)
+   → card **🤖 Robô na nuvem** → **Acompanhar disparos**: o **código de 8
+   dígitos** aparece grande ali (com botão Copiar), sem precisar olhar log.
+   No celular do eSIM: WhatsApp → **Aparelhos conectados** → **Conectar um
+   aparelho** → **Conectar com número de telefone** → digite o código.
+   (Se preferir, o mesmo código também sai na aba **Logs** do worker.)
 6. **Pegue a URL e o token:** a URL pública do serviço (ex.:
    `https://robo-worker.onrender.com`) é o `WORKER_URL`. Em **Environment**,
    copie o valor gerado de `WORKER_API_TOKEN`.

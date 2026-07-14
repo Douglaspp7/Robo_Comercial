@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Search, Loader2, Download, Send, X, MessageCircle, SkipForward, Pause, Play } from "lucide-react";
 import * as XLSX from "xlsx";
+import QRCode from "qrcode";
 import styles from "./page.module.css";
 
 interface Business {
@@ -132,9 +133,13 @@ export default function Home() {
   // Imagem opcional embutida no e-mail (inline).
   const [emailImage, setEmailImage] = useState<string | null>(null);
   const [emailImageName, setEmailImageName] = useState<string>("");
+  // Teste de disparo para um número avulso.
+  const [waTestPhone, setWaTestPhone] = useState("");
+  const [waTestSending, setWaTestSending] = useState(false);
   // Painel de acompanhamento do robô na nuvem (Pi).
   const [cloudPanelOpen, setCloudPanelOpen] = useState(false);
   const [cloudStatus, setCloudStatus] = useState<CloudStatus | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
 
   const handleDiscoverRegions = async () => {
     if (!location.trim()) {
@@ -599,27 +604,49 @@ export default function Home() {
     advanceWaQueue();
   };
 
-  // Templates prontos de mensagem de prospecção (aplicam no campo de edição).
+  // Link do atendente Zapien (CTA + preview + rastreio). O painel coloca ele no
+  // campo "URL do app", que anexa a mensagem e gera o preview automático.
+  const ZAPIEN_LINK = "https://zapien.app/a/HL517";
+
+  // Modelos prontos de mensagem (preenchem o texto e o link de uma vez).
   const WA_PRESETS = [
     {
       label: "Direto",
+      appUrl: ZAPIEN_LINK,
       text:
-        "Olá {nome}! Tudo bem? 😊 Vi o trabalho de vocês e acho que consigo ajudar " +
-        "a atender mais clientes e vender mais pelo WhatsApp. Posso te mostrar " +
-        "rapidinho como funciona?",
+        "Oi {nome}, tudo bem? 😊 Aqui é do Zapien. Esse atendimento que você está " +
+        "recebendo é feito por uma IA — a mesma que pode atender os seus clientes " +
+        "no WhatsApp e vender por você, 24h. Dá uma olhada (pode até conversar com ela):",
     },
     {
       label: "Curto",
+      appUrl: ZAPIEN_LINK,
       text:
-        "Oi {nome}! Tenho uma ferramenta que automatiza o atendimento no WhatsApp " +
-        "e ajuda a fechar mais vendas. Faz sentido eu te enviar um resumo?",
+        "Oi {nome}! Uma IA pode atender seus clientes no WhatsApp e fechar venda por " +
+        "você, sem parar. Quer testar conversando com ela agora? 👇",
     },
     {
-      label: "Oferta",
+      label: "Prova",
+      appUrl: ZAPIEN_LINK,
       text:
-        "Olá {nome}! 👋 Ajudo negócios como o seu a não perder venda no WhatsApp — " +
-        "respondendo na hora e organizando os pedidos. Quer dar uma olhada? É rápido " +
-        "e sem compromisso.",
+        "Oi {nome}, rapidinho: essa própria mensagem faz parte de um atendimento com " +
+        "IA (Zapien). Ela responde, tira dúvida e vende — no seu WhatsApp, 24h. Fala " +
+        "com ela e sente como seria pro seu negócio:",
+    },
+  ];
+
+  const EMAIL_PRESETS = [
+    {
+      label: "Zapien",
+      subject: "{nome}, seu WhatsApp vendendo sozinho 24h?",
+      body:
+        "Olá {nome}, tudo bem?\n\n" +
+        "Imagina uma IA atendendo seus clientes no WhatsApp na hora — tirando dúvida " +
+        "e fechando venda, 24 horas, sem você precisar estar online.\n\n" +
+        "É o Zapien. Você pode conversar agora com um atendente nosso (feito com a " +
+        "própria ferramenta) e sentir como funcionaria no seu negócio:\n" +
+        ZAPIEN_LINK +
+        "\n\nQualquer dúvida, é só responder este e-mail. Abraço!",
     },
   ];
 
@@ -659,6 +686,36 @@ export default function Home() {
   const clearEmailImage = () => {
     setEmailImage(null);
     setEmailImageName("");
+  };
+
+  // Envia a mensagem atual (texto + link + imagem) para um número avulso, na hora.
+  const sendTestWa = async () => {
+    if (!waTestPhone.trim()) return alert("Informe um número para o teste.");
+    if (!waMessage.trim()) return alert("Escreva a mensagem antes de testar.");
+    setWaTestSending(true);
+    try {
+      const res = await fetch("/api/wa-test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: waTestPhone,
+          name: "Teste",
+          message: waMessage,
+          app_url: waAppUrl,
+          image: waImage || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        alert("Mensagem de teste enviada! ✅ Confira o WhatsApp do número.");
+      } else {
+        alert("Não foi possível enviar o teste: " + (data.error || `erro ${res.status}`));
+      }
+    } catch {
+      alert("Falha ao falar com o robô na nuvem. Ele está conectado?");
+    } finally {
+      setWaTestSending(false);
+    }
   };
 
   // Envia a fila para o worker na nuvem (Pi), que dispara sozinho 24/7
@@ -744,6 +801,22 @@ export default function Home() {
     const id = setInterval(fetchCloudStatus, 8000);
     return () => clearInterval(id);
   }, [cloudPanelOpen]);
+
+  // Gera a imagem do QR (modo QR) a partir do texto vindo do worker.
+  useEffect(() => {
+    const qr = cloudStatus?.wa?.qr;
+    let cancelled = false;
+    const gen =
+      qr && !qr.startsWith("PAIR:")
+        ? QRCode.toDataURL(qr, { width: 220, margin: 1 })
+        : Promise.resolve(null);
+    gen
+      .then((url) => !cancelled && setQrDataUrl(url))
+      .catch(() => !cancelled && setQrDataUrl(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [cloudStatus?.wa?.qr]);
 
   const toggleCloudPause = async () => {
     const action = cloudStatus?.paused ? "resume" : "pause";
@@ -1007,16 +1080,50 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Aviso quando não está conectado */}
-            {cloudStatus && !cloudStatus.wa?.connected && (
-              <div style={{ fontSize: "0.85rem", color: "var(--text-muted, #888)", marginBottom: "1rem", padding: "0.75rem", background: "rgba(245,158,11,0.08)", borderRadius: "8px" }}>
-                {cloudStatus.error || cloudStatus.wa?.status === "offline"
-                  ? "O worker no Pi não respondeu. Confira se ele está ligado (npm start) e o WORKER_URL configurado."
-                  : typeof cloudStatus.wa?.qr === "string" && cloudStatus.wa.qr.startsWith("PAIR:")
-                  ? `Aguardando pareamento. Código: ${cloudStatus.wa.qr.replace("PAIR:", "")} — digite no celular do número (Aparelhos conectados › Conectar com número).`
-                  : "Número ainda não conectado. Pareie no Pi com “npm run pair”."}
-              </div>
-            )}
+            {/* Conexão do WhatsApp — mostra o código/QR direto aqui (sem olhar log) */}
+            {cloudStatus && !cloudStatus.wa?.connected && (() => {
+              const wa = cloudStatus.wa;
+              const offline = cloudStatus.error || wa?.status === "offline";
+              const pairCode =
+                typeof wa?.qr === "string" && wa.qr.startsWith("PAIR:")
+                  ? wa.qr.replace("PAIR:", "")
+                  : null;
+              return (
+                <div style={{ marginBottom: "1rem", padding: "1rem", background: "rgba(245,158,11,0.08)", borderRadius: "10px" }}>
+                  {offline ? (
+                    <div style={{ fontSize: "0.85rem", color: "var(--text-muted, #888)" }}>
+                      O robô não respondeu. Confira se o worker está ligado e o WORKER_URL configurado.
+                    </div>
+                  ) : pairCode ? (
+                    <div>
+                      <div style={{ fontWeight: 700, marginBottom: "0.5rem" }}>Conectar WhatsApp — código de pareamento</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+                        <span style={{ fontSize: "1.8rem", fontWeight: 800, letterSpacing: "0.15em", fontFamily: "monospace", color: "#f59e0b" }}>{pairCode}</span>
+                        <button className="btn-secondary" style={{ fontSize: "0.8rem" }} onClick={() => navigator.clipboard?.writeText(pairCode)}>
+                          Copiar
+                        </button>
+                      </div>
+                      <p style={{ fontSize: "0.8rem", color: "var(--text-muted, #888)", marginTop: "0.5rem" }}>
+                        No celular do número: WhatsApp › Aparelhos conectados › Conectar um aparelho › <strong>Conectar com número de telefone</strong> › digite o código.
+                      </p>
+                    </div>
+                  ) : qrDataUrl ? (
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontWeight: 700, marginBottom: "0.5rem" }}>Conectar WhatsApp — escaneie o QR</div>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={qrDataUrl} alt="QR de conexão" style={{ width: 200, height: 200, background: "#fff", borderRadius: 8, padding: 6 }} />
+                      <p style={{ fontSize: "0.8rem", color: "var(--text-muted, #888)", marginTop: "0.5rem" }}>
+                        No celular: WhatsApp › Aparelhos conectados › Conectar um aparelho › aponte a câmera para este QR.
+                      </p>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: "0.85rem", color: "var(--text-muted, #888)" }}>
+                      Conectando… o código de pareamento vai aparecer aqui.
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Lista de campanhas */}
             {cloudStatus && cloudStatus.campaigns.length === 0 ? (
@@ -1254,6 +1361,24 @@ export default function Home() {
               })()}
             </p>
 
+            <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap", marginBottom: "0.75rem", alignItems: "center" }}>
+              <span style={{ fontSize: "0.75rem", color: "var(--text-muted, #888)" }}>Modelos:</span>
+              {EMAIL_PRESETS.map((p) => (
+                <button
+                  key={p.label}
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => {
+                    setEmailSubject(p.subject);
+                    setEmailBody(p.body);
+                  }}
+                  style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem" }}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
             <div className={styles.inputGroup}>
               <label className={styles.label}>Assunto do E-mail</label>
               <input
@@ -1352,7 +1477,10 @@ export default function Home() {
                           key={p.label}
                           type="button"
                           className="btn-secondary"
-                          onClick={() => setWaMessage(p.text)}
+                          onClick={() => {
+                            setWaMessage(p.text);
+                            setWaAppUrl(p.appUrl);
+                          }}
                           style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem" }}
                         >
                           {p.label}
@@ -1401,6 +1529,34 @@ export default function Home() {
                       <input type="file" accept="image/png,image/jpeg,image/webp" style={{ display: "none" }} onChange={handleWaImageChange} />
                     </label>
                   )}
+                </div>
+
+                {/* Teste de disparo para um número avulso */}
+                <div className={styles.inputGroup} style={{ background: "rgba(37,211,102,0.06)", padding: "0.75rem", borderRadius: "8px" }}>
+                  <label className={styles.label}>Testar disparo (envia a mensagem atual para um número na hora)</label>
+                  <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                    <input
+                      type="text"
+                      className="input-glass"
+                      placeholder="Ex: (11) 99999-9999"
+                      value={waTestPhone}
+                      onChange={(e) => setWaTestPhone(e.target.value)}
+                      style={{ flex: 1, minWidth: "180px" }}
+                    />
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={sendTestWa}
+                      disabled={waTestSending}
+                      style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", whiteSpace: "nowrap" }}
+                    >
+                      {waTestSending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                      {waTestSending ? "Enviando..." : "Enviar teste"}
+                    </button>
+                  </div>
+                  <p style={{ fontSize: "0.75rem", color: "var(--text-muted, #888)", marginTop: "0.35rem" }}>
+                    Requer o robô conectado. Não conta na cota — use seu próprio número para validar texto, link e imagem.
+                  </p>
                 </div>
 
                 <div style={{ display: "flex", gap: "1rem" }}>
