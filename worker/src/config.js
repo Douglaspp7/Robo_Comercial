@@ -15,15 +15,20 @@ const num = (v, def) => {
   return Number.isFinite(n) ? n : def;
 };
 
-export const config = {
-  // Onde persistir os dados (sobrevive a reboot do Pi).
-  dataDir: process.env.WORKER_DATA_DIR || path.join(ROOT, "data"),
-  // Sessão do WhatsApp (credenciais do dispositivo vinculado).
-  authDir: process.env.WORKER_AUTH_DIR || path.join(ROOT, "data", "auth"),
-  dbPath: process.env.WORKER_DB_PATH || path.join(ROOT, "data", "worker.db"),
+// Diretório de dados: no Pi fica em ./data; na nuvem (Render) aponte
+// WORKER_DATA_DIR para o disco persistente (ex.: /var/data). A sessão do
+// WhatsApp e o SQLite derivam daqui, então um único env var move tudo.
+const dataDir = process.env.WORKER_DATA_DIR || path.join(ROOT, "data");
 
-  // Porta da API HTTP que o painel (Next) usa para criar campanha / ver status.
-  port: num(process.env.WORKER_PORT, 8787),
+export const config = {
+  dataDir,
+  // Sessão do WhatsApp (credenciais do dispositivo vinculado).
+  authDir: process.env.WORKER_AUTH_DIR || path.join(dataDir, "auth"),
+  dbPath: process.env.WORKER_DB_PATH || path.join(dataDir, "worker.db"),
+
+  // Porta da API HTTP. No Render (web service) a porta vem em PORT; localmente
+  // usa WORKER_PORT (ou 8787). WORKER_PORT tem prioridade se ambos existirem.
+  port: num(process.env.WORKER_PORT, 0) || num(process.env.PORT, 8787),
   // Token simples para proteger a API (o painel envia no header x-worker-token).
   apiToken: process.env.WORKER_API_TOKEN || "",
 
