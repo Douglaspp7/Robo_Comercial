@@ -116,6 +116,11 @@ export function normalizeBusiness(raw) {
     objecoesComuns: asArray(b.objecoesComuns ?? b.objecoes),
     regras: asArray(b.regras),
     respostas_rapidas: asArray(b.respostas_rapidas),
+    // Metadados internos permitem atualizar seeds sem confundir conteúdo
+    // comercial com dados operacionais ou personalizações do tenant.
+    seed_meta: b.seed_meta && typeof b.seed_meta === 'object'
+      ? { id: String(b.seed_meta.id || ''), version: Number(b.seed_meta.version) || 0 }
+      : undefined,
     // Templates de mensagem do WhatsApp Business API já aprovados no Meta
     // Business Manager (cadastro manual — ver src/api.js /api/whatsapp-templates).
     // Usados para campanhas segmentadas, que exigem template aprovado para
