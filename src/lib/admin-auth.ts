@@ -3,6 +3,10 @@ const SESSION_TTL_SECONDS = 12 * 60 * 60;
 
 export const adminSessionCookie = COOKIE_NAME;
 
+export function adminAuthDisabled() {
+  return process.env.PANEL_AUTH_DISABLED === "1";
+}
+
 function bytesToBase64Url(bytes: Uint8Array) {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);

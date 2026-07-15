@@ -23,6 +23,7 @@ jobs:
       - run: npm run lint
       - run: npm run build
         env:
+          PANEL_AUTH_DISABLED: "0"
           PANEL_ADMIN_EMAIL: ci@example.com
           PANEL_ADMIN_PASSWORD: "517243"
           PANEL_SESSION_SECRET: ci-only-session-secret-with-32-characters

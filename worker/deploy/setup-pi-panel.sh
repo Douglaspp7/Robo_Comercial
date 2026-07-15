@@ -5,7 +5,7 @@
 # do worker) e instala + habilita o servico systemd do painel.
 #
 # Uso (de dentro da pasta worker/):
-#     PANEL_ADMIN_EMAIL=voce@exemplo.com PANEL_ADMIN_PASSWORD='senha-de-6-digitos' bash deploy/setup-pi-panel.sh
+#     bash deploy/setup-pi-panel.sh
 #
 # Porta do painel (padrao 3000): PANEL_PORT=3000 bash deploy/setup-pi-panel.sh
 
@@ -20,11 +20,6 @@ NODE_BIN="$(command -v node || true)"
 NPM_BIN="$(command -v npm || true)"
 PORT="${PANEL_PORT:-3000}"
 
-if [ -z "${PANEL_ADMIN_EMAIL:-}" ] || [ -z "${PANEL_ADMIN_PASSWORD:-}" ] || [ "${#PANEL_ADMIN_PASSWORD}" -lt 6 ]; then
-  echo "ERRO: informe PANEL_ADMIN_EMAIL e PANEL_ADMIN_PASSWORD (mínimo 6 caracteres)." >&2
-  exit 1
-fi
-PANEL_SECRET="$(openssl rand -hex 32)"
 
 echo "==> Painel (raiz): $REPO_ROOT"
 echo "==> Usuario: $RUN_USER  |  node: ${NODE_BIN:-?}  |  npm: ${NPM_BIN:-?}  |  porta: $PORT"
@@ -50,9 +45,9 @@ if [ ! -f "$REPO_ROOT/.env.local" ]; then
 # Painel no Pi: fala com o worker local.
 WORKER_URL=http://localhost:8787
 WORKER_API_TOKEN=$TOKEN
-PANEL_ADMIN_EMAIL=$PANEL_ADMIN_EMAIL
-PANEL_ADMIN_PASSWORD=$PANEL_ADMIN_PASSWORD
-PANEL_SESSION_SECRET=$PANEL_SECRET
+# Painel acessível apenas na rede doméstica/Tailscale: dispensa login.
+# Nunca use esta opção se expuser a porta 3000 diretamente na internet.
+PANEL_AUTH_DISABLED=1
 # Atendente local (mostra o card "Atendente Zapien" com status + abrir dashboard).
 ATTENDANT_URL=http://localhost:3001
 # Preencha conforme os canais/fontes que for usar:
@@ -63,7 +58,7 @@ SMTP_EMAIL=
 SMTP_PASSWORD=
 ENV
   chmod 600 "$REPO_ROOT/.env.local"
-  echo "==> .env.local criado com login administrativo (edite as chaves de Google/Instagram/SMTP)."
+  echo "==> .env.local criado para rede privada (edite as chaves de Google/Instagram/SMTP)."
 else
   echo "==> .env.local ja existe; mantido."
 fi

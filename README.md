@@ -12,8 +12,8 @@ o worker encaminha a conversa para uma instância isolada do atendente Zapien.
 
 ## Segurança do painel
 
-Todas as páginas e APIs do painel exigem uma sessão administrativa. Antes de
-iniciar, copie `.env.example` para `.env.local` e configure:
+Em Render ou internet pública, todas as páginas e APIs exigem uma sessão
+administrativa. Copie `.env.example` para `.env.local` e configure:
 
 ```ini
 PANEL_ADMIN_EMAIL=voce@exemplo.com
@@ -24,6 +24,9 @@ PANEL_SESSION_SECRET=<resultado de openssl rand -hex 32>
 Sem essas três variáveis, o painel falha fechado e não permite usar as chaves
 Google, Instagram, SMTP ou o worker. O login permite 5 tentativas a cada 15
 minutos por IP e a sessão expira em 12 horas.
+
+No Raspberry acessível somente pela rede de casa ou Tailscale, use
+`PANEL_AUTH_DISABLED=1`. Não abra a porta 3000 no roteador nesse modo.
 
 ## Desenvolvimento
 

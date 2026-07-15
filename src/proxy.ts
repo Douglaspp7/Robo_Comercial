@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuthConfigured, adminSessionCookie, verifyAdminSession } from "@/lib/admin-auth";
+import { adminAuthConfigured, adminAuthDisabled, adminSessionCookie, verifyAdminSession } from "@/lib/admin-auth";
 
 export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
   const isLogin = path === "/login" || path.startsWith("/api/auth/");
+  if (adminAuthDisabled()) return NextResponse.next();
   const isAuthenticated = await verifyAdminSession(request.cookies.get(adminSessionCookie)?.value);
 
   if (path.startsWith("/api/") && !["GET", "HEAD", "OPTIONS"].includes(request.method)) {
