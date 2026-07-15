@@ -44,6 +44,8 @@ if [ ! -f "$REPO_ROOT/.env.local" ]; then
 # Painel no Pi: fala com o worker local.
 WORKER_URL=http://localhost:8787
 WORKER_API_TOKEN=$TOKEN
+# Atendente local (mostra o card "Atendente Zapien" com status + abrir dashboard).
+ATTENDANT_URL=http://localhost:3001
 # Preencha conforme os canais/fontes que for usar:
 GOOGLE_PLACES_API_KEY=
 IG_ACCESS_TOKEN=

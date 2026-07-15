@@ -154,6 +154,24 @@ Acesse o painel em `http://<ip-do-pi>:3000`.
 
 ## 6. Atendente (Zapien que vende Zapien)
 
+### Jeito fácil (script) — recomendado
+
+Um comando faz tudo: instala deps, **gera os segredos próprios**, puxa os
+tokens do worker, cria o `.env`, roda o **seed** e sobe o serviço. Basta passar
+a chave da IA:
+
+```bash
+cd ~/Robo_Comercial/worker
+ANTHROPIC_API_KEY=sk-ant-... ADMIN_EMAIL=voce@exemplo.com \
+  bash deploy/setup-pi-atendente.sh
+```
+
+Se rodar sem a `ANTHROPIC_API_KEY`, o script cria o `.env` com tudo pronto e só
+avisa para você preencher a chave e rodar o seed depois. **Pulando para o passo
+7** (parear os chips) se usou o script. O passo manual abaixo é a alternativa.
+
+### Jeito manual (alternativa)
+
 ```bash
 cd ~/Robo_Comercial/atendente
 npm ci
