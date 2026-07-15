@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { rateLimit } from "@/lib/rate-limit";
 import { extractPhones, formatBrPhone } from "@/lib/contacts";
 
 // Fonte de leads via Instagram Graph API (oficial), focada em PERFIS
@@ -124,9 +125,11 @@ async function searchProfiles(userId: string, list: string): Promise<Lead[]> {
 }
 
 export async function POST(request: Request) {
+  const blocked = rateLimit(request, "instagram-search", 10, 60 * 1000);
+  if (blocked) return blocked;
   try {
     const { mode, query } = await request.json();
-    if (!query || !String(query).trim()) {
+    if (!query || !String(query).trim() || String(query).length > 1000) {
       return NextResponse.json({ error: "Informe a hashtag ou os perfis." }, { status: 400 });
     }
 

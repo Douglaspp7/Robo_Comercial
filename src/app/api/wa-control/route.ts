@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { rateLimit } from "@/lib/rate-limit";
 
 // Controle do worker de disparo (pausar/retomar) a partir do painel.
 // Global:      { action: "pause" | "resume" }
@@ -16,6 +17,8 @@ function workerHeaders(): Record<string, string> {
 }
 
 export async function POST(request: Request) {
+  const blocked = rateLimit(request, "wa-control", 60, 60 * 1000);
+  if (blocked) return blocked;
   let body: { campaignId?: number; action?: string };
   try {
     body = await request.json();

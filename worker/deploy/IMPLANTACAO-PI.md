@@ -135,6 +135,7 @@ Edite o `.env.local` do painel (na **raiz** do repo, `~/Robo_Comercial/.env.loca
 ```ini
 WORKER_URL=http://localhost:8787
 WORKER_API_TOKEN=<mesmo token do worker>
+PANEL_AUTH_DISABLED=1                 # somente rede doméstica/Tailscale
 ATTENDANT_URL=http://localhost:3001    # mostra o card do atendente no painel
 GOOGLE_PLACES_API_KEY=<sua chave>
 # Opcionais:
@@ -205,7 +206,7 @@ ATTENDANT_TENANT_ID=          # preenchido pelo seed, logo abaixo
 Crie o tenant "Zapien vende Zapien" (imprime o `TENANT_ID`):
 
 ```bash
-ATTENDANT_SEED_EMAIL=vende@zapien.app ATTENDANT_SEED_PASSWORD='troque-isto' \
+ATTENDANT_SEED_EMAIL=vende@zapien.app ATTENDANT_SEED_PASSWORD='senha-forte-com-12-ou-mais' \
   node --env-file=.env scripts/seed-zapien-tenant.mjs
 # → copie o TENANT_ID=... para ATTENDANT_TENANT_ID no .env
 ```

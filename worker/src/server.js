@@ -85,7 +85,8 @@ function readJson(req) {
 }
 
 function authorized(req) {
-  if (!config.apiToken) return true; // token desligado
+  // Desenvolvimento local pode operar sem token. Em produção, falha fechado.
+  if (!config.apiToken) return process.env.NODE_ENV !== "production";
   return req.headers["x-worker-token"] === config.apiToken;
 }
 
@@ -123,11 +124,7 @@ const server = http.createServer(async (req, res) => {
       const numbers = numbersStatus();
       return send(res, 200, {
         ok: true,
-        numbers,
         connected: numbers.some((n) => n.connected),
-        paused: isPaused(),
-        today: todayTotal(),
-        limit: aggregateLimit(),
       });
     }
 

@@ -20,6 +20,7 @@ NODE_BIN="$(command -v node || true)"
 NPM_BIN="$(command -v npm || true)"
 PORT="${PANEL_PORT:-3000}"
 
+
 echo "==> Painel (raiz): $REPO_ROOT"
 echo "==> Usuario: $RUN_USER  |  node: ${NODE_BIN:-?}  |  npm: ${NPM_BIN:-?}  |  porta: $PORT"
 
@@ -44,6 +45,9 @@ if [ ! -f "$REPO_ROOT/.env.local" ]; then
 # Painel no Pi: fala com o worker local.
 WORKER_URL=http://localhost:8787
 WORKER_API_TOKEN=$TOKEN
+# Painel acessível apenas na rede doméstica/Tailscale: dispensa login.
+# Nunca use esta opção se expuser a porta 3000 diretamente na internet.
+PANEL_AUTH_DISABLED=1
 # Atendente local (mostra o card "Atendente Zapien" com status + abrir dashboard).
 ATTENDANT_URL=http://localhost:3001
 # Preencha conforme os canais/fontes que for usar:
@@ -53,7 +57,8 @@ IG_BUSINESS_ID=
 SMTP_EMAIL=
 SMTP_PASSWORD=
 ENV
-  echo "==> .env.local criado (edite as chaves de Google/Instagram/SMTP)."
+  chmod 600 "$REPO_ROOT/.env.local"
+  echo "==> .env.local criado para rede privada (edite as chaves de Google/Instagram/SMTP)."
 else
   echo "==> .env.local ja existe; mantido."
 fi

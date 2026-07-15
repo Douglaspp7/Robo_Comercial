@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Robo Comercial
 
-## Getting Started
+Painel **privado** de prospecção do Zapien. Busca e organiza leads, cria
+campanhas e controla um worker de WhatsApp dedicado. Quando um lead responde,
+o worker encaminha a conversa para uma instância isolada do atendente Zapien.
 
-First, run the development server:
+## Componentes
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Raiz (`src/`): painel administrativo Next.js.
+- `worker/`: filas, chips WhatsApp, cotas, agendamento e opt-out.
+- `atendente/`: atendente Zapien isolado, com IA, CRM e handoff humano.
+
+## Segurança do painel
+
+Em Render ou internet pública, todas as páginas e APIs exigem uma sessão
+administrativa. Copie `.env.example` para `.env.local` e configure:
+
+```ini
+PANEL_ADMIN_EMAIL=voce@exemplo.com
+PANEL_ADMIN_PASSWORD=senha-com-6-ou-mais-caracteres
+PANEL_SESSION_SECRET=<resultado de openssl rand -hex 32>
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Sem essas três variáveis, o painel falha fechado e não permite usar as chaves
+Google, Instagram, SMTP ou o worker. O login permite 5 tentativas a cada 15
+minutos por IP e a sessão expira em 12 horas.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+No Raspberry acessível somente pela rede de casa ou Tailscale, use
+`PANEL_AUTH_DISABLED=1`. Não abra a porta 3000 no roteador nesse modo.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Desenvolvimento
 
-## Learn More
+```bash
+npm ci
+cp .env.example .env.local
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+O painel abre em `http://localhost:3000`. Consulte `worker/README.md` e
+`worker/deploy/IMPLANTACAO-PI.md` para instalar o fluxo completo.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Produção
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+O `render.yaml` cria painel, worker e atendente. No serviço `robo-painel`,
+preencha `PANEL_ADMIN_EMAIL` e `PANEL_ADMIN_PASSWORD`; o Blueprint gera
+`PANEL_SESSION_SECRET`. O endpoint público `/health` do worker expõe apenas
+estado agregado e nunca retorna telefone, QR ou código de pareamento.
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+> O worker usa Baileys, uma integração não oficial. Prospecção fria pode
+> causar bloqueio do número e exige operação responsável, opt-out e observância
+> à LGPD e aos termos aplicáveis.

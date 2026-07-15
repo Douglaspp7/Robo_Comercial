@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { workerFetch } from "@/lib/worker";
+import { rateLimit } from "@/lib/rate-limit";
 
 // Cria uma campanha no worker a partir dos leads pendentes (WhatsApp,
 // ainda não contatados) do pool.
 export async function POST(request: Request) {
+  const blocked = rateLimit(request, "wa-pending-campaign", 10, 60 * 60 * 1000);
+  if (blocked) return blocked;
   let body: unknown;
   try {
     body = await request.json();

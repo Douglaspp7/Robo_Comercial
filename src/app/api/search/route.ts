@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { rateLimit } from "@/lib/rate-limit";
 
 const PLACES_URL = "https://places.googleapis.com/v1/places:searchText";
 const FIELD_MASK =
@@ -17,9 +18,30 @@ interface PlaceResult {
   website: string;
 }
 
-function mapPlaces(data: any): PlaceResult[] {
-  return (data.places || []).map((place: any) => ({
-    id: place.id,
+interface GooglePlace {
+  id?: string;
+  displayName?: { text?: string };
+  formattedAddress?: string;
+  rating?: number;
+  nationalPhoneNumber?: string;
+  websiteUri?: string;
+}
+
+interface PlacesResponse {
+  places?: GooglePlace[];
+  nextPageToken?: string;
+}
+
+interface PlacesRequest {
+  textQuery: string;
+  languageCode: string;
+  maxResultCount: number;
+  pageToken?: string;
+}
+
+function mapPlaces(data: PlacesResponse): PlaceResult[] {
+  return (data.places || []).map((place) => ({
+    id: place.id || "",
     name: place.displayName?.text || "Nome Indisponível",
     address: place.formattedAddress || "Endereço Indisponível",
     rating: place.rating ?? null,
@@ -32,8 +54,8 @@ async function fetchPlacesPage(
   apiKey: string,
   textQuery: string,
   pageToken?: string
-): Promise<{ data: any; ok: boolean }> {
-  const requestBody: any = {
+): Promise<{ data: PlacesResponse; ok: boolean }> {
+  const requestBody: PlacesRequest = {
     textQuery,
     languageCode: "pt-BR",
     maxResultCount: 20,
@@ -53,12 +75,12 @@ async function fetchPlacesPage(
   });
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
+    const errorData = await response.json().catch(() => ({} as PlacesResponse));
     console.error("Erro da API do Google:", errorData);
     return { data: errorData, ok: false };
   }
 
-  return { data: await response.json(), ok: true };
+  return { data: (await response.json()) as PlacesResponse, ok: true };
 }
 
 // Busca TODAS as páginas disponíveis de uma única consulta (auto-paginação)
@@ -80,10 +102,12 @@ async function fetchAllPages(apiKey: string, textQuery: string): Promise<PlaceRe
 }
 
 export async function POST(request: Request) {
+  const blocked = rateLimit(request, "places-search", 10, 60 * 1000);
+  if (blocked) return blocked;
   try {
     const { query, pageToken, deep, regions } = await request.json();
 
-    if (!query) {
+    if (!query || typeof query !== "string" || query.trim().length > 160) {
       return NextResponse.json({ error: "A query de busca é obrigatória" }, { status: 400 });
     }
 

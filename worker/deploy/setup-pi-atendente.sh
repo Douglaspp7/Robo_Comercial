@@ -108,9 +108,13 @@ fi
 HAS_KEY="$(grep -E '^ANTHROPIC_API_KEY=.+' "$ATTENDANT_DIR/.env" || true)"
 HAS_TENANT="$(grep -E '^ATTENDANT_TENANT_ID=.+' "$ATTENDANT_DIR/.env" || true)"
 if [ -n "$HAS_KEY" ] && [ -z "$HAS_TENANT" ]; then
+  if [ -z "${ATTENDANT_SEED_PASSWORD:-}" ] || [ "${#ATTENDANT_SEED_PASSWORD}" -lt 12 ]; then
+    echo "ERRO: defina ATTENDANT_SEED_PASSWORD com pelo menos 12 caracteres antes do seed." >&2
+    exit 1
+  fi
   echo "==> Rodando o seed do tenant \"Zapien vende Zapien\"..."
   SEED_OUT="$(ATTENDANT_SEED_EMAIL="${ATTENDANT_SEED_EMAIL:-vende@zapien.app}" \
-             ATTENDANT_SEED_PASSWORD="${ATTENDANT_SEED_PASSWORD:-zapien-vende-zapien}" \
+             ATTENDANT_SEED_PASSWORD="$ATTENDANT_SEED_PASSWORD" \
              node --env-file="$ATTENDANT_DIR/.env" scripts/seed-zapien-tenant.mjs)"
   echo "$SEED_OUT"
   TID="$(echo "$SEED_OUT" | grep -oE 'TENANT_ID=[a-f0-9-]+' | head -1 | cut -d= -f2 || true)"

@@ -52,7 +52,7 @@ Uma vez, no ambiente do atendente (modo gateway):
 
 ```bash
 cd atendente
-ATTENDANT_SEED_EMAIL=vende@zapien.app ATTENDANT_SEED_PASSWORD='troque-isto' \
+ATTENDANT_SEED_EMAIL=vende@zapien.app ATTENDANT_SEED_PASSWORD='senha-forte-com-12-ou-mais' \
   node scripts/seed-zapien-tenant.mjs
 # → imprime TENANT_ID=...  (cole em ATTENDANT_TENANT_ID)
 ```

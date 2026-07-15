@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { rateLimit } from "@/lib/rate-limit";
 
 const PLACES_URL = "https://places.googleapis.com/v1/places:searchText";
 const FIELD_MASK = "places.displayName,places.types,nextPageToken";
@@ -13,12 +14,30 @@ const NEIGHBORHOOD_TYPES = new Set([
   "neighborhood",
 ]);
 
+interface RegionPlace {
+  displayName?: { text?: string };
+  types?: string[];
+}
+
+interface RegionsResponse {
+  places?: RegionPlace[];
+  nextPageToken?: string;
+}
+
+interface RegionsRequest {
+  textQuery: string;
+  languageCode: string;
+  regionCode: string;
+  maxResultCount: number;
+  pageToken?: string;
+}
+
 async function fetchPage(
   apiKey: string,
   textQuery: string,
   pageToken?: string
-): Promise<{ data: any; ok: boolean }> {
-  const requestBody: any = {
+): Promise<{ data: RegionsResponse; ok: boolean }> {
+  const requestBody: RegionsRequest = {
     textQuery,
     languageCode: "pt-BR",
     regionCode: "BR",
@@ -37,18 +56,20 @@ async function fetchPage(
   });
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
+    const errorData = await response.json().catch(() => ({} as RegionsResponse));
     console.error("Erro da API do Google (regions):", errorData);
     return { data: errorData, ok: false };
   }
-  return { data: await response.json(), ok: true };
+  return { data: (await response.json()) as RegionsResponse, ok: true };
 }
 
 export async function POST(request: Request) {
+  const blocked = rateLimit(request, "places-regions", 10, 60 * 1000);
+  if (blocked) return blocked;
   try {
     const { city } = await request.json();
 
-    if (!city || !String(city).trim()) {
+    if (!city || !String(city).trim() || String(city).length > 120) {
       return NextResponse.json({ error: "A cidade é obrigatória" }, { status: 400 });
     }
     const cityName = String(city).trim();

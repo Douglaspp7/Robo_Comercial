@@ -14,7 +14,11 @@ import { tenantQueries, db } from '../src/db.js';
 import { normalizeBusiness } from '../src/business.js';
 
 const email = (process.env.ATTENDANT_SEED_EMAIL || 'vende@zapien.app').toLowerCase().trim();
-const password = process.env.ATTENDANT_SEED_PASSWORD || 'zapien-vende-zapien';
+const password = process.env.ATTENDANT_SEED_PASSWORD || '';
+if (password.length < 12) {
+  console.error('Defina ATTENDANT_SEED_PASSWORD com pelo menos 12 caracteres.');
+  process.exit(1);
+}
 
 // Rascunho editável do negócio: o "produto" é o próprio Zapien.
 const business = normalizeBusiness({

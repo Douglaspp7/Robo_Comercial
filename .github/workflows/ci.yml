@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  painel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+        env:
+          PANEL_AUTH_DISABLED: "0"
+          PANEL_ADMIN_EMAIL: ci@example.com
+          PANEL_ADMIN_PASSWORD: "517243"
+          PANEL_SESSION_SECRET: ci-only-session-secret-with-32-characters
+
+  worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+      - run: npm ci
+      - run: npm test
+
+  atendente:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: atendente
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: atendente/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      # Esta cópia gateway remove intencionalmente a landing xlander; o teste
+      # dela pertence ao Zapien completo e não se aplica ao Robo Comercial.
+      - name: Testes do atendente gateway
+        run: find test -name '*.test.js' ! -name 'landing.test.js' -print0 | xargs -0 node --test
+      - run: npm run validate:config
