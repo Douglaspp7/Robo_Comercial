@@ -34,6 +34,15 @@ services:
         value: "30"
       - key: WA_MAX_DELAY_SEC
         value: "90"
+      # ── Atendente (Zapien que vende Zapien) ──────────────────────────────
+      # URL pública do atendente — cole após o serviço robo-atendente subir
+      # (ex.: https://robo-atendente.onrender.com). Vazio = worker só dispara.
+      - key: ATTENDANT_URL
+        sync: false
+      # Segredo que o worker envia ao encaminhar respostas. O atendente usa o
+      # MESMO valor (referenciado abaixo via fromService).
+      - key: ATTENDANT_TOKEN
+        generateValue: true
 
   # PAINEL (Next) — a interface web de busca de leads e disparo. Não segura
   # sessão de WhatsApp, então pode ficar na free (hiberna quando ocioso e
@@ -66,4 +75,60 @@ services:
       - key: SMTP_EMAIL
         sync: false
       - key: SMTP_PASSWORD
+        sync: false
+
+  # ATENDENTE — a cópia do Zapien que vende Zapien no número do disparo.
+  # Modo gateway: NÃO fala com a Meta; recebe as respostas do worker (/inbound)
+  # e responde pelo mesmo chip (/send do worker). Segura conversas/dashboard em
+  # SQLite próprio → precisa de instância paga + disco (a free hiberna/perde).
+  - type: web
+    name: robo-atendente
+    runtime: node
+    rootDir: atendente
+    plan: starter
+    buildCommand: npm ci
+    startCommand: node src/server.js
+    disk:
+      name: atendente-data     # SQLite do atendente — próprio, separado do Zapien de produção
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: GATEWAY_MODE
+        value: "1"
+      - key: DATABASE_PATH
+        value: /var/data/atendente.db   # banco PRÓPRIO deste número
+      # Segredos PRÓPRIOS (não reaproveitar de produção) — o Render gera.
+      - key: DATA_ENCRYPTION_KEY
+        generateValue: true
+      - key: SESSION_SECRET
+        generateValue: true
+      # HERDA do Zapien: pode ser a MESMA chave Anthropic. Você preenche.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      # URL pública deste atendente (para os links internos). Cole após subir.
+      - key: APP_URL
+        sync: false
+      # Conta admin do painel do atendente (para você logar e assumir conversa).
+      - key: ADMIN_EMAIL
+        sync: false
+      # ── Ligação com o worker ─────────────────────────────────────────────
+      # URL pública do worker — cole após o worker subir.
+      - key: WORKER_URL
+        sync: false
+      # Token do worker e segredo do inbound — compartilhados automaticamente.
+      - key: WORKER_API_TOKEN
+        fromService:
+          type: web
+          name: robo-worker
+          envVarKey: WORKER_API_TOKEN
+      - key: ATTENDANT_TOKEN
+        fromService:
+          type: web
+          name: robo-worker
+          envVarKey: ATTENDANT_TOKEN
+      # Tenant fixo que vende Zapien (rode scripts/seed-zapien-tenant.mjs e cole
+      # o TENANT_ID). Vazio = usa o único tenant existente.
+      - key: ATTENDANT_TENANT_ID
         sync: false
