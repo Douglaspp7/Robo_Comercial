@@ -57,4 +57,9 @@ jobs:
           cache: npm
           cache-dependency-path: atendente/package-lock.json
       - run: npm ci
-      - run: npm run check
+      - run: npm run lint
+      # Esta cópia gateway remove intencionalmente a landing xlander; o teste
+      # dela pertence ao Zapien completo e não se aplica ao Robo Comercial.
+      - name: Testes do atendente gateway
+        run: find test -name '*.test.js' ! -name 'landing.test.js' -print0 | xargs -0 node --test
+      - run: npm run validate:config
