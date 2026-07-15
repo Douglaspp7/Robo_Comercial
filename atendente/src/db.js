@@ -332,6 +332,9 @@ ensureColumn('contacts', 'handoff_notified', 'INTEGER NOT NULL DEFAULT 0');
 // Off-topic protection columns.
 ensureColumn('contacts', 'off_topic_count', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('contacts', 'off_topic_window_started_at', 'TEXT');
+// Modo gateway (Robo Comercial): chip (number_id) por onde este contato chegou.
+// A resposta da IA sai pelo MESMO chip em que o lead está conversando.
+ensureColumn('contacts', 'chip_id', 'TEXT');
 ensureColumn('contacts', 'off_topic_muted_until', 'TEXT');
 
 // AI rate limiting columns (per-contact windows).
@@ -2028,6 +2031,8 @@ export const contactQueries = {
   `),
   touch: db.prepare(`UPDATE contacts SET last_message_at = datetime('now') WHERE id = ?`),
   setNeedsHuman: db.prepare(`UPDATE contacts SET needs_human = ? WHERE tenant_id = ? AND wa_phone = ?`),
+  // Modo gateway: registra por qual chip (number_id) o contato está falando.
+  setChipId: db.prepare(`UPDATE contacts SET chip_id = ? WHERE id = ?`),
   // Recuperação de turnos: marca/limpa "devendo resposta da IA".
   setPendingAi: db.prepare(`UPDATE contacts SET pending_ai_at = datetime('now') WHERE id = ?`),
   clearPendingAi: db.prepare(`UPDATE contacts SET pending_ai_at = NULL WHERE id = ?`),

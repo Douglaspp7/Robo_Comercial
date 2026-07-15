@@ -2,6 +2,7 @@ import { config } from './config.js';
 import { fetchWithTimeout, fetchWithRetry } from './http.js';
 import { checkMetaBillingError } from './alerts.js';
 import { recordOutboundSuccess, recordOutboundError } from './meta-health.js';
+import { sendViaWorker } from './gateway.js';
 
 // Telemetria da Central de Saúde da Meta — melhor esforço, nunca afeta o envio.
 // tenant é null em envios de plataforma (alertas operacionais) → não registra.
@@ -26,6 +27,7 @@ function authHeader() {
 }
 
 export async function sendText(tenant, to, text) {
+  if (config.gateway.enabled) return sendViaWorker(tenant, to, text);
   const res = await fetchWithTimeout(`${baseUrl()}/messages`, {
     method: 'POST',
     headers: authHeader(),
@@ -42,6 +44,9 @@ export async function sendText(tenant, to, text) {
 }
 
 export async function sendImage(tenant, to, imageUrl, caption = '') {
+  // Modo gateway: o /send do worker é texto. Envia a legenda (se houver) para
+  // não perder a mensagem; imagem por Baileys fica para uma evolução do worker.
+  if (config.gateway.enabled) return sendViaWorker(tenant, to, caption);
   const res = await fetchWithTimeout(`${baseUrl()}/messages`, {
     method: 'POST',
     headers: authHeader(),
@@ -63,6 +68,7 @@ export async function sendImage(tenant, to, imageUrl, caption = '') {
 }
 
 export async function sendDocument(tenant, to, link, filename) {
+  if (config.gateway.enabled) return sendViaWorker(tenant, to, `📎 ${filename || 'documento'}: ${link}`);
   const res = await fetchWithTimeout(`${baseUrl()}/messages`, {
     method: 'POST',
     headers: authHeader(),
@@ -84,6 +90,7 @@ export async function sendDocument(tenant, to, link, filename) {
 }
 
 export async function sendVideo(tenant, to, videoUrl, caption = '') {
+  if (config.gateway.enabled) return sendViaWorker(tenant, to, caption);
   const res = await fetchWithTimeout(`${baseUrl()}/messages`, {
     method: 'POST',
     headers: authHeader(),
@@ -110,6 +117,10 @@ export async function sendVideo(tenant, to, videoUrl, caption = '') {
  * @param {string[]} bodyParams valores para preencher {{1}}, {{2}}... do corpo do template, na ordem.
  */
 export async function sendTemplate(tenant, to, templateName, languageCode, bodyParams = []) {
+  // Modo gateway: não há "template" no Baileys (isso é regra da janela 24h da
+  // Meta). Pelo chip, mensagem proativa é texto normal — mas sem o corpo
+  // resolvido aqui, o mais seguro é não enviar (evita spam sem contexto).
+  if (config.gateway.enabled) return {};
   const template = { name: templateName, language: { code: languageCode } };
   if (bodyParams.length) {
     template.components = [
@@ -139,6 +150,7 @@ export async function sendTemplate(tenant, to, templateName, languageCode, bodyP
  * @param {string} phoneDigits número da loja, apenas dígitos com DDI (ex: "5511999998888")
  */
 export async function sendContact(_tenant, to, name, phoneDigits) {
+  if (config.gateway.enabled) return {}; // vCard não suportado pelo /send do worker
   const res = await fetchWithTimeout(`${baseUrl()}/messages`, {
     method: 'POST',
     headers: authHeader(),
@@ -162,6 +174,7 @@ export async function sendContact(_tenant, to, name, phoneDigits) {
 }
 
 export async function markAsRead(_tenant, messageId) {
+  if (config.gateway.enabled) return; // recibos de leitura ficam a cargo do worker
   try {
     await fetchWithTimeout(`${baseUrl()}/messages`, {
       method: 'POST',

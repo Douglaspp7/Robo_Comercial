@@ -11,6 +11,14 @@ function required(name) {
   return value;
 }
 
+// Modo gateway: este atendente não fala com a Meta — envia/recebe pelo WORKER
+// do Robo Comercial (dono do chip). Nesse modo as credenciais Meta deixam de
+// ser obrigatórias no boot.
+const gatewayEnabled = String(process.env.GATEWAY_MODE || '').trim() === '1';
+function requiredUnlessGateway(name) {
+  return gatewayEnabled ? (process.env[name] || '') : required(name);
+}
+
 export const config = {
   port: Number(process.env.PORT) || 3000,
   appUrl: process.env.APP_URL || (process.env.NODE_ENV === 'production' ? 'https://zapien.app' : `http://localhost:${process.env.PORT || 3000}`),
@@ -24,11 +32,26 @@ export const config = {
   },
 
   whatsapp: {
-    verifyToken: required('WHATSAPP_VERIFY_TOKEN'),
+    verifyToken: requiredUnlessGateway('WHATSAPP_VERIFY_TOKEN'),
     apiVersion: process.env.WHATSAPP_API_VERSION || 'v21.0',
     // Número servidor da plataforma (um único número atende todos os tenants)
     phoneNumberId: process.env.WA_PHONE_NUMBER_ID || '',
     token: process.env.WA_TOKEN || '',
+  },
+
+  // Modo gateway (Robo Comercial): em vez da Meta, o atendente envia pelo WORKER
+  // (POST /send) e recebe respostas em POST /inbound. É o que faz "qualquer
+  // palavra ativar o robô" num número dedicado, sem código de tenant.
+  gateway: {
+    enabled: gatewayEnabled,
+    // URL do worker do Robo Comercial (que é dono do chip).
+    workerUrl: (process.env.WORKER_URL || '').replace(/\/$/, ''),
+    // Token do worker (header x-worker-token ao chamar /send).
+    workerToken: process.env.WORKER_API_TOKEN || '',
+    // Tenant fixo que vende Zapien. Vazio = usa o único tenant existente.
+    tenantId: process.env.ATTENDANT_TENANT_ID || '',
+    // Segredo que valida o inbound vindo do worker (header x-worker-token).
+    inboundToken: process.env.ATTENDANT_TOKEN || '',
   },
 
   sessionSecret: process.env.NODE_ENV === 'production'

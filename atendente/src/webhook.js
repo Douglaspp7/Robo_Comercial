@@ -1407,6 +1407,80 @@ webhookRouter.post('/webhook', async (req, res) => {
 });
 
 /**
+ * Resolve o tenant fixo do atendente (o que vende Zapien). Usa
+ * ATTENDANT_TENANT_ID se definido; senão, o único tenant ativo existente.
+ */
+function resolveAttendantTenantId() {
+  if (config.gateway.tenantId) return config.gateway.tenantId;
+  try {
+    const active = tenantQueries.listAll.all().find((t) => t.active);
+    return active?.id || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Modo gateway (Robo Comercial): inbound vindo do WORKER, não da Meta.
+ *
+ * O worker (dono do chip) encaminha aqui TODA resposta de lead. Qualquer palavra
+ * ativa o atendente — sem código de tenant: o tenant é fixo (o que vende Zapien).
+ * A resposta da IA sai pelo MESMO chip via /send do worker (ver gateway.js),
+ * roteada por contacts.chip_id. O corpo já vem parseado (express.json global).
+ */
+webhookRouter.post('/inbound', async (req, res) => {
+  if (!config.gateway.enabled) return res.status(404).json({ error: 'gateway desativado' });
+  const token = config.gateway.inboundToken;
+  if (token && req.headers['x-worker-token'] !== token) {
+    return res.status(401).json({ error: 'não autorizado' });
+  }
+  const { number_id, phone, text, name } = req.body || {};
+  const cleanPhone = String(phone || '').replace(/\D/g, '');
+  const cleanText = String(text || '').trim();
+  if (!cleanPhone || !cleanText) {
+    return res.status(400).json({ error: 'phone e text obrigatórios' });
+  }
+  res.json({ ok: true }); // responde rápido; processa em seguida
+
+  try {
+    const tenantId = resolveAttendantTenantId();
+    if (!tenantId) return console.error('[inbound] nenhum tenant para o atendente');
+    const tenant = decryptTenant(tenantQueries.byId.get(tenantId));
+    if (!tenant || !tenant.active) return console.warn('[inbound] tenant inativo/ausente');
+
+    const contact = getOrCreateContact(tenant.id, cleanPhone, name || null);
+    if (number_id != null) {
+      try { contactQueries.setChipId.run(String(number_id), contact.id); } catch { /* noop */ }
+    }
+
+    // Sem cobertura, precisa de humano ou já em atendimento humano: só registra.
+    const subState = subscriptionState(tenant);
+    if (!subState.canUseBot || contact.needs_human || contact.handoff_status === 'in_progress') {
+      messageQueries.insert.run(contact.id, 'user', cleanText);
+      contactQueries.touch.run(contact.id);
+      return;
+    }
+
+    messageQueries.insert.run(contact.id, 'user', cleanText);
+    contactQueries.setPendingAi.run(contact.id);
+    const key = `c:${contact.id}`;
+    debounce(
+      key,
+      () => {
+        const queued = aiQueue.add(
+          () => processTurn({ tenantId: tenant.id, contactId: contact.id, profileName: name || undefined }),
+          { tenantId: tenant.id, contactId: contact.id, type: 'mensagem', priority: 'high' },
+        );
+        if (!queued.ok) console.warn(`[inbound] fila de IA cheia (${queued.reason}) — recuperação re-enfileira`);
+      },
+      config.debounceMs,
+    );
+  } catch (err) {
+    console.error('[inbound] erro:', err.message);
+  }
+});
+
+/**
  * Varredura de recuperação: re-enfileira turnos de IA que ficaram presos
  * (enfileirados mas não concluídos — tipicamente por restart/deploy do servidor
  * no meio do processamento). Idempotente e seguro: só pega contatos com
