@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zapien — Planos</title>
+  <link rel="icon" href="/favicon.ico?v=9" type="image/x-icon">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#4f46e5">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/reset.css" />
+  <link rel="stylesheet" href="/css/tokens.css?v=visual-system-v2" />
+  <link rel="stylesheet" href="/css/components.css?v=visual-system-v2" />
+  <link rel="stylesheet" href="/css/app-shell.css?v=mobile-clearance-v1" />
+  <link rel="stylesheet" href="/css/pages/plans.css" />
+  <link rel="stylesheet" href="/css/ui-polish.css?v=visual-system-v2" />
+  <style>
+    .spin { animation: spin 1s linear infinite; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+  
+  <!-- Sidebar -->
+  <aside class="app-sidebar" id="app-sidebar">
+    <div class="app-sidebar-header">
+      <a href="/dashboard.html" class="app-sidebar-logo">
+        <img src="/assets/logo.png?v=9" alt="Zapien Logo" />
+      </a>
+      <button class="btn btn-icon" id="sidebar-close" style="margin-left:auto; color:var(--gray-900);">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+    
+    <nav class="app-sidebar-nav">
+      <a href="/dashboard.html" class="nav-item">
+        <i data-lucide="layout-dashboard"></i>
+        <span>Início</span>
+      </a>
+      <a href="/settings.html" class="nav-item">
+        <i data-lucide="settings"></i>
+        <span class="settings-nav-label">Configurações</span>
+      </a>
+      <a href="/vendas.html" class="nav-item">
+        <i data-lucide="trending-up"></i>
+        <span>Vendas</span>
+      </a>
+      <a href="/avisos.html" class="nav-item">
+        <i data-lucide="bell"></i>
+        <span>Avisos</span>
+        <span class="badge badge-danger hidden" id="navUnreadBadge" style="margin-left:auto;padding:1px 7px;font-size:0.68rem;"></span>
+      </a>
+      <a href="/automations.html" class="nav-item">
+        <i data-lucide="zap"></i>
+        <span>Automações</span>
+      </a>
+      <a href="/marketing.html" class="nav-item">
+        <i data-lucide="megaphone"></i>
+        <span>Marketing</span>
+      </a>
+      <a href="/integrations.html" class="nav-item">
+        <i data-lucide="plug"></i>
+        <span>Integrações</span>
+      </a>
+      <a href="/plans.html" class="nav-item active">
+        <i data-lucide="credit-card"></i>
+        <span>Planos</span>
+      </a>
+      <a href="/admin.html" class="nav-item hidden" id="adminLink">
+        <i data-lucide="shield"></i>
+        <span>Admin</span>
+      </a>
+    </nav>
+    
+    <div class="app-sidebar-footer">
+      <a href="#" target="_blank" rel="noopener" class="nav-item" id="supportBtn" style="display:none;">
+        <i data-lucide="message-circle"></i>
+        <span>Suporte</span>
+      </a>
+      <button class="nav-item w-full" id="logoutBtn">
+        <i data-lucide="log-out"></i>
+        <span>Sair</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="app-main">
+    
+    <!-- Topbar -->
+    <header class="app-topbar">
+      <div class="flex items-center gap-4">
+        <button class="btn btn-icon mobile-menu-btn" id="sidebar-toggle">
+          <i data-lucide="menu"></i>
+        </button>
+        <a href="/dashboard.html" class="mobile-topbar-brand" aria-label="Zapien - início">
+          <img src="/assets/logo.png?v=9" alt="Zapien Logo" />
+        </a>
+      </div>
+      <div class="topbar-actions">
+        <div style="position:relative;">
+          <button id="profileBtn" class="topbar-avatar" title="Minha conta">
+            <span id="profileInitial"><i data-lucide="user" style="width:16px;height:16px;"></i></span>
+          </button>
+          <div id="profileDropdown" class="profile-dropdown hidden">
+            <div class="profile-dropdown-info">
+              <div class="profile-dropdown-email" id="profileEmail">—</div>
+              <div id="profilePlanBadge"></div>
+            </div>
+            <div class="profile-dropdown-divider"></div>
+            <button class="profile-dropdown-item" id="changePwBtn">
+              <i data-lucide="key-round"></i> Mudar senha
+            </button>
+            <button class="profile-dropdown-item text-danger" id="profileLogoutBtn">
+              <i data-lucide="log-out"></i> Sair
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal: Mudar Senha -->
+      <div id="changePwModal" class="modal-overlay">
+        <div class="modal-content password-modal-compact">
+          <div class="modal-header">
+            <h3 class="modal-title">Mudar senha</h3>
+            <button class="btn btn-icon" id="changePwClose"><i data-lucide="x"></i></button>
+          </div>
+          <div class="password-modal-body">
+            <div class="form-group mb-0">
+              <label class="form-label">Senha atual</label>
+              <input type="password" id="cpwCurrent" class="form-input" placeholder="••••••••">
+            </div>
+            <div class="form-group mb-0">
+              <label class="form-label">Nova senha</label>
+              <input type="password" id="cpwNew" class="form-input" placeholder="Mínimo 6 caracteres">
+            </div>
+            <div class="form-group mb-0">
+              <label class="form-label">Confirmar nova senha</label>
+              <input type="password" id="cpwConfirm" class="form-input" placeholder="Repita a nova senha">
+            </div>
+            <button class="btn btn-primary password-save-btn" id="cpwSaveBtn">Salvar nova senha</button>
+          </div>
+        </div>
+      </div>
+    </header>
+    
+    <!-- Content Area -->
+    <div class="app-content">
+      
+      <div class="plans-header page-heading">
+        <p class="eyebrow">Planos</p>
+        <h2 class="plans-title">Qual plano destrava o que você precisa?</h2>
+        <p class="plans-subtitle" id="pageSub">Escolha pelo objetivo da sua loja. Detalhes técnicos ficam recolhidos.</p>
+      </div>
+
+      <!-- Banner de teste grátis: preenchido por plans.js quando subscription.status === 'trial' -->
+      <div class="trial-banner" id="trialBanner" style="display:none;"></div>
+      
+      <div class="billing-period-toggle" id="billingPeriodToggle">
+        <button type="button" class="billing-period-btn active" data-period="mensal">Mensal</button>
+        <button type="button" class="billing-period-btn" data-period="semestral">Semestral <span class="billing-period-badge">-10%</span></button>
+        <button type="button" class="billing-period-btn" data-period="anual">Anual <span class="billing-period-badge">-20%</span></button>
+      </div>
+
+      <div class="plans-grid" id="plansGrid">
+        <!-- Rendered by JS -->
+      </div>
+      
+      <div class="trial-note">
+        <p>Todos os planos incluem 7 dias de teste gratuito. Cancele a qualquer momento.</p>
+        <p style="margin-top:8px;">Respostas de IA inclusas e limites transparentes em cada plano — sem surpresas na fatura.</p>
+      </div>
+      
+    </div>
+  </main>
+  
+  <!-- Mobile Bottom Nav (5 items) -->
+  <nav class="mobile-bottom-nav">
+    <a href="/dashboard.html" class="bottom-nav-item">
+      <i data-lucide="layout-dashboard"></i>
+      <span>Início</span>
+    </a>
+    <a href="/vendas.html" class="bottom-nav-item">
+      <i data-lucide="trending-up"></i>
+      <span>Vendas</span>
+    </a>
+    <a href="/avisos.html" class="bottom-nav-item" style="position:relative;">
+      <i data-lucide="bell"></i>
+      <span>Avisos</span>
+      <span class="nav-badge hidden" id="bottomNavUnread"></span>
+    </a>
+    <a href="/settings.html" class="bottom-nav-item">
+      <i data-lucide="settings"></i>
+      <span>Configurar</span>
+    </a>
+    <button type="button" class="bottom-nav-item active" id="bottom-nav-more" aria-haspopup="true" aria-expanded="false">
+      <i data-lucide="grid-2x2"></i>
+      <span>Mais</span>
+    </button>
+  </nav>
+
+</div>
+
+<!-- "Mais" Bottom Sheet -->
+<div id="more-sheet-overlay" class="more-sheet-overlay" aria-hidden="true" role="dialog" aria-label="Menu adicional" style="display:none;">
+  <div class="more-sheet">
+    <div class="more-sheet-handle"></div>
+    <nav class="more-sheet-nav" aria-label="Navegação adicional">
+      <a href="/automations.html" class="more-sheet-item">
+        <i data-lucide="zap"></i>
+        <span>Automações</span>
+      </a>
+      <a href="/marketing.html" class="more-sheet-item">
+        <i data-lucide="megaphone"></i>
+        <span>Marketing</span>
+      </a>
+      <a href="/integrations.html" class="more-sheet-item">
+        <i data-lucide="plug"></i>
+        <span>Integrações</span>
+      </a>
+      <a href="/plans.html" class="more-sheet-item active">
+        <i data-lucide="credit-card"></i>
+        <span>Planos</span>
+      </a>
+      <a href="#" target="_blank" rel="noopener" class="more-sheet-item" id="moreSheetSupport" style="display:none;">
+        <i data-lucide="message-circle"></i>
+        <span>Suporte</span>
+      </a>
+      <a href="/admin.html" class="more-sheet-item" id="moreSheetAdmin" style="display:none;">
+        <i data-lucide="shield"></i>
+        <span>Admin</span>
+      </a>
+    </nav>
+  </div>
+</div>
+
+<script src="/vendor/lucide.min.js"></script>
+<script src="/js/ui.js?v=more-sheet-v2"></script>
+<script src="/js/pages/plans.js?v=knowledge-limits-1"></script>
+</body>
+</html>

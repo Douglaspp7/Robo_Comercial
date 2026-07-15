@@ -1,0 +1,20 @@
+[Unit]
+Description=Robo Comercial - atendente (Zapien que vende Zapien, modo gateway)
+After=network-online.target robo-worker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Placeholders preenchidos na instalação. WorkingDirectory = pasta atendente/.
+# O .env do atendente fica nessa pasta (GATEWAY_MODE=1, WORKER_URL, etc.).
+User=__USER__
+WorkingDirectory=__ATTENDANT_DIR__
+ExecStart=__NODE__ --env-file-if-exists=.env src/server.js
+Restart=always
+RestartSec=5
+# Logs: journalctl -u robo-atendente -f
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

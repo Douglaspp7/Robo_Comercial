@@ -21,6 +21,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { config } from "./config.js";
 import { addSuppression } from "./db.js";
+import { classifyInbound, forwardToAttendant } from "./bridge.js";
 
 const logger = pino({ level: process.env.WA_LOG_LEVEL || "silent" });
 
@@ -89,28 +90,42 @@ export async function startSession({ id, pairPhone }) {
   s.sock = sock;
   sock.ev.on("creds.update", saveCreds);
 
-  // Inbound: opt-out (SAIR/PARAR...). Quem responder uma palavra de opt-out
-  // entra na lista de supressão e nunca mais é contatado.
+  // Inbound: opt-out E encaminhamento ao atendente.
+  //  - palavra de opt-out (SAIR/PARAR...) → supressão, nunca mais contatado.
+  //  - qualquer outra resposta → encaminha ao atendente (a cópia do Zapien que
+  //    vende Zapien), se ATTENDANT_URL estiver configurado. É o que faz
+  //    "qualquer palavra ativar o robô". Sem atendente: só o opt-out roda.
   sock.ev.on("messages.upsert", ({ messages, type }) => {
     if (type !== "notify") return;
     for (const msg of messages || []) {
       if (msg.key?.fromMe) continue;
       const jid = msg.key?.remoteJid;
       if (!jid || jid.endsWith("@g.us")) continue; // ignora grupos
-      const text = (
+      const text =
         msg.message?.conversation ||
         msg.message?.extendedTextMessage?.text ||
-        ""
-      )
-        .trim()
-        .toLowerCase();
-      if (!text) continue;
-      const words = text.split(/\s+/);
-      if (words.some((w) => config.optoutKeywords.includes(w))) {
-        const phone = jid.split("@")[0];
+        "";
+      const kind = classifyInbound(text);
+      if (kind === "ignore") continue;
+      const phone = jid.split("@")[0];
+      if (kind === "optout") {
         addSuppression(jid, phone, "optout");
         console.log(`  [${id}] opt-out recebido de ...${phone.slice(-4)} → supressão.`);
+        continue;
       }
+      // kind === "forward": a resposta do lead vai para o atendente, que
+      // responde pelo MESMO chip (number_id) via POST /send do worker.
+      forwardToAttendant({
+        number_id: id,
+        jid,
+        phone,
+        text: text.trim(),
+        name: msg.pushName || "",
+      })
+        .then((ok) => {
+          if (ok) console.log(`  [${id}] resposta de ...${phone.slice(-4)} → atendente.`);
+        })
+        .catch(() => {});
     }
   });
 

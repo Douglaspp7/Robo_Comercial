@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aceitar Convite — Zapien</title>
+  <link rel="icon" href="/favicon.ico?v=9" type="image/x-icon">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/reset.css" />
+  <link rel="stylesheet" href="/css/tokens.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+  <link rel="stylesheet" href="/css/ui-polish.css" />
+  <style>
+    body {
+      background-color: var(--gray-50);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      padding: 20px;
+    }
+    .invite-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+      width: 100%;
+      max-width: 440px;
+      padding: 32px 24px;
+    }
+    .invite-logo {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--brand-600);
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .invite-header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .invite-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+    .invite-subtitle {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+    .invite-error {
+      background-color: var(--danger-50);
+      color: var(--danger-700);
+      border: 1px solid var(--danger-200);
+      padding: 16px;
+      border-radius: var(--radius-md);
+      text-align: center;
+      margin-bottom: 20px;
+      font-size: 0.9rem;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<div class="invite-card">
+  <div class="invite-logo">Zapien</div>
+  
+  <div id="inviteLoading" style="text-align: center; padding: 20px; color: var(--gray-500);">
+    <p>Verificando validade do convite...</p>
+  </div>
+
+  <div id="inviteErrorBox" class="invite-error">
+    Convite inválido ou expirado.
+  </div>
+
+  <div id="inviteFormContainer" style="display: none;">
+    <div class="invite-header">
+      <h1 class="invite-title">Criar sua conta</h1>
+      <p class="invite-subtitle" id="inviteSubtitleText">Você foi convidado para participar como atendente.</p>
+    </div>
+
+    <form id="acceptForm" style="display: flex; flex-direction: column; gap: 16px;">
+      <div class="form-group mb-0">
+        <label class="form-label" for="userName">Seu nome completo</label>
+        <input type="text" id="userName" class="form-input" placeholder="ex: Lucas Silva" required>
+      </div>
+
+      <div class="form-group mb-0">
+        <label class="form-label" for="userEmail">E-mail</label>
+        <input type="email" id="userEmail" class="form-input" disabled>
+      </div>
+
+      <div class="form-group mb-0">
+        <label class="form-label" for="userPassword">Defina sua senha</label>
+        <input type="password" id="userPassword" class="form-input" placeholder="No mínimo 6 caracteres" minlength="6" required>
+      </div>
+
+      <button type="submit" class="btn btn-primary w-full" id="submitBtn" style="margin-top: 8px;">Concluir cadastro e entrar</button>
+    </form>
+  </div>
+</div>
+
+<script src="/vendor/lucide.min.js"></script>
+<script src="/js/ui.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', async () => {
+    const params = new URLSearchParams(location.search);
+    const token = params.get('token');
+    
+    const inviteLoading = document.getElementById('inviteLoading');
+    const inviteErrorBox = document.getElementById('inviteErrorBox');
+    const inviteFormContainer = document.getElementById('inviteFormContainer');
+    const inviteSubtitleText = document.getElementById('inviteSubtitleText');
+    const userEmailInput = document.getElementById('userEmail');
+    const acceptForm = document.getElementById('acceptForm');
+    const submitBtn = document.getElementById('submitBtn');
+
+    if (!token) {
+      inviteLoading.style.display = 'none';
+      inviteErrorBox.style.display = 'block';
+      inviteErrorBox.textContent = 'Token de convite ausente.';
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/invite/${token}`);
+      const data = await res.json();
+      
+      inviteLoading.style.display = 'none';
+      if (res.ok) {
+        inviteFormContainer.style.display = 'block';
+        userEmailInput.value = data.email;
+        const roleLabel = data.role === 'admin' ? 'Administrador' : 'Atendente';
+        inviteSubtitleText.innerHTML = `Você foi convidado para participar da equipe de <strong>${escapeHtml(data.company)}</strong> como <strong>${roleLabel}</strong>.`;
+      } else {
+        inviteErrorBox.style.display = 'block';
+        inviteErrorBox.textContent = data.error || 'Convite inválido ou expirado.';
+      }
+    } catch {
+      inviteLoading.style.display = 'none';
+      inviteErrorBox.style.display = 'block';
+      inviteErrorBox.textContent = 'Erro ao se conectar ao servidor.';
+    }
+
+    acceptForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('userName').value;
+      const password = document.getElementById('userPassword').value;
+
+      submitBtn.disabled = true;
+      try {
+        const res = await fetch(`/api/invite/${token}/accept`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, password }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          window.Toast?.show('Cadastro concluído! Redirecionando...', 'success');
+          setTimeout(() => location.href = '/dashboard.html', 1000);
+        } else {
+          window.Toast?.show(data.error || 'Falha ao aceitar convite.', 'error');
+          submitBtn.disabled = false;
+        }
+      } catch {
+        window.Toast?.show('Erro de conexão.', 'error');
+        submitBtn.disabled = false;
+      }
+    });
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+  });
+</script>
+</body>
+</html>

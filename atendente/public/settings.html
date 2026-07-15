@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zapien — Configurações</title>
+  <link rel="icon" href="/favicon.ico?v=9" type="image/x-icon">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#4f46e5">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/reset.css" />
+  <link rel="stylesheet" href="/css/tokens.css?v=visual-system-v2" />
+  <link rel="stylesheet" href="/css/components.css?v=visual-system-v2" />
+  <link rel="stylesheet" href="/css/app-shell.css?v=mobile-clearance-v1" />
+  <link rel="stylesheet" href="/css/pages/settings.css?v=save-position-v3" />
+  <link rel="stylesheet" href="/css/ui-polish.css?v=visual-system-v2" />
+  <style>
+    .spin { animation: spin 1s linear infinite; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+
+  <!-- Sidebar -->
+  <aside class="app-sidebar" id="app-sidebar">
+    <div class="app-sidebar-header">
+      <a href="/dashboard.html" class="app-sidebar-logo">
+        <img src="/assets/logo.png?v=9" alt="Zapien Logo" />
+      </a>
+      <button class="btn btn-icon" id="sidebar-close" style="margin-left:auto; color:var(--gray-900);">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+
+    <nav class="app-sidebar-nav">
+      <a href="/dashboard.html" class="nav-item">
+        <i data-lucide="layout-dashboard"></i>
+        <span>Início</span>
+      </a>
+      <a href="/settings.html" class="nav-item active">
+        <i data-lucide="settings"></i>
+        <span class="settings-nav-label">Configurações</span>
+      </a>
+      <a href="/vendas.html" class="nav-item">
+        <i data-lucide="trending-up"></i>
+        <span>Vendas</span>
+      </a>
+      <a href="/avisos.html" class="nav-item">
+        <i data-lucide="bell"></i>
+        <span>Avisos</span>
+        <span class="badge badge-danger hidden" id="navUnreadBadge" style="margin-left:auto;padding:1px 7px;font-size:0.68rem;"></span>
+      </a>
+      <a href="/automations.html" class="nav-item">
+        <i data-lucide="zap"></i>
+        <span>Automações</span>
+      </a>
+      <a href="/marketing.html" class="nav-item">
+        <i data-lucide="megaphone"></i>
+        <span>Marketing</span>
+      </a>
+      <a href="/integrations.html" class="nav-item">
+        <i data-lucide="plug"></i>
+        <span>Integrações</span>
+      </a>
+      <a href="/plans.html" class="nav-item">
+        <i data-lucide="credit-card"></i>
+        <span>Planos</span>
+      </a>
+      <a href="/admin.html" class="nav-item hidden" id="adminLink">
+        <i data-lucide="shield"></i>
+        <span>Admin</span>
+      </a>
+    </nav>
+
+    <div class="app-sidebar-footer">
+      <a href="#" target="_blank" rel="noopener" class="nav-item" id="supportBtn" style="display:none;">
+        <i data-lucide="message-circle"></i>
+        <span>Suporte</span>
+      </a>
+      <button class="nav-item w-full" id="logoutBtn">
+        <i data-lucide="log-out"></i>
+        <span>Sair</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="app-main">
+
+    <!-- Topbar -->
+    <header class="app-topbar">
+      <div class="flex items-center gap-4">
+        <button class="btn btn-icon mobile-menu-btn" id="sidebar-toggle">
+          <i data-lucide="menu"></i>
+        </button>
+        <a href="/dashboard.html" class="mobile-topbar-brand" aria-label="Zapien - início">
+          <img src="/assets/logo.png?v=9" alt="Zapien Logo" />
+        </a>
+      </div>
+      <div class="topbar-actions">
+        <span class="badge badge-ai hidden md:flex" id="badge-ia-topbar"><i data-lucide="bot" style="width:14px;height:14px;margin-right:4px;"></i> IA Ativa</span>
+        <div style="position:relative;">
+          <button id="profileBtn" class="topbar-avatar" title="Minha conta">
+            <span id="profileInitial"><i data-lucide="user" style="width:16px;height:16px;"></i></span>
+          </button>
+          <div id="profileDropdown" class="profile-dropdown hidden">
+            <div class="profile-dropdown-info">
+              <div class="profile-dropdown-email" id="profileEmail">—</div>
+              <div id="profilePlanBadge"></div>
+            </div>
+            <div class="profile-dropdown-divider"></div>
+            <button class="profile-dropdown-item" id="changePwBtn">
+              <i data-lucide="key-round"></i> Mudar senha
+            </button>
+            <button class="profile-dropdown-item text-danger" id="profileLogoutBtn">
+              <i data-lucide="log-out"></i> Sair
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal: Mudar Senha -->
+      <div id="changePwModal" class="modal-overlay">
+        <div class="modal-content password-modal-compact">
+          <div class="modal-header">
+            <h3 class="modal-title">Mudar senha</h3>
+            <button class="btn btn-icon" id="changePwClose"><i data-lucide="x"></i></button>
+          </div>
+          <div class="password-modal-body">
+            <div class="form-group mb-0">
+              <label class="form-label">Senha atual</label>
+              <input type="password" id="cpwCurrent" class="form-input" placeholder="••••••••">
+            </div>
+            <div class="form-group mb-0">
+              <label class="form-label">Nova senha</label>
+              <input type="password" id="cpwNew" class="form-input" placeholder="Mínimo 6 caracteres">
+            </div>
+            <div class="form-group mb-0">
+              <label class="form-label">Confirmar nova senha</label>
+              <input type="password" id="cpwConfirm" class="form-input" placeholder="Repita a nova senha">
+            </div>
+            <button class="btn btn-primary password-save-btn" id="cpwSaveBtn">Salvar nova senha</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Impersonate Banner -->
+    <div class="admin-banner" id="impersonateBar" style="display:none;">
+      <div>
+        <i data-lucide="eye" style="display:inline-block; vertical-align:middle; margin-right:8px;"></i>
+        Você está editando a conta de <strong id="impersonateEmail"></strong>
+      </div>
+      <button class="btn" id="stopImpersonateBtn">Voltar para Administração</button>
+    </div>
+
+    <!-- Content Area -->
+    <div class="app-content settings-content">
+
+      <!-- Activation Assistant -->
+      <section class="setup-progress-card guided-setup" aria-labelledby="setup-title">
+        <div class="setup-hero">
+          <div>
+            <p class="setup-eyebrow">Ativação rápida</p>
+            <h2 id="setup-title">Configurar minha IA no WhatsApp</h2>
+            <p>Faça o básico agora. Você pode ajustar detalhes depois.</p>
+          </div>
+          <div class="setup-actions-top">
+            <div class="setup-score"><span id="setup-progress-text">0%</span><small id="setup-progress-label">preenchido</small></div>
+          </div>
+        </div>
+        <div class="setup-progress-track"><div id="setup-progress-bar"></div></div>
+        <div id="setup-missing-list" class="setup-missing-list">Carregando pendências…</div>
+
+        <div class="wa-link-card" id="wa-link-section">
+          <div class="wa-link-card-header">
+            <div class="wa-link-card-icon"><i data-lucide="send" style="color:#fff;width:19px;height:19px;"></i></div>
+            <div>
+              <div class="wa-link-card-title">Link para chamar sua IA no WhatsApp</div>
+              <div class="wa-link-card-sub">Envie este link para clientes iniciarem com a mensagem padrão da sua loja.</div>
+            </div>
+          </div>
+          <div id="wa-link-display" style="display:none; flex-direction:column; gap:10px;">
+            <div class="wa-link-slug-row">Código da loja: <code id="wa-attendance-code"></code></div>
+            <input id="wa-link-input" class="form-input wa-link-url-input" readonly>
+            <div id="wa-link-message-preview" class="wa-link-message-preview" style="display:none;">
+              <div class="wa-link-preview-label">Mensagem enviada ao cliente</div>
+              <div id="wa-link-preview-text" class="wa-link-preview-text"></div>
+              <div id="wa-route-code-hint" class="wa-link-preview-hint">Esse código identifica sua loja quando o cliente envia a mensagem.</div>
+            </div>
+            <div class="wa-link-actions">
+              <button type="button" id="wa-link-copy-btn" class="btn btn-secondary wa-link-btn"><i data-lucide="copy"></i> Copiar link</button>
+              <button type="button" id="wa-link-qr-btn" class="btn btn-secondary wa-link-btn"><i data-lucide="qr-code"></i> QR Code</button>
+            </div>
+            <div class="wa-link-actions wa-link-test-actions">
+              <a id="wa-link-open-btn" href="#" target="_blank" rel="noopener" class="btn btn-primary wa-link-btn" style="text-decoration:none;"><i data-lucide="external-link"></i> Testar</a>
+            </div>
+            <div class="wa-link-logo-box">
+              <div class="wa-link-preview-label">Logo exibida no link</div>
+              <div class="wa-link-logo-row">
+                <div class="wa-link-logo-preview" id="wa-link-logo-preview">
+                  <i data-lucide="image"></i>
+                </div>
+                <div class="wa-link-logo-copy">
+                  <div id="wa-link-logo-status" class="wa-link-logo-status">Nenhuma logo enviada.</div>
+                  <div class="wa-link-preview-hint">Aparece antes do cliente abrir o WhatsApp pelo link.</div>
+                </div>
+              </div>
+              <div class="wa-link-actions wa-link-logo-actions">
+                <label for="wa-link-logo-input" class="btn btn-icon btn-secondary" title="Carregar logo"><i data-lucide="upload"></i></label>
+                <button type="button" id="wa-link-logo-remove-btn" class="btn btn-icon btn-secondary" title="Remover logo" style="display:none;"><i data-lucide="trash-2"></i></button>
+                <input type="file" id="wa-link-logo-input" accept="image/png,image/jpeg,image/webp" hidden>
+              </div>
+            </div>
+          </div>
+          <div id="wa-link-not-configured" style="display:none;">Número da plataforma não configurado. Fale com o suporte.</div>
+        </div>
+
+        <div id="setup-checklist" class="setup-step-grid setup-step-grid-four">
+          <article class="setup-step-card" data-step-card="loja">
+            <div class="step-card-top"><span class="step-number">1</span><span class="step-status pending" id="status-loja">Pendente</span></div>
+            <h3>Meu Negócio</h3>
+            <p>Diga para a IA quem é você e o que vende.</p>
+            <button type="button" class="btn btn-primary setup-toggle-section" data-target-section="business-section" aria-expanded="false">Configurar negócio</button>
+            <div class="step-inline-panel" id="business-inline-panel"></div>
+          </article>
+
+          <article class="setup-step-card" data-step-card="produtos">
+            <div class="step-card-top"><span class="step-number">2</span><span class="step-status pending" id="status-produtos">Pendente</span></div>
+            <h3>Meus produtos</h3>
+            <p>Cadastre ou envie seu catálogo para a IA saber o que pode oferecer.</p>
+            <button type="button" class="btn btn-primary setup-toggle-section" data-target-section="products-section" aria-expanded="false">Adicionar produtos</button>
+            <div class="step-inline-panel" id="products-inline-panel"></div>
+          </article>
+
+          <article class="setup-step-card" data-step-card="ia-config">
+            <div class="step-card-top"><span class="step-number">3</span><span class="step-status pending" id="status-ia-config">Pendente</span></div>
+            <h3>Configurações da IA</h3>
+            <p>Ajuste como sua atendente fala, responde dúvidas e acompanha clientes.</p>
+            <button type="button" class="btn btn-primary setup-toggle-section" data-target-section="ia-config-section" aria-expanded="false">Personalizar IA</button>
+            <button type="button" class="btn btn-secondary" id="setup-open-analyze"><i data-lucide="sparkles"></i> Analisar IA</button>
+            <button type="button" class="btn btn-secondary setup-test-ai-btn" id="setup-open-sim"><i data-lucide="flask-conical"></i> Testar minha IA</button>
+            <div class="step-inline-panel" id="ia-config-inline-panel"></div>
+          </article>
+
+          <article class="setup-step-card" data-step-card="mercado-pago">
+            <div class="step-card-top"><span class="step-number">4</span><span class="step-status recommended" id="status-mp">Recomendado</span></div>
+            <h3>Conectar Mercado Pago</h3>
+            <p>Para gerar link de pagamento com Pix, cart&atilde;o ou boleto durante a conversa.</p>
+            <a class="btn btn-primary" href="/integrations.html#mercado-pago">Conectar Mercado Pago</a>
+          </article>
+        </div>
+
+      </section>
+
+      <nav class="settings-objectives" aria-labelledby="settings-objectives-title">
+        <div class="settings-objectives-heading">
+          <div>
+            <p class="setup-eyebrow">Encontre mais rápido</p>
+            <h2 id="settings-objectives-title">O que você quer configurar?</h2>
+          </div>
+          <p>Escolha uma área. Você pode voltar aqui quando quiser.</p>
+        </div>
+        <div class="settings-objectives-grid">
+          <button type="button" class="settings-objective-card" data-settings-target="business-section">
+            <span class="settings-objective-icon"><i data-lucide="store"></i></span>
+            <span><strong>Meu negócio</strong><small>Dados da loja e produtos</small></span>
+            <i data-lucide="chevron-right" class="settings-objective-arrow"></i>
+          </button>
+          <button type="button" class="settings-objective-card" data-settings-target="ia-config-section">
+            <span class="settings-objective-icon"><i data-lucide="bot"></i></span>
+            <span><strong>Atendimento e IA</strong><small>Personalidade, conhecimento e horários</small></span>
+            <i data-lucide="chevron-right" class="settings-objective-arrow"></i>
+          </button>
+          <a class="settings-objective-card" href="/users-teams.html">
+            <span class="settings-objective-icon"><i data-lucide="users"></i></span>
+            <span><strong>Equipe</strong><small>Usuários, permissões e distribuição</small></span>
+            <i data-lucide="chevron-right" class="settings-objective-arrow"></i>
+          </a>
+          <a class="settings-objective-card" href="/vendas.html">
+            <span class="settings-objective-icon"><i data-lucide="shopping-bag"></i></span>
+            <span><strong>Vendas e clientes</strong><small>Pedidos, contatos e atendimento</small></span>
+            <i data-lucide="chevron-right" class="settings-objective-arrow"></i>
+          </a>
+          <a class="settings-objective-card" href="/plans.html">
+            <span class="settings-objective-icon"><i data-lucide="credit-card"></i></span>
+            <span><strong>Plano e cobrança</strong><small>Uso, limites e assinatura</small></span>
+            <i data-lucide="chevron-right" class="settings-objective-arrow"></i>
+          </a>
+          <button type="button" class="settings-objective-card" data-settings-target="account-section">
+            <span class="settings-objective-icon"><i data-lucide="shield-check"></i></span>
+            <span><strong>Minha conta</strong><small>Senha, privacidade e segurança</small></span>
+            <i data-lucide="chevron-right" class="settings-objective-arrow"></i>
+          </button>
+        </div>
+      </nav>
+
+      <!-- Voice Review Modal (overlay) -->
+      <div class="voice-review-modal" id="voice-review-modal" hidden role="dialog" aria-modal="true" aria-labelledby="voice-review-title">
+        <div class="voice-review-panel">
+          <div class="voice-review-header">
+            <div>
+              <p class="setup-eyebrow">Configuração por voz</p>
+              <h2 id="voice-review-title">Revise o que a IA entendeu</h2>
+            </div>
+            <button type="button" class="btn-icon" id="voice-review-close" aria-label="Fechar revisão"><i data-lucide="x"></i></button>
+          </div>
+          <div class="voice-review-body">
+            <details class="voice-transcript-details">
+              <summary>Ver transcrição completa</summary>
+              <p id="voice-review-transcript"></p>
+            </details>
+            <div class="form-group">
+              <label class="form-label" for="voice-review-descricao">Descrição da loja</label>
+              <textarea class="form-textarea" id="voice-review-descricao"></textarea>
+            </div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label" for="voice-review-atendente">Nome sugerido da atendente</label>
+                <input type="text" class="form-input" id="voice-review-atendente" value="Ana">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="voice-review-tom">Tom de voz</label>
+                <textarea class="form-textarea" id="voice-review-tom"></textarea>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="voice-review-frete">Regras de entrega/frete</label>
+              <textarea class="form-textarea" id="voice-review-frete"></textarea>
+            </div>
+            <div class="voice-suggestion-section">
+              <h3>Sugestões opcionais</h3>
+              <p>Marque apenas o que você quer adicionar agora. Nada será incluído automaticamente.</p>
+              <div id="voice-review-faqs" class="voice-suggestion-list"></div>
+              <div id="voice-review-objecoes" class="voice-suggestion-list"></div>
+              <div id="voice-review-produtos" class="voice-suggestion-list"></div>
+            </div>
+          </div>
+          <div class="voice-review-actions">
+            <button type="button" class="btn btn-primary" id="voice-review-use">Usar este texto</button>
+            <button type="button" class="btn btn-secondary" id="voice-review-edit">Editar antes de usar</button>
+            <button type="button" class="connection-muted-action danger" id="voice-review-discard">Descartar</button>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- 1. Negócio -->
+      <div class="accordion open setup-embedded-section" id="business-section">
+        <button class="accordion-header">
+          <div class="accordion-title-group">
+            <div class="accordion-icon"><i data-lucide="building"></i></div>
+            <div>
+              <div class="accordion-title">
+                Negócio
+                <span class="badge badge-ai" style="padding:2px 6px; font-size:0.65rem;">✨ Dica: seja detalhista</span>
+              </div>
+              <div class="accordion-subtitle">Informações base que a IA usará para atender.</div>
+            </div>
+          </div>
+          <div class="accordion-controls">
+            <i data-lucide="chevron-down" class="accordion-indicator"></i>
+          </div>
+        </button>
+        <div class="accordion-body">
+
+
+          <div class="form-group">
+            <label class="form-label">Nome do negócio</label>
+            <input type="text" class="form-input" id="business_name" placeholder="Ex: Studio Bella Estética">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Tipo de negócio</label>
+            <select class="form-input" id="tipo_negocio">
+              <option value="produtos">Produtos / E-commerce / Revenda</option>
+              <option value="pizzaria">Pizzaria</option>
+              <option value="restaurante">Restaurante / Delivery</option>
+              <option value="lanchonete">Lanchonete / Hamburgueria</option>
+              <option value="servicos">Serviços (estética, saúde, etc.)</option>
+            </select>
+            <div class="form-hint">Ajuda a IA a entender o seu contexto e adapta o cadastro de produtos.</div>
+          </div>
+
+          <div class="form-group" style="display:flex;align-items:flex-start;gap:12px;">
+            <input type="checkbox" id="pedir_identificacao" style="margin-top:3px;flex-shrink:0;">
+            <div>
+              <label class="form-label" for="pedir_identificacao" style="cursor:pointer;margin-bottom:2px;">Solicitar CPF/CNPJ antes de fechar a venda</label>
+              <div class="form-hint">Ative apenas se emitir nota fiscal ou precisar identificar o comprador. Desnecessário para pizzaria, restaurante e lanchonete.</div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">O que você vende? (descrição do negócio)</label>
+            <textarea class="form-textarea" id="descricao" placeholder="Ex: Vendemos suplementos naturais para mais energia no dia a dia."></textarea>
+            <div class="form-hint">A IA lerá este texto para entender o que a sua empresa faz.</div>
+          </div>
+
+          <div class="voice-intake-card" id="voice-intake-card">
+            <div class="voice-intake-copy">
+              <strong>Falar da minha loja</strong>
+              <span>Não sabe o que escrever? Fale naturalmente e o Zapien transforma sua fala em uma descrição pronta.</span>
+            </div>
+            <div class="voice-hold-area">
+              <button type="button" id="voice-intake-start" class="voice-hold-btn" aria-label="Segure para gravar" touch-action="none">
+                <i data-lucide="mic"></i>
+              </button>
+              <p class="voice-hold-hint" id="voice-hold-hint">Segure para gravar</p>
+              <span class="voice-hold-timer" id="voice-intake-timer"></span>
+            </div>
+            <input type="file" id="voice-intake-file" accept="audio/webm,audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/mp4,audio/m4a" hidden>
+            <button type="button" class="connection-muted-action voice-intake-upload" id="voice-intake-upload">Enviar áudio gravado</button>
+            <div class="voice-intake-error" id="voice-intake-error" hidden></div>
+            <div class="form-hint">Segure o microfone e fale por até 60 s. Nada é salvo antes da sua revisão.</div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- 2. Produtos -->
+      <div class="accordion setup-embedded-section" id="products-section">
+        <button class="accordion-header">
+          <div class="accordion-title-group">
+            <div class="accordion-icon"><i data-lucide="package"></i></div>
+            <div>
+              <div class="accordion-title">
+                Produtos e Serviços
+                <span class="badge badge-brand hidden" id="badge-produtos">0</span>
+              </div>
+              <div class="accordion-subtitle">O que a IA vai vender aos seus clientes.</div>
+            </div>
+          </div>
+          <div class="accordion-controls">
+            <i data-lucide="chevron-down" class="accordion-indicator"></i>
+          </div>
+        </button>
+        <div class="accordion-body">
+
+          <div class="product-path-guide">
+            <div class="product-path-heading">
+              <h3>Como você quer ensinar seus produtos para a IA?</h3>
+              <p>Você pode começar com apenas um produto e completar depois.</p>
+            </div>
+            <div class="product-path-grid">
+              <button type="button" class="product-path-card" id="product-path-pdf">
+                <span class="product-path-icon"><i data-lucide="file-text"></i></span>
+                <strong>Tenho catálogo em PDF</strong>
+                <span>Envie um PDF para a IA ler em segundo plano.</span>
+              </button>
+              <button type="button" class="product-path-card" id="product-path-link">
+                <span class="product-path-icon"><i data-lucide="link"></i></span>
+                <strong>Quero colar link do catálogo</strong>
+                <span>Use o link do seu site, Google Drive ou catálogo online.</span>
+              </button>
+              <button type="button" class="product-path-card" id="product-path-manual">
+                <span class="product-path-icon"><i data-lucide="plus-circle"></i></span>
+                <strong>Quero cadastrar manualmente</strong>
+                <span>Adicione produtos com nome, preço e foto.</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Catálogo da loja -->
+          <div class="catalog-section">
+            <div class="form-group">
+              <label class="form-label">URL do catálogo / site da loja <span style="font-weight:400;color:var(--text-secondary);">(opcional)</span></label>
+              <input type="url" class="form-input" id="catalog_pdf_url" placeholder="https://sua-loja.com/catalogo ou link do Google Drive">
+              <div class="form-hint">A IA envia este link quando o cliente pedir o catálogo completo.</div>
+            </div>
+
+            <div class="form-group mb-0">
+              <label class="form-label">
+                Catálogo em PDF
+                <span class="badge badge-ai" style="padding:2px 6px;font-size:0.65rem;vertical-align:middle;">IA lê + envia</span>
+              </label>
+              <div id="catalog-file-status" class="catalog-file-row" style="display:none;">
+                <i data-lucide="file-text" style="color:var(--brand-500);width:16px;height:16px;flex-shrink:0;"></i>
+                <span id="catalog-file-name" style="font-size:0.875rem;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+                <span id="catalog-file-date" style="font-size:0.75rem;color:var(--text-secondary);white-space:nowrap;"></span>
+                <button type="button" id="catalog-delete-btn" title="Remover PDF" style="background:none;border:none;cursor:pointer;padding:4px 6px;color:var(--text-secondary);display:flex;align-items:center;flex-shrink:0;" onmouseover="this.style.color='var(--danger-500)'" onmouseout="this.style.color='var(--text-secondary)'">
+                  <i data-lucide="trash-2" style="width:18px;height:18px;"></i>
+                </button>
+              </div>
+              <label for="catalog-pdf-input" class="btn btn-secondary" id="catalog-upload-label" style="cursor:pointer;display:inline-flex;margin-top:8px;">
+                <i data-lucide="upload"></i>
+                <span id="catalog-upload-text">Carregar PDF</span>
+              </label>
+              <input type="file" id="catalog-pdf-input" accept=".pdf" style="display:none;">
+              <div class="form-hint">A IA le o conteudo em segundo plano, cria uma base pesquisavel e continua podendo enviar o PDF quando o cliente pedir o catalogo.</div>
+            </div>
+          </div>
+
+          <div class="catalog-divider"></div>
+
+          <div id="produtos"></div>
+          <button class="btn btn-secondary w-full" id="addProdutoBtn">
+            <i data-lucide="plus"></i> Adicionar produto
+          </button>
+        </div>
+
+      <div class="accordion setup-embedded-section ia-config-section" id="ia-config-section">
+        <button class="accordion-header">
+          <div class="accordion-title-group">
+            <div class="accordion-icon"><i data-lucide="bot"></i></div>
+            <div>
+              <div class="accordion-title">Personalizar atendente IA</div>
+              <div class="accordion-subtitle">Ajuste como sua IA fala, responde dúvidas e acompanha clientes.</div>
+            </div>
+          </div>
+          <div class="accordion-controls"><i data-lucide="chevron-down" class="accordion-indicator"></i></div>
+        </button>
+        <div class="accordion-body">
+          <p class="ia-config-muted">Use para ajustar como sua IA responde, quando atende e como acompanha clientes.</p>
+
+          <details class="ia-config-group" open>
+            <summary class="ia-config-summary">
+              <span>Personalidade</span>
+              <small>Defina como sua atendente se apresenta e conversa.</small>
+            </summary>
+            <div class="ia-config-group-body">
+              <div class="form-group" style="background:var(--gray-50);padding:12px;border-radius:8px;">
+                <label class="form-label">Nicho do negócio <span style="font-weight:400;color:var(--text-secondary);">(opcional)</span></label>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <select class="form-select" id="nicheSelect" style="flex:1;min-width:180px;">
+                    <option value="">Selecione um nicho para receber sugestões...</option>
+                  </select>
+                  <button type="button" class="btn btn-secondary" id="nicheApplyBtn" style="white-space:nowrap;">Aplicar sugestões</button>
+                </div>
+                <div class="form-hint">Preenche FAQs, objeções e respostas rápidas comuns do seu ramo — só adiciona o que ainda não existe, nunca substitui o que você já escreveu.</div>
+              </div>
+              <div class="ia-config-group-grid">
+                <div class="form-group">
+                  <label class="form-label">Nome da atendente (IA)</label>
+                  <input type="text" class="form-input" id="atendente_name" placeholder="Ana">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Tom de voz / personalidade</label>
+                  <textarea class="form-textarea" id="tomDeVoz" placeholder="Amigável, direto e profissional, como uma conversa de WhatsApp."></textarea>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <details class="ia-config-group">
+            <summary class="ia-config-summary">
+              <span>Conhecimento da IA <span class="badge badge-brand hidden" id="badge-ia">0 itens</span></span>
+              <small>Ensine dúvidas, objeções, regras e documentos que a IA pode consultar.</small>
+            </summary>
+            <div class="ia-config-group-body">
+              <div class="settings-field-heading">
+                <h3>Perguntas Frequentes</h3>
+                <p>Ensine a IA a responder as dúvidas mais comuns dos seus clientes.</p>
+              </div>
+              <div id="faqs"></div>
+              <button class="btn btn-secondary mb-8" id="addFaqBtn"><i data-lucide="plus"></i> Adicionar pergunta</button>
+
+              <div class="settings-field-heading">
+                <h3>Objeções Comuns</h3>
+                <p>Como a IA deve contornar objeções como preço, prazo, etc.</p>
+              </div>
+              <div id="objecoes"></div>
+              <button class="btn btn-secondary mb-8" id="addObjecaoBtn"><i data-lucide="plus"></i> Adicionar objeção</button>
+
+              <div class="settings-field-heading">
+                <h3>Regras de Conduta</h3>
+                <p>Uma regra por linha. A IA vai seguir à risca.</p>
+              </div>
+              <div class="form-group">
+                <textarea class="form-textarea" id="regras" placeholder="Nunca invente informações.&#10;Não prometa descontos não autorizados."></textarea>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Frete / entrega (regras gerais)</label>
+                <textarea class="form-textarea" id="frete" placeholder="Ex: Frete grátis acima de R$200. Abaixo disso, R$ 20 fixo. Entrega 3 a 7 dias."></textarea>
+              </div>
+
+              <div class="catalog-section">
+                <div class="form-group mb-0">
+                  <label class="form-label">Documentos extras <span class="badge badge-ai" style="padding:2px 6px;font-size:0.65rem;vertical-align:middle;">PDF</span></label>
+                  <div class="form-hint" id="documents-hint" style="margin-bottom:8px;">Guarde PDFs extras (tabela de medidas, politica de trocas, manual etc.). Eles entram em leitura e depois ficam pesquisaveis para a IA consultar.</div>
+                  <div id="documents-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;"></div>
+                  <label for="document-input" class="btn btn-secondary" id="document-upload-label" style="cursor:pointer;display:inline-flex;">
+                    <i data-lucide="upload"></i>
+                    <span id="document-upload-text">Carregar PDF</span>
+                  </label>
+                  <input type="file" id="document-input" accept=".pdf" style="display:none;">
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <details class="ia-config-group">
+            <summary class="ia-config-summary">
+              <span>Atendimento automático</span>
+              <small>Configure quando a IA responde e quando ela deve reativar clientes.</small>
+            </summary>
+            <div class="ia-config-group-body">
+              <div class="form-group">
+                <label class="form-label">Seu WhatsApp para avisos (opcional)</label>
+                <input type="text" class="form-input" id="notify_phone" placeholder="Ex: 5511999999999">
+              </div>
+
+              <div class="ia-config-subcard">
+                <label class="flex items-center gap-3 cursor-pointer mb-6">
+                  <input type="checkbox" id="horario_ativo" class="w-4 h-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500">
+                  <span class="font-medium text-gray-900">Ativar limitação por horário de atendimento</span>
+                </label>
+                <div id="horarioFields" style="display:none;">
+                  <div class="ia-config-group-grid">
+                    <div class="form-group">
+                      <label class="form-label">Horário de início</label>
+                      <input type="time" class="form-input" id="horario_inicio" value="08:00">
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label">Horário de fim</label>
+                      <input type="time" class="form-input" id="horario_fim" value="18:00">
+                    </div>
+                  </div>
+                  <div class="form-group mb-6">
+                    <label class="form-label">Dias de atendimento</label>
+                    <div class="days-selector">
+                      <label><input type="checkbox" value="0" class="day-checkbox dia-cb"><span class="day-label">Dom</span></label>
+                      <label><input type="checkbox" value="1" class="day-checkbox dia-cb" checked><span class="day-label">Seg</span></label>
+                      <label><input type="checkbox" value="2" class="day-checkbox dia-cb" checked><span class="day-label">Ter</span></label>
+                      <label><input type="checkbox" value="3" class="day-checkbox dia-cb" checked><span class="day-label">Qua</span></label>
+                      <label><input type="checkbox" value="4" class="day-checkbox dia-cb" checked><span class="day-label">Qui</span></label>
+                      <label><input type="checkbox" value="5" class="day-checkbox dia-cb" checked><span class="day-label">Sex</span></label>
+                      <label><input type="checkbox" value="6" class="day-checkbox dia-cb"><span class="day-label">Sáb</span></label>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Mensagem fora do horário</label>
+                    <textarea class="form-textarea" id="horario_msg_fora" placeholder="Ex: Olá! Nosso horário é de segunda a sexta, das 8h às 18h. Em breve retornamos!"></textarea>
+                    <div class="form-hint">Esta mensagem será enviada se o cliente mandar mensagem fora do horário definido.</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="ia-config-subcard">
+                <label class="flex items-center gap-3 cursor-pointer mb-6">
+                  <input type="checkbox" id="followup_ativo" class="w-4 h-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500">
+                  <span class="font-medium text-gray-900">Ativar follow-up automático</span>
+                </label>
+                <div id="followupFields" style="display:none;">
+                  <div class="form-group">
+                    <label class="form-label">Enviar após quantas horas sem resposta</label>
+                    <input type="number" class="form-input" id="followup_horas" value="24" min="1" max="168" style="max-width:200px;">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Mensagem de follow-up</label>
+                    <textarea class="form-textarea" id="followup_mensagem" placeholder="Ex: Olá! Ainda posso te ajudar com o pedido? 😊"></textarea>
+                  </div>
+                </div>
+                <div class="form-group" style="margin-top:24px;">
+                  <label class="form-label">Alerta no painel após quantas horas sem resposta</label>
+                  <input type="number" class="form-input" id="alerta_sem_resposta_horas" value="2" min="1" max="168" style="max-width:200px;">
+                  <div class="form-hint">Define quando uma venda em aberto aparece em vermelho com o botão “Assumir conversa”.</div>
+                </div>
+              </div>
+
+              <div class="ia-config-subcard">
+                <label class="flex items-center gap-3 cursor-pointer mb-6">
+                  <input type="checkbox" id="resumo_diario_ativo" class="w-4 h-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500">
+                  <span class="font-medium text-gray-900">Receber resumo diário pelo WhatsApp</span>
+                </label>
+                <div id="resumoDiarioFields" style="display:none;">
+                  <div class="form-group">
+                    <label class="form-label">Horário de envio</label>
+                    <input type="time" class="form-input" id="resumo_diario_hora" value="20:00" style="max-width:200px;">
+                    <div class="form-hint">O resumo inclui novos contatos, atendimentos, vendas e pendências do dia.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <details class="ia-config-group">
+            <summary class="ia-config-summary">
+              <span>Respostas prontas <span class="badge badge-ai" style="padding:2px 6px;font-size:0.65rem;">Pro</span> <span class="badge badge-brand hidden" id="badge-respostas">0</span></span>
+              <small>Frases rápidas para usar quando você assumir uma conversa.</small>
+            </summary>
+            <div class="ia-config-group-body">
+              <div id="respostas_rapidas_list"></div>
+              <div class="flex gap-2 mt-4">
+                <input type="text" class="form-input flex-1" id="novaResposta" placeholder="Ex: Olá! Já vou verificar para você.">
+                <button class="btn btn-secondary" id="addRespostaBtn">Adicionar</button>
+              </div>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <details class="advanced-settings">
+        <summary>Configurações avançadas</summary>
+        <p class="advanced-summary">Horários, follow-up, delivery, conta e zona de risco.</p>
+
+      <details class="settings-secondary-section" id="plan-usage-section">
+        <summary>Status e limites do plano</summary>
+        <div class="settings-secondary-body">
+          <div class="ai-capabilities-card" id="usageCard" style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 16px; box-shadow: var(--shadow-sm);">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px;">
+              <div>
+                <h3 style="margin:0; font-size:1rem; font-weight:700; color:var(--text-primary);">Uso do seu plano</h3>
+                <p style="margin:4px 0 0; color:var(--text-secondary); font-size:.85rem;" id="usagePlanLabel">Carregando…</p>
+              </div>
+              <a href="/plans.html" class="btn btn-secondary" style="font-size:0.8rem;padding:6px 12px;white-space:nowrap;">Fazer upgrade</a>
+            </div>
+            <div id="usageBanner" style="display:none;margin-bottom:12px;padding:10px 14px;border-radius:8px;font-size:0.85rem;"></div>
+            <div id="usageBars" style="display:flex;flex-direction:column;gap:12px;"></div>
+          </div>
+
+          <div class="ai-capabilities-card" id="aiCapabilitiesCard" style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 16px; box-shadow: var(--shadow-sm);">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px;">
+              <div>
+                <h3 style="margin:0; font-size:1rem; font-weight:700; color:var(--text-primary);">Capacidades ativas da IA</h3>
+                <p style="margin:4px 0 0; color:var(--text-secondary); font-size:.85rem;">Veja rapidamente o que a IA já consegue usar no atendimento.</p>
+              </div>
+              <span class="badge badge-ai">Status</span>
+            </div>
+            <div id="aiCapabilitiesList" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:10px;"></div>
+          </div>
+        </div>
+      </details>
+
+      <!-- State holders de integrações: a configuração visual vive na aba Integrações.
+           Mantemos estes IDs ocultos para compatibilidade com o JavaScript de settings/salvamento. -->
+      <div id="settings-integration-state-holders" hidden aria-hidden="true">
+        <span id="badge-wa">Não conectado</span>
+        <span id="badge-mp">Não configurado</span>
+        <span id="badge-frete">Não configurado</span>
+        <span id="badge-bling">Não conectado</span>
+        <span id="badge-google-sheets">Não conectado</span>
+        <span id="badge-webhook">Não configurado</span>
+
+        <input type="password" id="mp_access_token">
+        <input type="text" id="checkout_url">
+        <input type="text" id="cep_origem">
+        <input type="number" id="peso_padrao_kg">
+        <input type="password" id="melhor_envio_token">
+        <input type="url" id="webhook_url">
+        <input type="checkbox" id="webhook_enabled" checked>
+        <input type="text" id="webhook_secret_display" readonly>
+
+        <div id="mp-oauth-section"></div>
+        <div id="mp-manual-section"></div>
+        <div id="mp-connected-box"></div>
+        <a href="/api/mp/oauth/start" id="mp-oauth-btn"></a>
+        <div id="me-platform-info"></div>
+        <div id="me-token-section"></div>
+        <div id="bling-oauth-section"></div>
+        <div id="bling-connected-box"></div>
+        <a href="/api/bling/oauth/start" id="bling-oauth-btn"></a>
+        <button type="button" id="bling-disconnect-btn"></button>
+        <div id="bling-not-available"></div>
+
+        <div id="google-sheets-disconnected"></div>
+        <div id="google-sheets-connected"></div>
+        <a href="#" id="google-sheets-open-btn"></a>
+        <span id="google-sheets-name"></span>
+        <span id="google-sheets-last-sync"></span>
+        <button type="button" id="google-sheets-sync-btn"></button>
+        <button type="button" id="google-sheets-disconnect-btn"></button>
+
+        <button type="button" id="webhook-test-btn"></button>
+        <span id="webhook-test-result"></span>
+        <button type="button" id="webhook-regenerate-btn"></button>
+        <div id="webhook-log-area"></div>
+      </div>
+
+      <!-- Delivery / Restaurante -->
+      <div class="accordion" id="delivery-section">
+        <button class="accordion-header">
+          <div class="accordion-title-group">
+            <div class="accordion-icon"><i data-lucide="bike"></i></div>
+            <div>
+              <div class="accordion-title">
+                Delivery e Atendimento Presencial
+                <span class="badge badge-gray" id="badge-delivery">Desativado</span>
+              </div>
+              <div class="accordion-subtitle">Configure entrega, retirada e mesas para restaurantes, pizzarias e afins.</div>
+            </div>
+          </div>
+          <div class="accordion-controls">
+            <i data-lucide="chevron-down" class="accordion-indicator"></i>
+          </div>
+        </button>
+        <div class="accordion-body">
+          <label class="flex items-center gap-3 cursor-pointer mb-4">
+            <input type="checkbox" id="delivery_ativo" class="w-4 h-4">
+            <span class="font-medium">Ativar delivery / atendimento presencial</span>
+          </label>
+
+          <div id="deliveryFields" style="display:none;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:16px;">
+              <div class="form-group mb-0">
+                <label class="form-label">Taxa de entrega fixa (R$)</label>
+                <input type="number" step="0.01" min="0" class="form-input" id="delivery_taxa_fixa" placeholder="0,00">
+                <div class="form-hint">0 = frete grátis para entrega.</div>
+              </div>
+              <div class="form-group mb-0">
+                <label class="form-label">Tempo estimado de entrega (min)</label>
+                <input type="number" min="1" class="form-input" id="delivery_eta_minutos" placeholder="45">
+              </div>
+              <div class="form-group mb-0">
+                <label class="form-label">Raio de entrega (km, 0 = sem limite)</label>
+                <input type="number" step="0.5" min="0" class="form-input" id="delivery_raio_km" placeholder="0">
+              </div>
+            </div>
+
+            <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:8px;">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="delivery_aceita_retirada">
+                <span>Aceitar retirada no local</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="delivery_aceita_mesa">
+                <span>Atendimento por mesa</span>
+              </label>
+            </div>
+            <div class="form-hint">Ativando delivery, a IA perguntará ao cliente se quer entrega, retirada ou mesa (quando aplicável) e coletará o endereço automaticamente.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Resumo Diário -->
+      <div class="accordion">
+        <button class="accordion-header">
+          <div class="accordion-title-group">
+            <div class="accordion-icon"><i data-lucide="bar-chart-3"></i></div>
+            <div>
+              <div class="accordion-title">
+                Resumo Diário
+                <span class="badge badge-ai" style="padding:2px 6px; font-size:0.65rem;">Pro</span>
+                <span class="badge badge-gray" id="badge-resumo-diario">Desativado</span>
+              </div>
+              <div class="accordion-subtitle">Receba um resumo do seu negócio pelo próprio WhatsApp todo dia.</div>
+            </div>
+          </div>
+          <div class="accordion-controls">
+            <i data-lucide="chevron-down" class="accordion-indicator"></i>
+          </div>
+        </button>
+        <div class="accordion-body">
+          <label class="flex items-center gap-3 cursor-pointer mb-6">
+            <input type="checkbox" id="resumo_diario_ativo" class="w-4 h-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500">
+            <span class="font-medium text-gray-900">Ativar resumo diário automático</span>
+          </label>
+
+          <div id="resumoDiarioFields" style="display:none;">
+            <div class="form-group">
+              <label class="form-label">Horário de envio</label>
+              <select class="form-input" id="resumo_diario_hora" style="max-width:200px;">
+                <option value="8">08:00</option>
+                <option value="12">12:00</option>
+                <option value="18">18:00</option>
+                <option value="20" selected>20:00</option>
+                <option value="22">22:00</option>
+              </select>
+              <div class="form-hint">O resumo (novos contatos, vendas fechadas, quem está aguardando) é enviado para o seu WhatsApp de avisos, configurado no início desta página.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Link para a página de Integrações -->
+      <a href="/integrations.html" class="integrations-link-card" style="display:flex;align-items:center;gap:16px;padding:20px 24px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:16px;text-decoration:none;color:inherit;transition:box-shadow 0.15s,border-color 0.15s;">
+        <div style="width:44px;height:44px;border-radius:12px;background:var(--brand-600);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <i data-lucide="plug" style="color:#fff;width:22px;height:22px;"></i>
+        </div>
+        <div style="flex:1;">
+          <div style="font-weight:700;font-size:1rem;color:var(--text-primary);">Integrações</div>
+          <div style="font-size:0.85rem;color:var(--text-secondary);margin-top:2px;">WhatsApp API, Mercado Pago, Melhor Envio, Bling, Nuvemshop, Hotmart, Google Sheets e mais.</div>
+        </div>
+        <i data-lucide="chevron-right" style="color:var(--text-secondary);width:18px;height:18px;flex-shrink:0;"></i>
+      </a>
+
+      <details class="settings-secondary-section" id="account-section">
+        <summary>Conta e segurança</summary>
+        <div class="settings-secondary-body">
+      <!-- Zona de risco: exclusão de conta (LGPD, Art. 18, VI — direito de eliminação) -->
+      <div class="accordion" style="border-color:var(--danger-200, #fecaca);">
+        <button class="accordion-header">
+          <div class="accordion-title-group">
+            <div class="accordion-icon" style="background:var(--danger-50, #fef2f2);"><i data-lucide="alert-triangle" style="color:var(--danger-500);"></i></div>
+            <div>
+              <div class="accordion-title">Zona de risco</div>
+              <div class="accordion-subtitle">Exclusão definitiva da sua conta e dos dados dos seus contatos.</div>
+            </div>
+          </div>
+          <div class="accordion-controls">
+            <i data-lucide="chevron-down" class="accordion-indicator"></i>
+          </div>
+        </button>
+        <div class="accordion-body">
+          <div class="integration-card" style="border-color:var(--danger-200, #fecaca);">
+            <p style="font-size:0.875rem; color:var(--text-secondary); margin-bottom:14px;">
+              Isso apaga permanentemente sua conta, contatos, conversas, vendas e arquivos enviados. Não é possível desfazer.
+              Para manter só um histórico financeiro/fiscal, exporte antes o que precisar em <a href="/api/contacts/export.csv">Contatos (CSV)</a>.
+            </p>
+            <button class="btn btn-secondary" id="deleteAccountBtn" style="color:var(--danger-600, #dc2626); border-color:var(--danger-200, #fecaca);">
+              <i data-lucide="trash-2"></i> Excluir minha conta
+            </button>
+          </div>
+        </div>
+      </div>
+        </div>
+      </details>
+
+      </details>
+
+    </div>
+  </main>
+
+  <!-- Modal: Excluir conta -->
+  <div id="deleteAccountModal" class="modal-overlay">
+    <div class="modal-content" style="max-width:400px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Excluir sua conta</h3>
+        <button class="btn btn-icon" id="deleteAccountClose"><i data-lucide="x"></i></button>
+      </div>
+      <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+        <p style="font-size:0.875rem; color:var(--text-secondary);">
+          Essa ação é <strong>permanente</strong>: apaga sua conta, todos os contatos, conversas, vendas e arquivos enviados. Digite sua senha para confirmar.
+        </p>
+        <div class="form-group mb-0">
+          <label class="form-label">Senha</label>
+          <input type="password" id="deleteAccountPassword" class="form-input" placeholder="Sua senha atual">
+        </div>
+        <button class="btn" id="deleteAccountConfirmBtn" style="margin-top:4px; background:var(--danger-500); color:#fff;">Excluir minha conta permanentemente</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sticky Save Bar -->
+  <div class="save-bar">
+    <div class="save-bar-content">
+      <span class="text-sm text-gray-500 hidden md:inline">Você tem alterações não salvas</span>
+      <button type="button" class="btn btn-primary shadow-lg" id="saveBtn" style="padding: 12px 32px; font-size: 1rem;">
+        <i data-lucide="save"></i> Salvar alterações
+      </button>
+    </div>
+  </div>
+
+  <!-- Catalog Review Modal -->
+  <div id="catalogReviewModal" class="modal-overlay" style="display:none; z-index:9999; align-items:center; justify-content:center; background:rgba(0,0,0,0.5); position:fixed; top:0; left:0; width:100%; height:100%;">
+    <div class="modal-content" style="background:#fff; width:100%; max-width:600px; max-height:85vh; border-radius:12px; display:flex; flex-direction:column; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);">
+      <div class="modal-header" style="padding:20px; border-bottom:1px solid #eaecf0; display:flex; align-items:center; justify-content:space-between;">
+        <h3 class="modal-title" style="margin:0; font-size:1.125rem; font-weight:700;">Revisar Produtos Extraídos</h3>
+        <button type="button" class="btn btn-icon" id="catalogReviewClose"><i data-lucide="x"></i></button>
+      </div>
+      <div id="catalogReviewBody" style="padding:20px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:12px;">
+        <!-- Preview of extracted products -->
+      </div>
+      <div style="padding:16px 20px; border-top:1px solid #eaecf0; display:flex; justify-content:flex-end; gap:12px;">
+        <button type="button" class="btn btn-secondary" id="catalogReviewCancel">Descartar</button>
+        <button type="button" class="btn btn-primary" id="catalogReviewConfirm">Adicionar ao Catálogo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile Bottom Nav (5 items) -->
+  <nav class="mobile-bottom-nav">
+    <a href="/dashboard.html" class="bottom-nav-item">
+      <i data-lucide="layout-dashboard"></i>
+      <span>Início</span>
+    </a>
+    <a href="/vendas.html" class="bottom-nav-item">
+      <i data-lucide="trending-up"></i>
+      <span>Vendas</span>
+    </a>
+    <a href="/avisos.html" class="bottom-nav-item" style="position:relative;">
+      <i data-lucide="bell"></i>
+      <span>Avisos</span>
+      <span class="nav-badge hidden" id="bottomNavUnread"></span>
+    </a>
+    <a href="/settings.html" class="bottom-nav-item active">
+      <i data-lucide="settings"></i>
+      <span>Configurar</span>
+    </a>
+    <button type="button" class="bottom-nav-item" id="bottom-nav-more" aria-haspopup="true" aria-expanded="false">
+      <i data-lucide="grid-2x2"></i>
+      <span>Mais</span>
+    </button>
+  </nav>
+
+</div>
+
+<!-- "Mais" Bottom Sheet -->
+<div id="more-sheet-overlay" class="more-sheet-overlay" aria-hidden="true" role="dialog" aria-label="Menu adicional" style="display:none;">
+  <div class="more-sheet">
+    <div class="more-sheet-handle"></div>
+    <nav class="more-sheet-nav" aria-label="Navegação adicional">
+      <a href="/automations.html" class="more-sheet-item">
+        <i data-lucide="zap"></i>
+        <span>Automações</span>
+      </a>
+      <a href="/marketing.html" class="more-sheet-item">
+        <i data-lucide="megaphone"></i>
+        <span>Marketing</span>
+      </a>
+      <a href="/integrations.html" class="more-sheet-item">
+        <i data-lucide="plug"></i>
+        <span>Integrações</span>
+      </a>
+      <a href="/plans.html" class="more-sheet-item">
+        <i data-lucide="credit-card"></i>
+        <span>Planos</span>
+      </a>
+      <a href="#" target="_blank" rel="noopener" class="more-sheet-item" id="moreSheetSupport" style="display:none;">
+        <i data-lucide="message-circle"></i>
+        <span>Suporte</span>
+      </a>
+      <a href="/admin.html" class="more-sheet-item" id="moreSheetAdmin" style="display:none;">
+        <i data-lucide="shield"></i>
+        <span>Admin</span>
+      </a>
+    </nav>
+  </div>
+</div>
+
+
+<!-- Modal do simulador da atendente -->
+<div id="simModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="simTitle">
+  <div class="modal-content sim-modal">
+    <div class="modal-header">
+      <h3 class="modal-title" id="simTitle"><i data-lucide="flask-conical" style="width:18px;height:18px;vertical-align:-3px;"></i> Teste seu atendente</h3>
+      <button class="btn btn-icon" id="simCloseBtn" aria-label="Fechar"><i data-lucide="x"></i></button>
+    </div>
+    <div class="sim-safety" role="note">
+      <i data-lucide="shield-check"></i>
+      <div><strong>Ambiente de teste</strong><span>Nenhuma mensagem vai para o WhatsApp, nenhum contato é criado e nenhum pagamento é cobrado.</span></div>
+    </div>
+    <div class="sim-hint">Converse como se fosse um cliente. A IA usa a configuração <strong>salva</strong>; salve antes de testar mudanças.</div>
+    <div class="sim-starters" id="simStarters" aria-label="Sugestões de mensagens">
+      <button type="button" data-message="Olá! O que vocês vendem?">Perguntar o que vende</button>
+      <button type="button" data-message="Quero comprar. Como funciona o pagamento?">Simular uma compra</button>
+      <button type="button" data-message="Preciso falar com uma pessoa.">Pedir atendimento humano</button>
+    </div>
+    <div class="sim-messages" id="simMessages" aria-live="polite"></div>
+    <div class="sim-insights" id="simInsights" aria-live="polite">
+      <div class="sim-insights-title"><i data-lucide="scan-search"></i> O que a IA entendeu</div>
+      <div class="sim-insights-empty">Envie uma mensagem para ver a etapa do funil, a intenção e as ações previstas.</div>
+    </div>
+    <div class="sim-input-row">
+      <input type="text" id="simInput" class="form-input" placeholder="Escreva como um cliente..." autocomplete="off" aria-label="Sua mensagem de teste">
+      <button class="btn btn-primary" id="simSendBtn" aria-label="Enviar"><i data-lucide="send"></i></button>
+    </div>
+    <div class="sim-footer">
+      <button class="btn btn-ghost sim-reset" id="simResetBtn"><i data-lucide="rotate-ccw" style="width:14px;height:14px;"></i> Recomeçar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de análise da configuração da IA -->
+<div id="analyzeModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="analyzeTitle">
+  <div class="modal-content sim-modal">
+    <div class="modal-header">
+      <h3 class="modal-title" id="analyzeTitle"><i data-lucide="sparkles" style="width:18px;height:18px;vertical-align:-3px;"></i> Análise da IA</h3>
+      <button class="btn btn-icon" id="analyzeCloseBtn" aria-label="Fechar"><i data-lucide="x"></i></button>
+    </div>
+    <div id="analyzeBody" style="padding:4px 2px;min-height:120px;">
+      <div class="form-hint">Clique em "Analisar agora" para a IA revisar sua configuração salva e apontar o que falta ou está fraco.</div>
+    </div>
+    <div class="sim-footer">
+      <button class="btn btn-primary" id="analyzeRunBtn"><i data-lucide="sparkles" style="width:14px;height:14px;"></i> Analisar agora</button>
+    </div>
+  </div>
+</div>
+
+<script src="/vendor/lucide.min.js"></script>
+<script src="/js/ui.js?v=more-sheet-v2"></script>
+<script src="/js/pages/settings.js?v=official-analysis-v4"></script>
+<script src="/js/wa-qr.js"></script>
+</body>
+</html>

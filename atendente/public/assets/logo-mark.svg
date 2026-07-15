@@ -1,0 +1,17 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Zapien">
+  <defs>
+    <linearGradient id="g" x1="20" y1="26" x2="236" y2="224" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1D6BFF"/><stop offset="0.5" stop-color="#4338FF"/><stop offset="1" stop-color="#9B35FF"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="56" fill="#F8FAFF"/>
+  <path d="M44 104C48 56 82 28 128 28C174 28 208 58 212 104V140C212 150 204 158 194 158H180V124C180 104 164 88 144 88H112C92 88 76 104 76 124V158H62C52 158 44 150 44 140V104Z" fill="url(#g)"/>
+  <path d="M34 124C34 114 42 106 52 106H64V176H52C42 176 34 168 34 158V124Z" fill="#1D6BFF"/>
+  <path d="M192 106H204C214 106 222 114 222 124V158C222 168 214 176 204 176H192V106Z" fill="#9B35FF"/>
+  <path d="M52 126C59 76 92 52 128 52C164 52 197 76 204 126" stroke="white" stroke-width="12" stroke-linecap="round"/>
+  <path d="M73 126C73 104 91 86 113 86H143C165 86 183 104 183 126V154C183 184 159 208 129 208H127C97 208 73 184 73 154V126Z" fill="#061A44"/>
+  <path d="M98 150C103 143 114 143 119 150" stroke="white" stroke-width="8" stroke-linecap="round"/>
+  <path d="M137 150C142 143 153 143 158 150" stroke="white" stroke-width="8" stroke-linecap="round"/>
+  <path d="M111 177C118 184 138 184 145 177" stroke="white" stroke-width="7" stroke-linecap="round"/>
+  <path d="M129 88C108 110 86 119 73 123C80 89 100 65 129 56C139 64 145 74 149 84C142 84 135 85 129 88Z" fill="white"/>
+</svg>

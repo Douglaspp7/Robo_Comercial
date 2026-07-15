@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Política de Privacidade — Zapien</title>
+  <meta name="description" content="Política de privacidade do Zapien: quais dados coletamos, como usamos, com quem compartilhamos e como você pode exercer seus direitos.">
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="/favicon.ico?v=9" type="image/x-icon">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/reset.css" />
+  <link rel="stylesheet" href="/css/tokens.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+  <link rel="stylesheet" href="/css/pages/legal.css" />
+</head>
+<body>
+  <header class="legal-topbar">
+    <div class="legal-topbar-inner">
+      <a href="/" aria-label="Voltar para a página inicial"><img src="/assets/logo.png?v=9" alt="Zapien"></a>
+      <a class="legal-back" href="/login.html">Voltar ao login</a>
+    </div>
+  </header>
+
+  <main class="legal-container">
+    <h1>Política de Privacidade</h1>
+    <p class="legal-meta">Última atualização: 10 de julho de 2026</p>
+
+    <div class="legal-notice">
+      Este texto é uma versão inicial para atender aos requisitos de cadastro e integrações.
+      <strong>Ainda precisa passar por revisão jurídica</strong> antes de virar política oficial e ser referenciada nas revisões da Meta/Mercado Pago.
+    </div>
+
+    <p>Esta Política descreve como o Zapien ("nós") trata dados pessoais quando você usa nosso Serviço, de acordo com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018 — LGPD).</p>
+
+    <h2>1. Quem é o controlador</h2>
+    <p>O Zapien é operado por sua respectiva empresa mantenedora, e-mail para contato de privacidade: <a href="mailto:contato@zapien.app">contato@zapien.app</a>.</p>
+    <p>Em relação aos clientes finais do Lojista (pessoas que conversam com a IA pelo WhatsApp), o Lojista é o controlador dos dados e o Zapien atua como operador, tratando os dados conforme as instruções do Lojista.</p>
+
+    <h2>2. Quais dados coletamos</h2>
+    <ul>
+      <li><strong>Do Lojista (usuário do painel)</strong>: e-mail, senha (em hash), dados do negócio (nome, descrição, produtos, preços, regras), tokens de integração (guardados criptografados no banco), telefone para notificação e informações de cobrança.</li>
+      <li><strong>Do cliente final do Lojista</strong>: número de WhatsApp, nome (quando fornecido), mensagens trocadas com a IA, opcionalmente CPF/CNPJ (armazenado com criptografia + hash e sempre mascarado na interface).</li>
+      <li><strong>Dados técnicos</strong>: registros de acesso (IP, user agent, timestamp), logs de erro, telemetria mínima de uso da IA para controle de limites do plano.</li>
+    </ul>
+
+    <h2>3. Para que usamos</h2>
+    <ul>
+      <li>Prestar o Serviço (autenticar, atender clientes finais, gerar link de pagamento, sincronizar integrações).</li>
+      <li>Cumprir obrigações legais, incluindo controle de fraude e prevenção a abuso.</li>
+      <li>Melhorar a plataforma (métricas agregadas, sem identificação individual).</li>
+      <li>Comunicar novidades e avisos operacionais (você pode optar por não receber marketing).</li>
+    </ul>
+
+    <h2>4. Bases legais (LGPD)</h2>
+    <ul>
+      <li>Execução do contrato (Termos de Uso).</li>
+      <li>Legítimo interesse (segurança, prevenção a fraude, melhoria do Serviço).</li>
+      <li>Cumprimento de obrigação legal e regulatória.</li>
+      <li>Consentimento, quando exigido.</li>
+    </ul>
+
+    <h2>5. Com quem compartilhamos</h2>
+    <ul>
+      <li><strong>Provedores de infraestrutura</strong>: hospedagem e banco de dados (atualmente Render).</li>
+      <li><strong>Provedor de IA</strong>: Anthropic (Claude) para gerar as respostas do atendente.</li>
+      <li><strong>Provedores de mensageria</strong>: WhatsApp Business (Meta) e alternativas contratadas pelo Lojista.</li>
+      <li><strong>Pagamentos</strong>: Mercado Pago (checkout do Lojista) e, se habilitado, Stripe (assinatura da própria plataforma).</li>
+      <li><strong>Integrações escolhidas pelo Lojista</strong>: Bling, NuvemShop, Hotmart, PrintNode, Google Sheets — o compartilhamento acontece porque o Lojista autoriza expressamente cada uma.</li>
+    </ul>
+    <p>Não vendemos dados pessoais. Só compartilhamos com terceiros para prestar o Serviço, cumprir a lei ou por ordem de autoridade competente.</p>
+
+    <h2>6. Como protegemos</h2>
+    <ul>
+      <li>Comunicação por HTTPS.</li>
+      <li>Segredos de integração (tokens de Mercado Pago, Bling, WhatsApp etc.) criptografados no banco.</li>
+      <li>Senhas armazenadas com hash forte (bcrypt).</li>
+      <li>Controles internos de acesso, auditoria administrativa, rate limiting, cabeçalhos de segurança (Helmet/CSP).</li>
+      <li>Mascaramento de CPF/CNPJ na interface por padrão.</li>
+    </ul>
+
+    <h2>7. Retenção</h2>
+    <p>Mantemos os dados enquanto a conta estiver ativa. Após encerramento, retemos o mínimo necessário para cumprir obrigações legais, contábeis e regulatórias — usualmente até 5 anos — e depois eliminamos com segurança.</p>
+
+    <h2>8. Seus direitos (LGPD)</h2>
+    <p>Você pode a qualquer momento solicitar: confirmação de tratamento, acesso, correção, anonimização, portabilidade, exclusão de dados que não precisemos guardar por obrigação legal, e revogação de consentimento. Envie sua solicitação para <a href="mailto:contato@zapien.app">contato@zapien.app</a>.</p>
+
+    <h2>9. Cookies</h2>
+    <p>Usamos cookies essenciais para autenticação (manter você logado no painel) e proteção contra CSRF. Não usamos cookies de publicidade nem de rastreamento cruzado de terceiros.</p>
+
+    <h2>10. Menores</h2>
+    <p>O Zapien não é destinado a menores de 18 anos. Se identificarmos coleta indevida de dados de menor, excluímos assim que constatado.</p>
+
+    <h2>11. Alterações desta Política</h2>
+    <p>Podemos atualizar esta Política. Mudanças materiais são comunicadas por e-mail ou pelo painel com antecedência mínima de 15 dias antes da vigência.</p>
+
+    <h2>12. Contato</h2>
+    <p>Dúvidas, exercício de direitos ou incidentes de segurança: <a href="mailto:contato@zapien.app">contato@zapien.app</a>.</p>
+  </main>
+</body>
+</html>

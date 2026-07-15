@@ -1,0 +1,32 @@
+<svg width="960" height="240" viewBox="0 0 960 240" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Zapien</title>
+  <desc id="desc">Logo Zapien branco para fundo escuro</desc>
+  <defs>
+    <linearGradient id="zapienGradient" x1="20" y1="38" x2="232" y2="212" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1D6BFF"/>
+      <stop offset="0.52" stop-color="#4338FF"/>
+      <stop offset="1" stop-color="#9B35FF"/>
+    </linearGradient>
+    <linearGradient id="zapienGlow" x1="64" y1="22" x2="230" y2="168" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4D7CFF"/>
+      <stop offset="1" stop-color="#A855F7"/>
+    </linearGradient>
+    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="130%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#061A44" flood-opacity="0.24"/>
+    </filter>
+  </defs>
+  <g filter="url(#softShadow)">
+    <path d="M76 98C79 52 113 24 160 24C205 24 238 54 240 99V137C240 146 233 154 224 154H208V119C208 98 191 81 170 81H130C109 81 92 98 92 119V154H76C67 154 60 146 60 137V116C60 106 67 99 76 98Z" fill="url(#zapienGradient)"/>
+    <path d="M55 126C55 116 63 108 73 108H84V178H73C63 178 55 170 55 160V126Z" fill="#1D6BFF"/>
+    <path d="M236 108H247C257 108 265 116 265 126V160C265 170 257 178 247 178H236V108Z" fill="#8B3DFF"/>
+    <path d="M70 130C77 78 116 51 160 51C204 51 243 78 250 130" stroke="white" stroke-width="13" stroke-linecap="round"/>
+    <path d="M78 137C82 92 116 67 160 67C203 67 238 92 242 137" stroke="url(#zapienGlow)" stroke-width="12" stroke-linecap="round"/>
+    <path d="M96 128C96 105 115 86 138 86H182C205 86 224 105 224 128V160C224 191 199 216 168 216H152C121 216 96 191 96 160V128Z" fill="white"/>
+    <path d="M126 153C131 145 143 145 148 153" stroke="#061A44" stroke-width="8" stroke-linecap="round"/>
+    <path d="M172 153C177 145 189 145 194 153" stroke="#061A44" stroke-width="8" stroke-linecap="round"/>
+    <path d="M144 181C151 188 169 188 176 181" stroke="#061A44" stroke-width="7" stroke-linecap="round"/>
+    <path d="M161 87C136 112 111 122 95 126C102 90 125 65 161 55C170 64 176 73 181 84C174 84 167 85 161 87Z" fill="#EAF2FF" opacity="0.96"/>
+    <path d="M316 54L334 87L367 105L334 123L316 156L298 123L265 105L298 87L316 54Z" fill="url(#zapienGradient)"/>
+  </g>
+  <text x="376" y="166" font-family="Plus Jakarta Sans, Inter, Arial, sans-serif" font-size="118" font-weight="800" letter-spacing="-4" fill="white">Zapien</text>
+</svg>

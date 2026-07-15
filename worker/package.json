@@ -9,7 +9,8 @@
   },
   "scripts": {
     "start": "node --env-file-if-exists=.env src/index.js",
-    "pair": "node --env-file-if-exists=.env src/pair.js"
+    "pair": "node --env-file-if-exists=.env src/pair.js",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "baileys": "^7.0.0-rc13",

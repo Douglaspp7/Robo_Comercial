@@ -1,0 +1,92 @@
+:root {
+  /* Brand - Zapien Blue/Purple */
+  --brand-50: #EEF5FF;
+  --brand-100: #DCEBFF;
+  --brand-200: #BBD6FF;
+  --brand-300: #86B7FF;
+  --brand-400: #4D8CFF;
+  --brand-500: #1D6BFF;
+  --brand-600: #2451F5;
+  --brand-700: #2E38D8;
+  --brand-800: #212B8F;
+  --brand-900: #061A44;
+
+  /* AI - Zapien Violet */
+  --ai-50: #F5F0FF;
+  --ai-100: #ECE2FF;
+  --ai-500: #8B3DFF;
+  --ai-600: #7130D8;
+  --ai-700: #5521A8;
+
+  /* Grays */
+  --gray-25: #FCFCFD;
+  --gray-50: #F9FAFB;
+  --gray-100: #F2F4F7;
+  --gray-200: #EAECF0;
+  --gray-300: #D0D5DD;
+  --gray-400: #98A2B3;
+  --gray-500: #667085;
+  --gray-600: #475467;
+  --gray-700: #344054;
+  --gray-800: #1D2939;
+  --gray-900: #101828;
+
+  /* State Colors */
+  --success-50: #ECFDF3;
+  --success-200: #ABEFC6;
+  --success-500: #17B26A;
+  --success-600: #079455;
+  --warning-50: #FFFAEB;
+  --warning-500: #F79009;
+  --danger-50: #FEF3F2;
+  --danger-500: #F04438;
+  --danger-600: #D92D20;
+  --info-50: #EFF8FF;
+  --info-500: #2E90FA;
+
+  /* Base & UI */
+  --background: #EEF3FA;
+  --surface: #FFFFFF;
+  --surface-muted: #F9FAFB;
+  --border: #EAECF0;
+  --text-primary: #061A44;
+  --text-secondary: #667085;
+  --text-placeholder: #98A2B3;
+  --text-inverse: #FFFFFF;
+  
+  /* Layout & Spacing */
+  --sidebar-width: 260px;
+  --sidebar-collapsed-width: 80px;
+  --topbar-height: 64px;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(16, 24, 40, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(16, 24, 40, 0.1), 0 2px 4px -2px rgba(16, 24, 40, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(16, 24, 40, 0.1), 0 4px 6px -4px rgba(16, 24, 40, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(16, 24, 40, 0.1), 0 8px 10px -6px rgba(16, 24, 40, 0.1);
+  
+  /* Radii */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* Shared visual rhythm */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --control-height: 42px;
+  --control-height-mobile: 44px;
+  --content-max-width: 1440px;
+  --card-radius: 16px;
+  --card-padding: 20px;
+
+  /* Transitions */
+  --transition-fast: 150ms ease-in-out;
+  --transition-normal: 250ms ease-in-out;
+}

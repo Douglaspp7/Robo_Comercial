@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Zapien — Agenda</title>
+  <link rel="icon" href="/favicon.ico?v=9">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#4f46e5">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/reset.css">
+  <link rel="stylesheet" href="/css/tokens.css?v=visual-system-v2">
+  <link rel="stylesheet" href="/css/components.css?v=visual-system-v2">
+  <link rel="stylesheet" href="/css/app-shell.css?v=mobile-clearance-v1">
+  <link rel="stylesheet" href="/css/ui-polish.css?v=visual-system-v2">
+  <style>
+    .agenda-page{max-width:1180px;margin:0 auto;padding:24px 20px 130px}.agenda-hero{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:22px}.agenda-hero h1{font-size:1.7rem;color:var(--gray-900)}.agenda-hero p{color:var(--gray-600);margin-top:6px}.agenda-grid{display:grid;grid-template-columns:340px 1fr;gap:20px}.agenda-card{background:#fff;border:1px solid var(--gray-200);border-radius:18px;padding:20px;box-shadow:0 8px 28px rgba(15,23,42,.05)}.agenda-card h2{font-size:1.05rem;margin-bottom:14px}.field{display:block;margin-bottom:12px}.field span{display:block;font-size:.8rem;font-weight:700;margin-bottom:5px}.field input,.field select,.field textarea{width:100%}.money-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.service-item,.appointment-item{border:1px solid var(--gray-200);border-radius:14px;padding:13px;margin-top:10px}.service-head,.appointment-head{display:flex;justify-content:space-between;gap:10px}.service-meta,.appointment-meta{font-size:.78rem;color:var(--gray-600);margin-top:5px}.appointment-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.agenda-empty{text-align:center;color:var(--gray-500);padding:30px 10px}.status{font-size:.68rem;font-weight:700;border-radius:999px;padding:4px 8px;background:#eef2ff;color:#4338ca}.status.confirmado{background:#dcfce7;color:#15803d}.status.cancelado{background:#fee2e2;color:#b91c1c}.status.aguardando_pagamento{background:#fff7ed;color:#c2410c}.availability-card{margin-top:20px}.availability-layout{display:grid;grid-template-columns:1.35fr .65fr;gap:20px}.day-row{display:grid;grid-template-columns:110px 1fr 1fr 1fr 1fr;gap:8px;align-items:end;padding:10px 0;border-bottom:1px solid var(--gray-100)}.day-toggle{display:flex;align-items:center;gap:7px;font-weight:700;font-size:.82rem;padding-bottom:10px}.day-row label span{font-size:.68rem}.availability-options{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0}.block-item{display:flex;justify-content:space-between;gap:10px;border:1px solid var(--gray-200);border-radius:12px;padding:10px;margin-top:8px}.help-text{font-size:.76rem;color:var(--gray-600);margin:-5px 0 12px}@media(max-width:800px){.availability-layout{grid-template-columns:1fr}.day-row{grid-template-columns:1fr 1fr}.day-toggle{grid-column:1/-1;padding-bottom:2px}.availability-options{grid-template-columns:1fr}.agenda-page{padding:18px 14px 120px}.agenda-grid{grid-template-columns:1fr}.agenda-hero{display:block}.money-row{grid-template-columns:1fr 1fr}.agenda-card{padding:16px}} 
+  </style>
+</head>
+<body>
+<div class="app-container">
+  <aside class="app-sidebar" id="app-sidebar">
+    <div class="app-sidebar-header"><a href="/dashboard.html" class="app-sidebar-logo"><img src="/assets/logo.png?v=9" alt="Zapien"></a><button class="btn btn-icon" id="sidebar-close"><i data-lucide="x"></i></button></div>
+    <nav class="app-sidebar-nav">
+      <a href="/dashboard.html" class="nav-item"><i data-lucide="layout-dashboard"></i><span>Início</span></a>
+      <a href="/agenda.html" class="nav-item active"><i data-lucide="calendar-days"></i><span>Agenda</span></a>
+      <a href="/vendas.html" class="nav-item"><i data-lucide="trending-up"></i><span>Vendas</span></a>
+      <a href="/settings.html" class="nav-item"><i data-lucide="settings"></i><span>Configurações</span></a>
+      <a href="/plans.html" class="nav-item"><i data-lucide="credit-card"></i><span>Planos</span></a>
+    </nav>
+  </aside>
+  <main class="app-main">
+    <header class="app-topbar"><button class="btn btn-icon mobile-menu-btn" id="sidebar-toggle"><i data-lucide="menu"></i></button><a href="/dashboard.html" class="mobile-topbar-brand"><img src="/assets/logo.png?v=9" alt="Zapien"></a></header>
+    <div class="agenda-page">
+      <div class="agenda-hero"><div><h1>Agenda</h1><p>Cadastre serviços e organize os próximos atendimentos.</p></div><button class="btn btn-primary" id="newAppointmentBtn"><i data-lucide="calendar-plus"></i> Novo agendamento</button></div>
+      <div id="pageMessage"></div>
+      <div class="agenda-grid">
+        <section class="agenda-card">
+          <h2>Serviços</h2>
+          <form id="serviceForm">
+            <label class="field"><span>Nome do serviço</span><input class="form-input" id="serviceName" required placeholder="Ex.: Corte masculino"></label>
+            <label class="field"><span>Duração</span><select class="form-input" id="serviceDuration"><option value="30">30 minutos</option><option value="45">45 minutos</option><option value="60">1 hora</option><option value="90">1h30</option><option value="120">2 horas</option></select></label>
+            <div class="money-row"><label class="field"><span>Preço</span><input class="form-input" id="servicePrice" type="number" min="0" step="0.01" value="0"></label><label class="field"><span>Taxa de reserva</span><input class="form-input" id="serviceFee" type="number" min="0" step="0.01" value="0"></label></div>
+            <button class="btn btn-secondary w-full" type="submit">Adicionar serviço</button>
+          </form>
+          <div id="servicesList"></div>
+        </section>
+        <section class="agenda-card">
+          <h2>Próximos 7 dias</h2>
+          <form id="appointmentForm" hidden>
+            <label class="field"><span>Serviço</span><select class="form-input" id="appointmentService" required></select></label>
+            <label class="field"><span>Cliente</span><input class="form-input" id="customerName" required placeholder="Nome do cliente"></label>
+            <label class="field"><span>WhatsApp</span><input class="form-input" id="customerPhone" inputmode="tel" placeholder="(13) 99999-9999"></label>
+            <label class="field"><span>Data e horário</span><input class="form-input" id="appointmentStart" type="datetime-local" required></label>
+            <label class="field"><span>Observações</span><textarea class="form-textarea" id="appointmentNotes" rows="2"></textarea></label>
+            <div class="appointment-actions"><button class="btn btn-primary" type="submit">Reservar horário</button><button class="btn btn-secondary" id="cancelAppointmentForm" type="button">Cancelar</button></div>
+          </form>
+          <div id="appointmentsList"></div>
+        </section>
+      </div>
+      <section class="agenda-card availability-card">
+        <h2>Disponibilidade para agendamentos</h2>
+        <p class="help-text">A IA só oferecerá horários dentro desta jornada e fora das folgas bloqueadas.</p>
+        <div class="availability-layout">
+          <form id="availabilityForm">
+            <div id="weeklySchedule"></div>
+            <div class="availability-options">
+              <label class="field"><span>Antecedência mínima</span><select class="form-input" id="minNotice"><option value="0">Sem antecedência</option><option value="60">1 hora</option><option value="120">2 horas</option><option value="240">4 horas</option><option value="1440">1 dia</option><option value="2880">2 dias</option></select></label>
+              <label class="field"><span>Agendar até</span><select class="form-input" id="maxAdvance"><option value="7">7 dias</option><option value="15">15 dias</option><option value="30">30 dias</option><option value="60">60 dias</option><option value="90">90 dias</option><option value="180">180 dias</option></select></label>
+              <label class="field"><span>Intervalo entre clientes</span><select class="form-input" id="bufferMinutes"><option value="0">Sem intervalo</option><option value="10">10 minutos</option><option value="15">15 minutos</option><option value="30">30 minutos</option><option value="45">45 minutos</option><option value="60">1 hora</option></select></label>
+            </div>
+            <button class="btn btn-primary" type="submit">Salvar disponibilidade</button>
+          </form>
+          <div>
+            <h2>Folgas e bloqueios</h2>
+            <form id="blockForm">
+              <label class="field"><span>Início</span><input class="form-input" id="blockStart" type="datetime-local" required></label>
+              <label class="field"><span>Fim</span><input class="form-input" id="blockEnd" type="datetime-local" required></label>
+              <label class="field"><span>Motivo</span><input class="form-input" id="blockReason" maxlength="200" placeholder="Ex.: folga, almoço especial"></label>
+              <button class="btn btn-secondary w-full" type="submit">Bloquear período</button>
+            </form>
+            <div id="blocksList"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+  <nav class="mobile-bottom-nav"><a href="/dashboard.html" class="bottom-nav-item"><i data-lucide="layout-dashboard"></i><span>Início</span></a><a href="/vendas.html" class="bottom-nav-item"><i data-lucide="trending-up"></i><span>Vendas</span></a><a href="/agenda.html" class="bottom-nav-item active"><i data-lucide="calendar-days"></i><span>Agenda</span></a><a href="/settings.html" class="bottom-nav-item"><i data-lucide="settings"></i><span>Configurar</span></a><a href="/plans.html" class="bottom-nav-item"><i data-lucide="credit-card"></i><span>Planos</span></a></nav>
+</div>
+<script src="/vendor/lucide.min.js"></script>
+<script src="/js/ui.js?v=business-mode-v1"></script>
+<script src="/js/pages/agenda.js?v=agenda-availability-v4"></script>
+</body>
+</html>

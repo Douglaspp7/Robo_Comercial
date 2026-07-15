@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zapien — Vendas</title>
+  <link rel="icon" href="/favicon.ico?v=9" type="image/x-icon">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#4f46e5">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/reset.css" />
+  <link rel="stylesheet" href="/css/tokens.css?v=visual-system-v2" />
+  <link rel="stylesheet" href="/css/components.css?v=visual-system-v2" />
+  <link rel="stylesheet" href="/css/app-shell.css?v=mobile-clearance-v1" />
+  <link rel="stylesheet" href="/css/pages/dashboard.css?v=mobile-density-v1" />
+  <link rel="stylesheet" href="/css/ui-polish.css?v=visual-system-v2" />
+  <style>
+    .spin { animation: spin 1s linear infinite; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+    .vendas-content {
+      width: min(100%, 1000px);
+      margin: 0 auto;
+      padding: 8px 0 96px;
+    }
+    @media (min-width: 769px) {
+      .vendas-content > .page-heading {
+        display: none;
+      }
+    }
+  </style>
+  <script src="/vendor/chart.umd.min.js"></script>
+</head>
+<body>
+
+<div class="app-container">
+
+  <!-- Sidebar -->
+  <aside class="app-sidebar" id="app-sidebar">
+    <div class="app-sidebar-header">
+      <a href="/dashboard.html" class="app-sidebar-logo">
+        <img src="/assets/logo.png?v=9" alt="Zapien Logo" />
+      </a>
+      <button class="btn btn-icon" id="sidebar-close" style="margin-left:auto; color:var(--gray-900);">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+
+    <nav class="app-sidebar-nav">
+      <a href="/dashboard.html" class="nav-item">
+        <i data-lucide="layout-dashboard"></i>
+        <span>Início</span>
+      </a>
+      <a href="/settings.html" class="nav-item">
+        <i data-lucide="settings"></i>
+        <span class="settings-nav-label">Configurações</span>
+      </a>
+      <a href="/vendas.html" class="nav-item active">
+        <i data-lucide="trending-up"></i>
+        <span>Vendas</span>
+      </a>
+      <a href="/avisos.html" class="nav-item">
+        <i data-lucide="bell"></i>
+        <span>Avisos</span>
+        <span class="badge badge-danger hidden" id="navUnreadBadge" style="margin-left:auto;padding:1px 7px;font-size:0.68rem;"></span>
+      </a>
+      <a href="/automations.html" class="nav-item">
+        <i data-lucide="zap"></i>
+        <span>Automações</span>
+      </a>
+      <a href="/marketing.html" class="nav-item">
+        <i data-lucide="megaphone"></i>
+        <span>Marketing</span>
+      </a>
+      <a href="/integrations.html" class="nav-item">
+        <i data-lucide="plug"></i>
+        <span>Integrações</span>
+      </a>
+      <a href="/plans.html" class="nav-item">
+        <i data-lucide="credit-card"></i>
+        <span>Planos</span>
+      </a>
+      <a href="/admin.html" class="nav-item hidden" id="adminLink">
+        <i data-lucide="shield"></i>
+        <span>Admin</span>
+      </a>
+    </nav>
+
+    <div class="app-sidebar-footer">
+      <a href="#" target="_blank" rel="noopener" class="nav-item" id="supportBtn" style="display:none;">
+        <i data-lucide="message-circle"></i>
+        <span>Suporte</span>
+      </a>
+      <button class="nav-item w-full" id="logoutBtn">
+        <i data-lucide="log-out"></i>
+        <span>Sair</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="app-main">
+
+    <!-- Topbar -->
+    <header class="app-topbar">
+      <div class="flex items-center gap-4">
+        <button class="btn btn-icon mobile-menu-btn" id="sidebar-toggle">
+          <i data-lucide="menu"></i>
+        </button>
+        <a href="/dashboard.html" class="mobile-topbar-brand" aria-label="Zapien - início">
+          <img src="/assets/logo.png?v=9" alt="Zapien Logo" />
+        </a>
+      </div>
+      <div class="topbar-actions">
+        <div style="position:relative;">
+          <button id="profileBtn" class="topbar-avatar" title="Minha conta">
+            <span id="profileInitial"><i data-lucide="user" style="width:16px;height:16px;"></i></span>
+          </button>
+          <div id="profileDropdown" class="profile-dropdown hidden">
+            <div class="profile-dropdown-info">
+              <div class="profile-dropdown-email" id="profileEmail">—</div>
+              <div id="profilePlanBadge"></div>
+            </div>
+            <div class="profile-dropdown-divider"></div>
+            <button class="profile-dropdown-item" id="changePwBtn">
+              <i data-lucide="key-round"></i> Mudar senha
+            </button>
+            <button class="profile-dropdown-item text-danger" id="profileLogoutBtn">
+              <i data-lucide="log-out"></i> Sair
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal: Mudar Senha -->
+      <div id="changePwModal" class="modal-overlay">
+        <div class="modal-content password-modal-compact">
+          <div class="modal-header">
+            <h3 class="modal-title">Mudar senha</h3>
+            <button class="btn btn-icon" id="changePwClose"><i data-lucide="x"></i></button>
+          </div>
+          <div class="password-modal-body">
+            <div class="form-group mb-0">
+              <label class="form-label">Senha atual</label>
+              <input type="password" id="cpwCurrent" class="form-input" placeholder="••••••••">
+            </div>
+            <div class="form-group mb-0">
+              <label class="form-label">Nova senha</label>
+              <input type="password" id="cpwNew" class="form-input" placeholder="Mínimo 6 caracteres">
+            </div>
+            <div class="form-group mb-0">
+              <label class="form-label">Confirmar nova senha</label>
+              <input type="password" id="cpwConfirm" class="form-input" placeholder="Repita a nova senha">
+            </div>
+            <button class="btn btn-primary password-save-btn" id="cpwSaveBtn">Salvar nova senha</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Impersonate Banner -->
+    <div class="admin-banner" id="impersonateBar" style="display:none;">
+      <div>
+        <i data-lucide="eye" style="display:inline-block; vertical-align:middle; margin-right:8px;"></i>
+        Você está visualizando a conta de <strong id="impersonateEmail"></strong>
+      </div>
+      <button class="btn" id="stopImpersonateBtn">Voltar para Administração</button>
+    </div>
+
+    <!-- Content Area -->
+    <div class="app-content">
+      <div class="vendas-content">
+        <div class="page-heading">
+        <p class="eyebrow">Receita e oportunidades</p>
+        <h1 class="page-title">Vendas</h1>
+        <p class="page-subtitle">Veja quem está pronto para comprar e onde há dinheiro parado.</p>
+      </div>
+
+<section class="action-first-section"><div class="section-heading"><h2>Oportunidades para agir agora</h2><p>Quem pode comprar, pagar ou voltar agora.</p></div>
+      <!-- Radar de Receita: oportunidades comerciais acionáveis -->
+      <div class="insights-card" id="radarSection" style="display:none;">
+        <button type="button" class="insights-title radar-toggle" id="radarToggle" style="width:100%;border:none;background:none;cursor:pointer;padding:0;">
+          <i data-lucide="radar" style="width:18px;height:18px;"></i>
+          <span>Oportunidades</span>
+          <span class="badge badge-success" id="radarCount" style="margin-left:6px;"></span>
+          <i data-lucide="chevron-down" id="radarChevron" style="width:16px;height:16px;margin-left:auto;transition:transform 0.15s ease;"></i>
+        </button>
+        <div class="radar-grid" id="radarArea"></div>
+      </div>
+
+      <!-- Dinheiro parado no funil -->
+      <div class="feature-card sales-empty-opportunity" id="salesOpportunityEmpty" style="display:none;">
+        <strong>Nenhuma oportunidade pendente agora.</strong>
+        <span>Quando um cliente pedir preço, frete ou receber checkout, ele aparecerá aqui.</span>
+      </div>
+
+      <div class="priority-section" id="stuckMoneySection" style="display:none;">
+        <h2 class="priority-header">
+          <i data-lucide="alert-triangle" style="color:var(--danger-500);"></i>
+          Dinheiro parado no funil
+        </h2>
+        <div class="dashboard-grid" id="stuckMoneyArea"></div>
+      </div>
+
+      </section>
+
+      <section class="sales-summary-section"><div class="section-heading"><h2>Resumo rápido</h2><p>Números úteis sem atrapalhar suas ações.</p></div>
+      <div class="dashboard-grid" id="vendasKpisArea">
+        <!-- Skeleton Loading -->
+        <div class="stat-card"><div class="skeleton skeleton-text"></div><div class="skeleton skeleton-text" style="height:32px;"></div></div>
+        <div class="stat-card"><div class="skeleton skeleton-text"></div><div class="skeleton skeleton-text" style="height:32px;"></div></div>
+      </div>
+
+      </section>
+
+      <!-- Vendas (board por etapa) -->
+      <div class="sales-section">
+        <div class="contacts-header" style="border-bottom: none; padding-bottom: 8px;">
+          <div class="flex items-center justify-between flex-wrap gap-4">
+            <h2 class="contacts-title" style="margin-bottom: 0;">Funil de vendas</h2>
+            <span style="font-size:0.75rem; color:var(--text-secondary);">Toque em uma etapa para focar nos clientes daquele momento</span>
+          </div>
+        </div>
+        <div id="pipelineStageTabs" class="pipeline-stage-tabs"></div>
+        <div id="pipelineBoard" class="pipeline-board"></div>
+      </div>
+
+      <details class="reports-details"><summary>Ver relatórios</summary>
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div class="chart-header">
+            <h2 class="chart-title">Funil de atendimento</h2>
+          </div>
+          <div class="chart-container">
+            <canvas id="funnelChart"></canvas>
+          </div>
+          <div id="funnelConversion" style="margin-top:8px;"></div>
+        </div>
+      </div>
+
+      <div class="sales-section">
+        <div class="contacts-header" style="border-bottom: none; padding-bottom: 8px;">
+          <div class="flex items-center justify-between flex-wrap gap-4">
+            <h2 class="contacts-title" style="margin-bottom: 0;">
+              Vendas e pedidos
+              <span class="live-indicator" title="Acompanhamento ao vivo"></span>
+            </h2>
+            <span style="font-size:0.75rem; color:var(--text-secondary);">Acompanhe checkouts enviados, pagos e perdidos</span>
+          </div>
+        </div>
+
+        <!-- Cards de Métricas Comerciais -->
+        <div class="sales-metrics-grid" id="salesMetricsArea"></div>
+
+        <!-- Barra de Filtros Rápidos -->
+        <div class="sales-filter-bar" id="salesFilterBar">
+          <button class="sales-filter-btn active" data-status="todos">Todos</button>
+          <button class="sales-filter-btn" data-status="rascunho">Rascunhos</button>
+          <button class="sales-filter-btn" data-status="checkout_enviado">Checkouts Enviados</button>
+          <button class="sales-filter-btn" data-status="aguardando_pagamento">Aguardando Pagamento</button>
+          <button class="sales-filter-btn" data-status="pago">Pagos</button>
+          <button class="sales-filter-btn" data-status="perdido">Perdidos</button>
+        </div>
+
+        <div id="salesArea">
+          <div style="padding: 24px;">
+            <div class="skeleton skeleton-text"></div>
+            <div class="skeleton skeleton-text"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sales-section">
+        <div class="contacts-header" style="border-bottom: none; padding-bottom: 8px;">
+          <div class="flex items-center justify-between flex-wrap gap-4">
+            <h2 class="contacts-title" style="margin-bottom: 0;">Vendas por origem</h2>
+            <span style="font-size:0.75rem; color:var(--text-secondary);">De onde vêm seus atendimentos e o que virou venda</span>
+          </div>
+        </div>
+        <div id="originArea" style="padding: 0 24px 24px 24px;"></div>
+        <div id="tipoClienteArea" style="display:flex;gap:12px;flex-wrap:wrap;padding: 0 24px 24px 24px;"></div>
+      </div>
+      </details>
+
+      <!-- Balancete Mensal / Exportação Fiscal -->
+      <details class="reports-details" id="fiscal-section">
+        <summary>Exportar para balancete / fiscal</summary>
+        <div style="padding:16px 24px 24px 24px;">
+          <p style="font-size:0.875rem;color:var(--text-secondary);margin-bottom:16px;">
+            Exporte todas as vendas de um período como planilha CSV — útil para fechar o caixa, calcular comissões ou enviar para o contador.
+          </p>
+          <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:12px;">
+            <div class="form-group mb-0">
+              <label class="form-label" for="fiscal-from">De</label>
+              <input type="date" class="form-input" id="fiscal-from" style="width:160px;">
+            </div>
+            <div class="form-group mb-0">
+              <label class="form-label" for="fiscal-to">Até</label>
+              <input type="date" class="form-input" id="fiscal-to" style="width:160px;">
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <button class="btn btn-secondary" id="fiscal-month-btn" type="button">Mês atual</button>
+              <button class="btn btn-secondary" id="fiscal-lastmonth-btn" type="button">Mês passado</button>
+              <a class="btn btn-primary" id="fiscal-export-btn" href="#" style="text-decoration:none;" download>
+                <i data-lucide="download"></i> Baixar CSV
+              </a>
+            </div>
+          </div>
+          <div class="form-hint">O arquivo inclui: data, cliente, telefone, tipo de pedido, itens, taxa de entrega, total e status de pagamento.</div>
+        </div>
+      </details>
+
+      <!-- Campanhas segmentadas (WhatsApp Business API, Elite) -->
+      <div class="sales-section" id="campaignsSection" style="display:none;">
+        <div class="contacts-header" style="border-bottom: none; padding-bottom: 8px;">
+          <div class="flex items-center justify-between flex-wrap gap-4">
+            <h2 class="contacts-title" style="margin-bottom: 0;">Campanhas <span class="badge badge-warning text-xs">Elite</span></h2>
+            <span style="font-size:0.75rem; color:var(--text-secondary);">Mande uma mensagem de uma vez só para todo mundo com uma tag</span>
+          </div>
+        </div>
+        <div style="padding:0 24px 24px 24px; display:flex; flex-direction:column; gap:12px; max-width:560px;">
+          <div class="form-group mb-0">
+            <label class="form-label">Enviar para quem tiver a tag</label>
+            <select class="form-select" id="campaign-tag"><option value="">Selecione uma tag...</option></select>
+          </div>
+          <div class="form-group mb-0">
+            <label class="form-label">Template aprovado</label>
+            <select class="form-select" id="campaign-template"><option value="">Selecione um template...</option></select>
+            <div class="form-hint" id="campaign-template-preview"></div>
+          </div>
+          <div class="feature-card sales-empty-opportunity" id="campaign-template-help" style="display:none;">
+            <span>
+              Os templates n&atilde;o s&atilde;o criados aqui. Eles s&atilde;o modelos aprovados no WhatsApp/Meta e ficam em
+              <strong>Integra&ccedil;&otilde;es &gt; Marketing &gt; Templates de Mensagem</strong>.
+            </span>
+            <a class="btn btn-secondary" href="/integrations.html#whatsapp-templates" style="text-decoration:none;">Cadastrar template</a>
+          </div>
+          <div id="campaign-variables" style="display:flex; flex-direction:column; gap:8px;"></div>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <button type="button" class="btn btn-secondary" id="campaign-preview-btn">Ver audiência</button>
+            <span id="campaign-audience-result" class="form-hint" style="margin:0;"></span>
+          </div>
+          <div>
+            <button type="button" class="btn btn-primary" id="campaign-send-btn">Enviar campanha</button>
+          </div>
+        </div>
+        <div id="campaign-history" class="flex flex-col gap-2"></div>
+      </div>
+      <div id="campaignsNotAvailable" class="feature-card sales-empty-opportunity" style="display:none;">
+        <span>Campanhas segmentadas disponíveis nos planos Elite e Especial — cadastre templates aprovados em Integrações e faça upgrade para usar.</span>
+      </div>
+
+      </div><!-- .vendas-content -->
+    </div>
+  </main>
+
+  <!-- Mobile Bottom Nav (5 items) -->
+  <nav class="mobile-bottom-nav">
+    <a href="/dashboard.html" class="bottom-nav-item">
+      <i data-lucide="layout-dashboard"></i>
+      <span>Início</span>
+    </a>
+    <a href="/vendas.html" class="bottom-nav-item active">
+      <i data-lucide="trending-up"></i>
+      <span>Vendas</span>
+    </a>
+    <a href="/avisos.html" class="bottom-nav-item" style="position:relative;">
+      <i data-lucide="bell"></i>
+      <span>Avisos</span>
+      <span class="nav-badge hidden" id="bottomNavUnread"></span>
+    </a>
+    <a href="/settings.html" class="bottom-nav-item">
+      <i data-lucide="settings"></i>
+      <span>Configurar</span>
+    </a>
+    <button type="button" class="bottom-nav-item" id="bottom-nav-more" aria-haspopup="true" aria-expanded="false">
+      <i data-lucide="grid-2x2"></i>
+      <span>Mais</span>
+    </button>
+  </nav>
+
+</div>
+
+<!-- "Mais" Bottom Sheet -->
+<div id="more-sheet-overlay" class="more-sheet-overlay" aria-hidden="true" role="dialog" aria-label="Menu adicional" style="display:none;">
+  <div class="more-sheet">
+    <div class="more-sheet-handle"></div>
+    <nav class="more-sheet-nav" aria-label="Navegação adicional">
+      <a href="/automations.html" class="more-sheet-item">
+        <i data-lucide="zap"></i>
+        <span>Automações</span>
+      </a>
+      <a href="/marketing.html" class="more-sheet-item">
+        <i data-lucide="megaphone"></i>
+        <span>Marketing</span>
+      </a>
+      <a href="/integrations.html" class="more-sheet-item">
+        <i data-lucide="plug"></i>
+        <span>Integrações</span>
+      </a>
+      <a href="/plans.html" class="more-sheet-item">
+        <i data-lucide="credit-card"></i>
+        <span>Planos</span>
+      </a>
+      <a href="#" target="_blank" rel="noopener" class="more-sheet-item" id="moreSheetSupport" style="display:none;">
+        <i data-lucide="message-circle"></i>
+        <span>Suporte</span>
+      </a>
+      <a href="/admin.html" class="more-sheet-item" id="moreSheetAdmin" style="display:none;">
+        <i data-lucide="shield"></i>
+        <span>Admin</span>
+      </a>
+    </nav>
+  </div>
+</div>
+
+<script src="/vendor/lucide.min.js"></script>
+<script src="/js/ui.js?v=more-sheet-v2"></script>
+<script src="/js/pages/vendas.js?v=campaign-templates-help-1"></script>
+</body>
+</html>
