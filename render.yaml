@@ -65,6 +65,10 @@ services:
       # URL pública do worker — cole após o worker subir (ex.: https://robo-worker.onrender.com).
       - key: WORKER_URL
         sync: false
+      # URL pública do atendente — o painel mostra um card com status + "Abrir
+      # dashboard". Cole após o robo-atendente subir (ex.: https://robo-atendente.onrender.com).
+      - key: ATTENDANT_URL
+        sync: false
       # Chaves das fontes/canais — você preenche no painel do Render.
       - key: GOOGLE_PLACES_API_KEY
         sync: false

@@ -204,6 +204,8 @@ export default function Home() {
   const [cloudPanelOpen, setCloudPanelOpen] = useState(false);
   const [cloudStatus, setCloudStatus] = useState<CloudStatus | null>(null);
   const [qrDataUrls, setQrDataUrls] = useState<Record<string, string>>({});
+  // Atendente Zapien (a cópia que vende Zapien) — status + link do dashboard.
+  const [attendant, setAttendant] = useState<{ configured: boolean; online?: boolean; url?: string } | null>(null);
   // Plano de busca + pool de leads (persistente no worker).
   const [planOpen, setPlanOpen] = useState(false);
   const [planLines, setPlanLines] = useState<PlanLine[]>([]);
@@ -835,6 +837,23 @@ export default function Home() {
     const id = setInterval(fetchCloudStatus, 8000);
     return () => clearInterval(id);
   }, [cloudPanelOpen]);
+
+  // Status do atendente Zapien (1x ao abrir a página). setState só no .then
+  // (assíncrono) para não incorrer no aviso de setState-em-efeito.
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/attendant")
+      .then((r) => r.json())
+      .then((d) => {
+        if (alive) setAttendant(d);
+      })
+      .catch(() => {
+        if (alive) setAttendant({ configured: false });
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // Gera a imagem do QR (modo QR) por número, a partir do texto do worker.
   const qrSignature = JSON.stringify(
@@ -1521,6 +1540,43 @@ export default function Home() {
             )}
           </div>
         )}
+      </section>
+
+      {/* Atendente Zapien — o número que vende Zapien. Mostra se está no ar e
+          abre o dashboard (onde as respostas caem e você assume a conversa),
+          unificando disparo + atendimento numa tela só. */}
+      <section className="glass-panel" style={{ padding: "1.5rem", marginTop: "1rem" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
+          <h2 className={styles.subtitle} style={{ margin: 0, display: "inline-flex", alignItems: "center", gap: "0.6rem" }}>
+            💬 Atendente Zapien
+            {attendant?.configured && (
+              <span style={{ fontSize: "0.8rem", fontWeight: 600, color: attendant.online ? "#22c55e" : "var(--error, #ef4444)", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+                <span style={{ width: 9, height: 9, borderRadius: "50%", background: attendant.online ? "#22c55e" : "#ef4444", display: "inline-block" }} />
+                {attendant.online ? "No ar" : "Offline"}
+              </span>
+            )}
+          </h2>
+          {attendant?.configured && attendant.url && (
+            <a
+              className="btn-secondary"
+              href={attendant.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "0.4rem" }}
+            >
+              Abrir dashboard ↗
+            </a>
+          )}
+        </div>
+        <p style={{ margin: "0.75rem 0 0", fontSize: "0.9rem", color: "var(--text-muted, #94a3b8)" }}>
+          {attendant == null
+            ? "Verificando…"
+            : !attendant.configured
+              ? "Não configurado. Defina ATTENDANT_URL para ver o atendente aqui e abrir o dashboard, onde as respostas dos leads caem e você assume a conversa quando quiser."
+              : attendant.online
+                ? "As respostas dos leads caem no atendente. Abra o dashboard para acompanhar as conversas e assumir quando quiser."
+                : "O atendente não respondeu. Confira se o serviço está no ar e se a ATTENDANT_URL está correta."}
+        </p>
       </section>
 
       {results.length > 0 && (
