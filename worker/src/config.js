@@ -83,6 +83,16 @@ export const config = {
   // Rodapé opcional anexado a cada mensagem (ex.: "Responda SAIR para não
   // receber."). Vazio = não anexa.
   optoutFooter: (process.env.WA_OPTOUT_FOOTER || "").trim(),
+
+  // ── Atendente (cópia do Zapien que vende Zapien) ────────────────────────
+  // URL do atendente que recebe as RESPOSTAS dos leads e as responde pelo mesmo
+  // chip. Vazio = worker só dispara + opt-out (comportamento atual). Setado =
+  // o worker vira gateway e encaminha toda resposta (que não for opt-out) para
+  // ATTENDANT_URL/inbound. O atendente devolve a resposta chamando POST /send.
+  attendantUrl: (process.env.ATTENDANT_URL || "").replace(/\/$/, ""),
+  // Segredo que o worker envia ao atendente (header x-worker-token) ao
+  // encaminhar uma resposta. O atendente valida com o mesmo valor.
+  attendantToken: process.env.ATTENDANT_TOKEN || "",
 };
 
 /** "9-19" -> { start: 9, end: 19 }; vazio/ inválido -> null (24h). */

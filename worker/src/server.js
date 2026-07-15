@@ -344,6 +344,33 @@ const server = http.createServer(async (req, res) => {
       return send(res, 201, { id, added, count: pending.length, image });
     }
 
+    // ── Gateway de envio para o ATENDENTE ────────────────────────────────
+    // A cópia do Zapien chama isto para responder o lead pelo MESMO chip em que
+    // ele está conversando. `number_id` é o chip que recebeu a resposta (vem no
+    // payload de /inbound). Sem number_id (ou desconectado): usa o 1º conectado
+    // — suficiente para setup de 1 chip. Protegido pelo WORKER_API_TOKEN.
+    if (req.method === "POST" && path === "/send") {
+      const body = await readJson(req);
+      const number = normalizeNumber(body.phone);
+      if (!number) return send(res, 400, { error: "telefone inválido" });
+      const text = String(body.text || "").trim();
+      if (!text) return send(res, 400, { error: "texto obrigatório" });
+      const wanted = body.number_id != null ? String(body.number_id) : null;
+      const senderId =
+        (wanted && getAllStates().some((s) => s.id === wanted && s.connected)
+          ? wanted
+          : null) || firstConnectedId();
+      if (!senderId) return send(res, 503, { error: "WhatsApp não conectado" });
+      const jid = numberToJid(number);
+      if (!jid) return send(res, 400, { error: "telefone inválido" });
+      try {
+        await sendText(senderId, jid, text);
+        return send(res, 200, { ok: true, number_id: senderId });
+      } catch (e) {
+        return send(res, 500, { error: e.message });
+      }
+    }
+
     return send(res, 404, { error: "rota não encontrada" });
   } catch (e) {
     return send(res, 500, { error: e.message });
