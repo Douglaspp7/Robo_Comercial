@@ -7,6 +7,23 @@
   gap: 2rem;
 }
 
+.isHidden { display: none !important; }
+
+.workspaceNav { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 6px; border: 1px solid var(--border); border-radius: 14px; background: rgba(30,41,59,.55); }
+.workspaceNav button { border: 0; border-radius: 10px; padding: 12px 10px; color: #94a3b8; background: transparent; font-weight: 700; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; }
+.workspaceNav button > span { width: 23px; height: 23px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.08); font-size: .75rem; }
+.workspaceNav button small { min-width: 22px; padding: 2px 6px; border-radius: 999px; background: rgba(59,130,246,.18); color: #93c5fd; }
+.workspaceNav .workspaceActive { color: white; background: linear-gradient(135deg,rgba(59,130,246,.26),rgba(139,92,246,.22)); }
+.workspaceNav .workspaceActive > span { background: var(--primary); }
+
+.statusStrip { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; }
+.statusStrip button, .statusStrip > div { min-width: 0; border: 1px solid var(--border); border-radius: 11px; background: rgba(30,41,59,.45); color: var(--foreground); padding: 10px 12px; display: flex; align-items: center; gap: 9px; text-align: left; }
+.statusStrip button { cursor: pointer; }
+.statusStrip i { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
+.statusStrip span, .statusStrip > div { display: flex; flex-direction: column; }
+.statusStrip strong { font-size: .86rem; }
+.statusStrip small { color: #94a3b8; font-size: .72rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 .header {
   text-align: center;
   margin-bottom: 2rem;
@@ -32,6 +49,13 @@
 
 @media (max-width: 640px) {
   .logoutForm { position: static; margin-top: 14px; display: flex; justify-content: center; }
+}
+
+@media (max-width: 640px) {
+  .workspaceNav button { flex-direction: column; gap: 4px; font-size: .78rem; }
+  .workspaceNav button small { display: none; }
+  .statusStrip { grid-template-columns: 1fr 1fr; }
+  .statusStrip > div { grid-column: 1 / -1; flex-direction: row; justify-content: center; gap: 6px; }
 }
 
 .searchForm {
@@ -171,6 +195,25 @@
 .textareaGlass:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.advancedOptions {
+  margin-top: 1rem;
+  padding: 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(15, 17, 21, 0.3);
+}
+
+.advancedOptions summary {
+  cursor: pointer;
+  color: var(--text-muted, #aaa);
+  font-weight: 600;
+}
+
+.advancedOptions[open] summary {
+  margin-bottom: 1rem;
+  color: var(--foreground);
 }
 
 /* ── Responsivo ─────────────────────────────────────────────────────────────

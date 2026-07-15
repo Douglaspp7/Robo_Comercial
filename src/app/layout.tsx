@@ -24,7 +24,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" className={`${geistSans.variable} ${geistMono.variable}`}>
-      <body>{children}</body>
+      <body className={process.env.PANEL_AUTH_DISABLED === "1" ? "auth-disabled" : undefined}>{children}</body>
     </html>
   );
 }
