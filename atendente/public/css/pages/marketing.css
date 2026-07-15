@@ -1,0 +1,267 @@
+/* Styles for Zapien Marketing page using standard design tokens */
+.marketing-content {
+  width: min(100%, 1200px); /* 1200px fits 5 KPI cards beautifully and avoids empty space on large screens */
+  margin: 0 auto;
+  padding: 8px 0 96px;
+}
+
+.page-heading.flex-row-layout {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.page-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.marketing-filter-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.marketing-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+@media (max-width: 1200px) {
+  .marketing-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .marketing-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .marketing-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.marketing-tabs {
+  display: flex;
+  gap: 28px; /* Space between tabs */
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 28px; /* Safe space below the tabs */
+  padding-bottom: 0;
+}
+
+.marketing-tab {
+  padding: 12px 0; /* Align perfectly on the left */
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  margin-bottom: -1px;
+}
+
+.marketing-tab:hover {
+  color: var(--text-primary);
+}
+
+.marketing-tab.active {
+  color: var(--brand-600);
+  border-bottom-color: var(--brand-600);
+}
+
+.card-table {
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.card-table .table-container {
+  border: none;
+  border-radius: 0;
+}
+
+.marketing-actions-cell {
+  display: flex;
+  gap: 6px;
+}
+
+/* Modals */
+.mkt-qr-img {
+  width: 200px;
+  height: 200px;
+  margin: 0 auto 16px;
+  display: block;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: white;
+}
+
+.mkt-qr-url {
+  font-size: 0.85rem;
+  font-family: monospace;
+  padding: 12px;
+  background: var(--gray-50);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  word-break: break-all;
+  user-select: all;
+  margin-bottom: 16px;
+}
+
+.mkt-qr-copy-btn {
+  width: 100%;
+}
+
+
+/* Mobile density: tables become readable cards instead of horizontal sheets. */
+@media (max-width: 768px) {
+  .marketing-content { padding-top: 2px; }
+
+  .page-heading.flex-row-layout {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .page-heading-actions,
+  .page-heading-actions .btn { width: 100%; }
+
+  .marketing-filter-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+
+  .marketing-filter-row .form-select {
+    width: 100% !important;
+    min-width: 0;
+  }
+
+  .marketing-filter-row #exportCsvBtn {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .marketing-grid {
+    gap: 12px;
+    margin-bottom: 22px;
+  }
+
+  .marketing-grid .stat-card {
+    min-width: 0;
+    padding: 16px;
+  }
+
+  .marketing-tabs {
+    gap: 22px;
+    margin: 0 -16px 18px;
+    padding: 0 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .marketing-tabs::-webkit-scrollbar { display: none; }
+
+  .marketing-tab {
+    flex: 0 0 auto;
+    min-height: 44px;
+  }
+
+  .card-table {
+    overflow: visible;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+  }
+
+  .marketing-mobile-table,
+  .marketing-mobile-table tbody {
+    display: block;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .marketing-mobile-table thead { display: none; }
+
+  .marketing-mobile-table tbody {
+    display: grid;
+    gap: 12px;
+  }
+
+  .marketing-mobile-table tr {
+    display: grid;
+    gap: 0;
+    padding: 8px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius, 16px);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .marketing-mobile-table td {
+    display: grid;
+    grid-template-columns: minmax(92px, .42fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 12px;
+    min-height: 0;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--gray-100);
+    overflow-wrap: anywhere;
+  }
+
+  .marketing-mobile-table td::before {
+    content: attr(data-label);
+    color: var(--text-secondary);
+    font-size: .72rem;
+    font-weight: 750;
+    line-height: 1.35;
+  }
+
+  .marketing-mobile-table td:last-child { border-bottom: 0; }
+
+  .marketing-mobile-table td[colspan] {
+    display: block;
+    padding: 0;
+    border: 0;
+  }
+
+  .marketing-mobile-table td[colspan]::before { display: none; }
+
+  .marketing-actions-cell {
+    display: grid;
+    grid-template-columns: repeat(4, 44px);
+    justify-content: end;
+    gap: 6px;
+  }
+
+  .marketing-actions-cell .btn-icon {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+  }
+}
+
+@media (max-width: 480px) {
+  .marketing-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .marketing-grid .stat-card { padding: 14px; }
+  .marketing-grid .stat-card-value { font-size: 1.35rem; }
+  .marketing-grid .stat-card-footer { font-size: .7rem; }
+}

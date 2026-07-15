@@ -1,0 +1,711 @@
+/* App Layout Structure */
+.app-container {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  background-color: var(--background);
+}
+
+/* Sidebar */
+.app-sidebar {
+  width: var(--sidebar-width);
+  background: linear-gradient(180deg, #061A44 0%, #10145F 55%, #2B166E 100%);
+  border-right: none;
+  color: var(--gray-300);
+  display: flex;
+  flex-direction: column;
+  transition: width var(--transition-normal);
+  z-index: 40;
+  flex-shrink: 0;
+}
+
+.app-sidebar-header {
+  height: var(--topbar-height);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  background: rgba(255, 255, 255, 0.94);
+  border-bottom: 1px solid rgba(29, 107, 255, 0.12);
+}
+
+.app-sidebar-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-primary);
+  font-weight: 700;
+  font-size: 1.25rem;
+  text-decoration: none;
+}
+
+.app-sidebar-logo img, .app-sidebar-logo svg {
+  height: 52px;
+  max-width: 208px;
+  width: auto;
+  background: transparent;
+  object-fit: contain;
+}
+
+.mobile-topbar-brand {
+  display: none;
+  align-items: center;
+  min-width: 0;
+  text-decoration: none;
+}
+
+.mobile-topbar-brand img {
+  display: block;
+  width: auto;
+  height: 38px;
+  max-width: 132px;
+  object-fit: contain;
+}
+
+.app-sidebar-nav {
+  flex: 1;
+  padding: 24px 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  color: var(--gray-300);
+  font-weight: 500;
+  text-decoration: none;
+  transition: all var(--transition-fast);
+}
+
+.nav-item:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: white;
+}
+
+.nav-item.active {
+  background: linear-gradient(135deg, rgba(29,107,255,.28), rgba(155,53,255,.22));
+  color: white;
+}
+
+.nav-item i, .nav-item svg {
+  width: 20px;
+  height: 20px;
+}
+
+.app-sidebar-footer {
+  padding: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.plan-indicator {
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 12px;
+  border-radius: var(--radius-md);
+  font-size: 0.75rem;
+  margin-bottom: 12px;
+  color: var(--gray-300);
+}
+
+.plan-indicator strong {
+  color: white;
+  display: block;
+  margin-bottom: 4px;
+}
+
+/* Main Content Area */
+.app-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0; /* Important for flex children truncation */
+}
+
+/* Topbar */
+.app-topbar {
+  height: var(--topbar-height);
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(29, 107, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px;
+  flex-shrink: 0;
+  z-index: 30;
+}
+
+.topbar-title h1 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.topbar-subtitle {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Profile avatar button */
+.topbar-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 700;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: box-shadow var(--transition-fast), transform var(--transition-fast);
+  box-shadow: 0 1px 3px rgba(0,0,0,.15);
+}
+.topbar-avatar:hover {
+  box-shadow: 0 3px 8px rgba(0,0,0,.20);
+  transform: scale(1.05);
+}
+
+/* Profile dropdown */
+.profile-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 24px rgba(0,0,0,.12);
+  min-width: 220px;
+  z-index: 200;
+  overflow: hidden;
+}
+.profile-dropdown-info {
+  padding: 14px 16px 10px;
+}
+.profile-dropdown-email {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+  word-break: break-all;
+}
+.profile-dropdown-divider {
+  border-top: 1px solid var(--border);
+  margin: 0;
+}
+.profile-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: background .12s;
+}
+.profile-dropdown-item svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.profile-dropdown-item:hover {
+  background: var(--gray-50);
+}
+.profile-dropdown-item.text-danger {
+  color: var(--danger-600, #dc2626);
+}
+
+/* Menu "..." nas linhas de contato (dashboard). Reusa look do profile
+   dropdown mas ancorado no botão. Fica atrás do modal (z 200) e acima
+   das tabelas (z padrão). */
+.contact-more-wrap {
+  position: relative;
+  display: inline-block;
+}
+.contact-more-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 24px rgba(0,0,0,.12);
+  min-width: 200px;
+  z-index: 150;
+  overflow: hidden;
+}
+.contact-more-menu[hidden] { display: none; }
+.contact-more-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: background .12s;
+}
+.contact-more-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+.contact-more-item:hover { background: var(--gray-50); }
+.contact-more-item-danger { color: var(--danger-600, #dc2626); }
+.contact-more-item-danger:hover { background: #fef2f2; }
+
+/* Shared modal overlay (all pages) */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(16, 24, 40, 0.8);
+  backdrop-filter: blur(4px);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-normal);
+}
+.modal-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+.modal-content {
+  background-color: var(--surface);
+  border-radius: var(--radius-xl);
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-xl);
+  transform: translateY(20px) scale(0.95);
+  transition: transform var(--transition-normal);
+}
+.modal-overlay.open .modal-content {
+  transform: translateY(0) scale(1);
+}
+.modal-header {
+  padding: 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.modal-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+.modal-body  { padding: 24px; }
+.modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  background-color: var(--gray-50);
+}
+
+.zap-dialog {
+  max-width: 430px;
+  overflow: hidden;
+}
+
+.zap-dialog-body {
+  padding: 20px 24px 8px;
+}
+
+.zap-dialog-message {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.925rem;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.zap-dialog-field {
+  margin-top: 16px;
+}
+
+.zap-dialog-error {
+  display: none;
+  margin-top: 8px;
+  color: var(--danger-600, #dc2626);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.zap-dialog-error.is-visible {
+  display: block;
+}
+
+.zap-dialog-actions {
+  padding: 16px 24px 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+@media (max-width: 640px) {
+  .zap-dialog {
+    width: calc(100% - 28px);
+  }
+
+  .zap-dialog-actions {
+    flex-direction: column-reverse;
+  }
+
+  .zap-dialog-actions .btn {
+    width: 100%;
+  }
+}
+
+/* Scrollable Content */
+.app-content {
+  flex: 1;
+  padding: 32px;
+  overflow-y: auto;
+}
+
+/* Mobile Adjustments */
+.mobile-menu-btn {
+  display: none;
+}
+
+/* Só faz sentido fechar a sidebar quando ela é um painel sobreposto (mobile
+   — ver media query abaixo); no desktop ela fica sempre fixa, então esse
+   botão não tinha função nenhuma ali. */
+#sidebar-close {
+  display: none;
+}
+
+.mobile-bottom-nav {
+  display: none;
+}
+
+.app-sidebar-nav .settings-nav-label {
+  color: var(--warning-500);
+  font-weight: 700;
+}
+
+@media (max-width: 1024px) {
+  .app-sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    transform: translateX(-100%);
+  }
+  
+  .app-sidebar.open {
+    transform: translateX(0);
+    box-shadow: var(--shadow-xl);
+  }
+  
+  .mobile-menu-btn {
+    display: flex;
+  }
+
+  #sidebar-close {
+    display: flex;
+  }
+
+  .mobile-topbar-brand {
+    display: flex;
+  }
+  
+  .app-topbar {
+    padding: 0 16px;
+  }
+  
+  .app-content {
+    padding: 16px;
+    /* Extra clearance keeps the final card and its actions fully above the
+       fixed bottom navigation, including devices with browser/system bars. */
+    padding-bottom: calc(128px + env(safe-area-inset-bottom));
+    scroll-padding-bottom: calc(128px + env(safe-area-inset-bottom));
+  }
+  
+  .mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: var(--surface);
+    border-top: 1px solid var(--border);
+    min-height: 64px;
+    height: calc(64px + env(safe-area-inset-bottom));
+    z-index: 30;
+    justify-content: space-around;
+    align-items: center;
+    padding: 0 8px env(safe-area-inset-bottom);
+  }
+  
+  .bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    color: var(--text-secondary);
+    font-size: 0.625rem;
+    font-weight: 500;
+    flex: 1;
+    height: 52px;
+    border: 1px solid transparent;
+    border-radius: 16px;
+    text-decoration: none;
+    transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+  }
+  
+  .bottom-nav-item.active {
+    color: var(--brand-700);
+    background: var(--brand-50);
+    border-color: var(--brand-100);
+    font-weight: 700;
+  }
+
+  .bottom-nav-item.active i,
+  .bottom-nav-item.active svg {
+    color: var(--brand-700);
+    stroke-width: 2.4;
+  }
+}
+
+/* ── Topbar title: hide on all viewports when page has its own page-heading ── */
+.topbar-title {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .app-topbar {
+    gap: 10px;
+  }
+
+  .app-topbar > .flex:first-child {
+    min-width: 0;
+    gap: 10px;
+  }
+}
+
+/* ── Mobile sidebar: esconde itens secundários (estão no sheet "Mais") ──────── */
+@media (max-width: 1024px) {
+  .app-sidebar-nav a[href*="automations.html"],
+  .app-sidebar-nav a[href*="marketing.html"],
+  .app-sidebar-nav a[href*="integrations.html"],
+  .app-sidebar-nav a[href*="plans.html"] {
+    display: none;
+  }
+}
+
+/* ── Bottom Nav: button reset + badge ─────────────────────────────────────── */
+button.bottom-nav-item {
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.nav-badge {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  background: var(--danger-500);
+  color: #fff;
+  border-radius: 99px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  pointer-events: none;
+}
+
+.bottom-nav-item {
+  position: relative;
+}
+
+/* ── More Options Bottom Sheet ─────────────────────────────────────────────── */
+.more-sheet-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 50;
+  align-items: flex-end;
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+}
+
+.more-sheet-overlay.open {
+  opacity: 1;
+}
+
+@media (max-width: 1024px) {
+  .more-sheet-overlay {
+    display: flex;
+  }
+}
+
+.more-sheet {
+  width: 100%;
+  background: var(--surface);
+  border-radius: 20px 20px 0 0;
+  padding-bottom: env(safe-area-inset-bottom);
+  transform: translateY(100%);
+  transition: transform var(--transition-normal);
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.12);
+}
+
+.more-sheet-overlay.open .more-sheet {
+  transform: translateY(0);
+}
+
+.more-sheet-handle {
+  width: 36px;
+  height: 4px;
+  background: var(--gray-300);
+  border-radius: 99px;
+  margin: 12px auto 4px;
+}
+
+.more-sheet-body {
+  padding: 4px 12px 20px;
+}
+
+.more-sheet-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 8px 4px 10px;
+  margin: 0;
+}
+
+.more-sheet-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.more-sheet-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 12px;
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background var(--transition-fast);
+  min-height: 48px;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.more-sheet-item:hover,
+.more-sheet-item:focus-visible {
+  background: var(--gray-50);
+  outline: none;
+}
+
+.more-sheet-item.active {
+  background: var(--brand-50);
+  color: var(--brand-700);
+  font-weight: 600;
+}
+
+.more-sheet-item i,
+.more-sheet-item svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.more-sheet-item.active i,
+.more-sheet-item.active svg {
+  color: var(--brand-600);
+}
+
+/* ── Performance Section (dashboard collapsible) ───────────────────────────── */
+.performance-section {
+  margin-top: 8px;
+}
+
+.performance-section > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  list-style: none;
+  user-select: none;
+  transition: background var(--transition-fast);
+  margin-bottom: 16px;
+}
+
+.performance-section > summary::-webkit-details-marker { display: none; }
+
+.performance-section > summary:hover {
+  background: var(--gray-50);
+  color: var(--text-primary);
+}
+
+.performance-section > summary i,
+.performance-section > summary svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.performance-section-chevron {
+  margin-left: auto;
+  transition: transform var(--transition-fast);
+}
+
+.performance-section[open] > summary .performance-section-chevron {
+  transform: rotate(180deg);
+}
+
+.performance-section[open] > summary {
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  border-bottom: none;
+  margin-bottom: 0;
+}

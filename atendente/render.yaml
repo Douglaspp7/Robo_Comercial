@@ -1,0 +1,98 @@
+services:
+  - type: web
+    # Nome legado mantido de propósito: renomear o serviço/disco no Render
+    # criaria recursos novos e desligaria o app do banco de produção atual.
+    name: gestowhatz
+    runtime: node
+    plan: starter
+    # npm run build valida os assets estáticos e aplica cache busting (?v=hash).
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    # Disco persistente para o banco SQLite sobreviver a reinicios/deploys.
+    disk:
+      name: gestowhatz-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # O nome de arquivo legado é mantido de propósito: o banco de produção já
+      # existe nesse caminho do disco persistente. Trocar o valor apontaria o app
+      # para um banco novo e vazio. Instalações novas podem usar /var/data/zapien.db.
+      - key: DATABASE_PATH
+        value: /var/data/gestowhatz.db
+      - key: BACKUP_DIR
+        value: /var/data/backups
+      - key: ANTHROPIC_MODEL
+        value: claude-haiku-4-5
+      - key: WHATSAPP_API_VERSION
+        value: v21.0
+      - key: TRIAL_DAYS
+        value: "7"
+      # Preencha estes no painel do Render (marcados como sync:false = secretos):
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: WHATSAPP_VERIFY_TOKEN
+        sync: false
+      - key: APP_URL
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: SUPPORT_PHONE
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      # Segredos de seguranca adicionados no hardening:
+      # Gere com: node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+      - key: CSRF_SECRET
+        sync: false
+      # Gere com: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+      - key: DATA_ENCRYPTION_KEY
+        sync: false
+      # Mercado Pago Preapproval (assinaturas recorrentes). Token da sua conta de plataforma MP.
+      - key: MP_PLATFORM_TOKEN
+        sync: false
+      - key: MP_WEBHOOK_SECRET
+        sync: false
+      # Opcionais (Stripe, conexao 1-clique, audio). Deixe em branco se nao usar.
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_PRICE_ID
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: META_APP_ID
+        sync: false
+      - key: META_APP_SECRET
+        sync: false
+      - key: META_CONFIG_ID
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      # Mercado Pago OAuth (conectar conta do lojista com 1 clique).
+      # Obtenha em mercadopago.com.br/developers → Suas aplicações → (seu app) → Credenciais.
+      - key: MP_OAUTH_APP_ID
+        sync: false
+      - key: MP_OAUTH_APP_SECRET
+        sync: false
+      # Melhor Envio — token da plataforma Zapien para calcular fretes dos lojistas Elite.
+      # Lojistas não precisam ter conta própria no Melhor Envio.
+      # Em melhorenvio.com.br → Configurações → Tokens (permissão: shipping.calculate).
+      - key: MELHOR_ENVIO_PLATFORM_TOKEN
+        sync: false
+      # Web Push (notificações no aparelho via PWA). Gere o par com:
+      # npx web-push generate-vapid-keys — sem as chaves, o push fica desativado
+      # e o painel segue funcionando normalmente.
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        value: mailto:contato@zapien.app
+      # Central de Saúde da Meta (verificação periódica da conexão WhatsApp).
+      - key: META_HEALTH_ENABLED
+        value: "true"
+      # WABA ID da plataforma (opcional — habilita contagem de templates).
+      - key: META_WABA_ID
+        sync: false

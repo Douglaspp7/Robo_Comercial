@@ -1,0 +1,59 @@
+{
+  "name": "zapien",
+  "version": "2.0.0",
+  "description": "SaaS de atendente de vendas com IA (Claude) para WhatsApp. Multi-cliente, com painel de configuracao e dashboard visual do funil de atendimentos.",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test",
+    "lint": "eslint src/ scripts/ test/",
+    "check": "npm run lint && npm test && npm run validate:config",
+    "build": "node scripts/build-assets.mjs",
+    "validate:config": "node scripts/validate-config.mjs",
+    "validate:config:production": "node scripts/validate-config.mjs --production",
+    "backup": "node scripts/backup.js",
+    "backup:verify": "node scripts/backup-verify.mjs",
+    "demo": "node scripts/demo.mjs",
+    "knowledge:status": "node scripts/knowledge.mjs status",
+    "knowledge:backfill": "node scripts/knowledge.mjs backfill",
+    "knowledge:reindex": "node scripts/knowledge.mjs reindex"
+  },
+  "engines": {
+    "node": "22.x"
+  },
+  "keywords": [
+    "whatsapp",
+    "claude",
+    "anthropic",
+    "vendas",
+    "saas",
+    "crm",
+    "chatbot",
+    "ia"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.3.0",
+    "compression": "^1.8.1",
+    "cookie-parser": "^1.4.6",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^8.5.2",
+    "helmet": "^8.2.0",
+    "multer": "^2.2.0",
+    "pdf-parse": "^2.4.5",
+    "qrcode": "^1.5.4",
+    "stripe": "^17.4.0",
+    "web-push": "^3.6.7",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "chart.js": "^4.4.1",
+    "eslint": "^10.6.0"
+  }
+}

@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zapien — Marketing</title>
+  <link rel="icon" href="/favicon.ico?v=9" type="image/x-icon">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#4f46e5">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/reset.css" />
+  <link rel="stylesheet" href="/css/tokens.css?v=visual-system-v2" />
+  <link rel="stylesheet" href="/css/components.css?v=visual-system-v2" />
+  <link rel="stylesheet" href="/css/app-shell.css?v=mobile-clearance-v1" />
+  <link rel="stylesheet" href="/css/pages/dashboard.css?v=3" />
+  <link rel="stylesheet" href="/css/pages/marketing.css?v=3" />
+  <link rel="stylesheet" href="/css/ui-polish.css?v=visual-system-v2" />
+  <style>
+    .spin { animation: spin 1s linear infinite; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+
+  <!-- Sidebar -->
+  <aside class="app-sidebar" id="app-sidebar">
+    <div class="app-sidebar-header">
+      <a href="/dashboard.html" class="app-sidebar-logo">
+        <img src="/assets/logo.png?v=9" alt="Zapien Logo" />
+      </a>
+      <button class="btn btn-icon" id="sidebar-close" style="margin-left:auto; color:var(--gray-900);">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+
+    <nav class="app-sidebar-nav">
+      <a href="/dashboard.html" class="nav-item">
+        <i data-lucide="layout-dashboard"></i>
+        <span>Início</span>
+      </a>
+      <a href="/settings.html" class="nav-item">
+        <i data-lucide="settings"></i>
+        <span class="settings-nav-label">Configurações</span>
+      </a>
+      <a href="/vendas.html" class="nav-item">
+        <i data-lucide="trending-up"></i>
+        <span>Vendas</span>
+      </a>
+      <a href="/avisos.html" class="nav-item">
+        <i data-lucide="bell"></i>
+        <span>Avisos</span>
+        <span class="badge badge-danger hidden" id="navUnreadBadge" style="margin-left:auto;padding:1px 7px;font-size:0.68rem;"></span>
+      </a>
+      <a href="/automations.html" class="nav-item">
+        <i data-lucide="zap"></i>
+        <span>Automações</span>
+      </a>
+      <a href="/marketing.html" class="nav-item active">
+        <i data-lucide="megaphone"></i>
+        <span>Marketing</span>
+      </a>
+      <a href="/integrations.html" class="nav-item">
+        <i data-lucide="plug"></i>
+        <span>Integrações</span>
+      </a>
+      <a href="/plans.html" class="nav-item">
+        <i data-lucide="credit-card"></i>
+        <span>Planos</span>
+      </a>
+      <a href="/admin.html" class="nav-item hidden" id="adminLink">
+        <i data-lucide="shield"></i>
+        <span>Admin</span>
+      </a>
+    </nav>
+
+    <div class="app-sidebar-footer">
+      <a href="#" target="_blank" rel="noopener" class="nav-item" id="supportBtn" style="display:none;">
+        <i data-lucide="message-circle"></i>
+        <span>Suporte</span>
+      </a>
+      <button class="nav-item w-full" id="logoutBtn">
+        <i data-lucide="log-out"></i>
+        <span>Sair</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="app-main">
+
+    <!-- Topbar -->
+    <header class="app-topbar">
+      <div class="flex items-center gap-4">
+        <button class="btn btn-icon mobile-menu-btn" id="sidebar-toggle">
+          <i data-lucide="menu"></i>
+        </button>
+        <a href="/dashboard.html" class="mobile-topbar-brand" aria-label="Zapien - início">
+          <img src="/assets/logo.png?v=9" alt="Zapien Logo" />
+        </a>
+      </div>
+      <div class="topbar-actions">
+        <div style="position:relative;">
+          <button id="profileBtn" class="topbar-avatar" title="Minha conta">
+            <span id="profileInitial"><i data-lucide="user" style="width:16px;height:16px;"></i></span>
+          </button>
+          <div id="profileDropdown" class="profile-dropdown hidden">
+            <div class="profile-dropdown-info">
+              <div class="profile-dropdown-email" id="profileEmail">—</div>
+              <div id="profilePlanBadge"></div>
+            </div>
+            <div class="profile-dropdown-divider"></div>
+            <button class="profile-dropdown-item" id="changePwBtn">
+              <i data-lucide="key-round"></i> Mudar senha
+            </button>
+            <button class="profile-dropdown-item text-danger" id="profileLogoutBtn">
+              <i data-lucide="log-out"></i> Sair
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal: Mudar Senha -->
+      <div id="changePwModal" class="modal-overlay">
+        <div class="modal-content password-modal-compact">
+          <div class="modal-header">
+            <h3 class="modal-title">Mudar senha</h3>
+            <button class="btn btn-icon" id="changePwClose"><i data-lucide="x"></i></button>
+          </div>
+          <div class="password-modal-body">
+            <div class="form-group mb-0">
+              <label class="form-label">Senha atual</label>
+              <input type="password" id="cpwCurrent" class="form-input" placeholder="••••••••">
+            </div>
+            <div class="form-group mb-0">
+              <label class="form-label">Nova senha</label>
+              <input type="password" id="cpwNew" class="form-input" placeholder="Mínimo 6 caracteres">
+            </div>
+            <div class="form-group mb-0">
+              <label class="form-label">Confirmar nova senha</label>
+              <input type="password" id="cpwConfirm" class="form-input" placeholder="Repita a nova senha">
+            </div>
+            <button class="btn btn-primary password-save-btn" id="cpwSaveBtn">Salvar nova senha</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="app-content">
+      <div class="marketing-content">
+
+      <!-- Page Heading -->
+      <div class="page-heading flex-row-layout">
+        <div>
+          <p class="eyebrow">Atribuição e ROI</p>
+          <h1 class="page-title">Marketing</h1>
+          <p class="page-subtitle">Crie links rastreáveis e gerencie a atribuição de vendas.</p>
+        </div>
+        <div class="page-heading-actions">
+          <button id="newLinkBtn" class="btn btn-primary">
+            <i data-lucide="plus"></i> Criar link rastreável
+          </button>
+        </div>
+      </div>
+
+      <!-- Filtros da página -->
+      <div class="marketing-filter-row">
+        <select class="form-select" id="statsPeriodSelect" aria-label="Filtrar por período" style="width: 150px;">
+          <option value="7">Últimos 7 dias</option>
+          <option value="15">Últimos 15 dias</option>
+          <option value="30" selected>Últimos 30 dias</option>
+          <option value="90">Últimos 90 dias</option>
+        </select>
+        <select class="form-select" id="attributionModelSelect" aria-label="Modelo de atribuição" style="width: 220px;">
+          <option value="last_touch" selected>Last-Touch (Último clique)</option>
+          <option value="first_touch">First-Touch (Primeiro clique)</option>
+        </select>
+        <button id="exportCsvBtn" class="btn btn-secondary" title="Exportar CSV de estatísticas">
+          <i data-lucide="download"></i> Exportar
+        </button>
+      </div>
+
+      <!-- KPIs (stat-cards) -->
+      <div class="marketing-grid">
+        <div class="stat-card">
+          <div class="stat-card-header">
+            <span>Cliques em Links</span>
+            <i data-lucide="mouse-pointer-click"></i>
+          </div>
+          <div class="stat-card-value" id="kpiClicks">—</div>
+          <div class="stat-card-footer">Total no período</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-header">
+            <span>Conversas Iniciadas</span>
+            <i data-lucide="message-square"></i>
+          </div>
+          <div class="stat-card-value" id="kpiContacts">—</div>
+          <div class="stat-card-footer">Novos contatos</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-header">
+            <span>Checkouts Iniciados</span>
+            <i data-lucide="shopping-cart"></i>
+          </div>
+          <div class="stat-card-value" id="kpiCheckouts">—</div>
+          <div class="stat-card-footer">Carrinhos no período</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-header">
+            <span>Vendas Confirmadas</span>
+            <i data-lucide="check-circle"></i>
+          </div>
+          <div class="stat-card-value" id="kpiSales">—</div>
+          <div class="stat-card-footer">Pedidos pagos</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-header">
+            <span>Receita Gerada</span>
+            <i data-lucide="dollar-sign"></i>
+          </div>
+          <div class="stat-card-value" id="kpiRevenue">—</div>
+          <div class="stat-card-footer">Total de receita</div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="marketing-tabs">
+        <button class="marketing-tab active" id="tabLinksBtn">Links de Marketing</button>
+        <button class="marketing-tab" id="tabConversionsBtn">Histórico de Conversões</button>
+      </div>
+
+      <!-- Tab: Links de Marketing -->
+      <div id="tabLinksContent">
+        <div class="card card-table">
+          <table class="table marketing-mobile-table">
+            <thead>
+              <tr>
+                <th>Nome / Canal</th>
+                <th>Slug do Link</th>
+                <th>Parâmetros (UTM)</th>
+                <th>Cliques / Contatos</th>
+                <th>Vendas / Faturamento</th>
+                <th>Ativo</th>
+                <th style="width: 80px;">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="linksTableBody">
+              <tr>
+                <td colspan="7" class="text-center" style="padding:40px; color:var(--gray-500);">Carregando links...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab: Conversões -->
+      <div id="tabConversionsContent" class="hidden">
+        <div class="card card-table">
+          <table class="table marketing-mobile-table">
+            <thead>
+              <tr>
+                <th>Data / Hora</th>
+                <th>Contato</th>
+                <th>Evento CAPI</th>
+                <th>Valor / Moeda</th>
+                <th>Venda ID</th>
+                <th>Link de Atribuição</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="conversionsTableBody">
+              <tr>
+                <td colspan="7" class="text-center" style="padding:40px; color:var(--gray-500);">Carregando histórico de conversões...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      </div><!-- /.marketing-content -->
+    </div><!-- /.app-content -->
+  </main>
+
+  <!-- Mobile Bottom Nav (5 items) -->
+  <nav class="mobile-bottom-nav">
+    <a href="/dashboard.html" class="bottom-nav-item">
+      <i data-lucide="layout-dashboard"></i>
+      <span>Início</span>
+    </a>
+    <a href="/vendas.html" class="bottom-nav-item">
+      <i data-lucide="trending-up"></i>
+      <span>Vendas</span>
+    </a>
+    <a href="/avisos.html" class="bottom-nav-item" style="position:relative;">
+      <i data-lucide="bell"></i>
+      <span>Avisos</span>
+      <span class="nav-badge hidden" id="bottomNavUnread"></span>
+    </a>
+    <a href="/settings.html" class="bottom-nav-item">
+      <i data-lucide="settings"></i>
+      <span>Configurar</span>
+    </a>
+    <button type="button" class="bottom-nav-item active" id="bottom-nav-more" aria-haspopup="true" aria-expanded="false">
+      <i data-lucide="grid-2x2"></i>
+      <span>Mais</span>
+    </button>
+  </nav>
+
+</div>
+
+<!-- "Mais" Bottom Sheet -->
+<div id="more-sheet-overlay" class="more-sheet-overlay" aria-hidden="true" role="dialog" aria-label="Menu adicional" style="display:none;">
+  <div class="more-sheet">
+    <div class="more-sheet-handle"></div>
+    <nav class="more-sheet-nav" aria-label="Navegação adicional">
+      <a href="/automations.html" class="more-sheet-item">
+        <i data-lucide="zap"></i>
+        <span>Automações</span>
+      </a>
+      <a href="/marketing.html" class="more-sheet-item active">
+        <i data-lucide="megaphone"></i>
+        <span>Marketing</span>
+      </a>
+      <a href="/integrations.html" class="more-sheet-item">
+        <i data-lucide="plug"></i>
+        <span>Integrações</span>
+      </a>
+      <a href="/plans.html" class="more-sheet-item">
+        <i data-lucide="credit-card"></i>
+        <span>Planos</span>
+      </a>
+      <a href="#" target="_blank" rel="noopener" class="more-sheet-item" id="moreSheetSupport" style="display:none;">
+        <i data-lucide="message-circle"></i>
+        <span>Suporte</span>
+      </a>
+      <a href="/admin.html" class="more-sheet-item" id="moreSheetAdmin" style="display:none;">
+        <i data-lucide="shield"></i>
+        <span>Admin</span>
+      </a>
+    </nav>
+  </div>
+</div>
+
+<!-- Modal: Criar / Editar Link -->
+<div id="linkModal" class="modal-overlay">
+  <div class="modal-content" style="max-width: 480px;">
+    <div class="modal-header">
+      <h3 class="modal-title" id="modalTitle">Criar link de marketing</h3>
+      <button class="btn btn-icon" id="linkModalClose"><i data-lucide="x"></i></button>
+    </div>
+    <form id="linkForm" style="padding: 20px; display:flex; flex-direction:column; gap:16px;">
+      <input type="hidden" id="linkId">
+      
+      <div class="form-group mb-0">
+        <label class="form-label" for="linkName">Nome interno do link</label>
+        <input type="text" id="linkName" class="form-input" placeholder="ex: Campanha Black Friday 2026" required>
+      </div>
+
+      <div class="form-group mb-0">
+        <label class="form-label" for="linkSlug">Slug personalizado (URL amigável)</label>
+        <input type="text" id="linkSlug" class="form-input" placeholder="ex: blackfriday" required>
+        <div class="form-hint">O link gerado será: <code id="linkUrlPreview">https://zapien.app/l/slug</code></div>
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+        <div class="form-group mb-0">
+          <label class="form-label" for="linkSource">Origem (utm_source)</label>
+          <input type="text" id="linkSource" class="form-input" placeholder="ex: meta, google, tiktok" required>
+        </div>
+        <div class="form-group mb-0">
+          <label class="form-label" for="linkMedium">Mídia (utm_medium)</label>
+          <input type="text" id="linkMedium" class="form-input" placeholder="ex: paid_social, cpc, influencer" required>
+        </div>
+      </div>
+
+      <div class="form-group mb-0">
+        <label class="form-label" for="linkCampaign">Campanha (utm_campaign)</label>
+        <input type="text" id="linkCampaign" class="form-input" placeholder="ex: bf26_conversao" required>
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+        <div class="form-group mb-0">
+          <label class="form-label" for="linkContent">Conteúdo (utm_content)</label>
+          <input type="text" id="linkContent" class="form-input" placeholder="ex: video_01 (opcional)">
+        </div>
+        <div class="form-group mb-0">
+          <label class="form-label" for="linkTerm">Termo (utm_term)</label>
+          <input type="text" id="linkTerm" class="form-input" placeholder="ex: palavra_chave (opcional)">
+        </div>
+      </div>
+
+      <details>
+        <summary style="font-size:0.8rem; font-weight:600; color:var(--gray-500); cursor:pointer; margin-bottom:8px;">Metadados de Anúncio da Meta (CAPI)</summary>
+        <div style="display:flex; flex-direction:column; gap:12px; padding: 10px 0;">
+          <div class="form-group mb-0">
+            <label class="form-label" for="metaCampaignId">Meta Campaign ID</label>
+            <input type="text" id="metaCampaignId" class="form-input" placeholder="ex: 120205830201 (opcional)">
+          </div>
+          <div class="form-group mb-0">
+            <label class="form-label" for="metaAdsetId">Meta AdSet ID</label>
+            <input type="text" id="metaAdsetId" class="form-input" placeholder="ex: 120205830202 (opcional)">
+          </div>
+          <div class="form-group mb-0">
+            <label class="form-label" for="metaAdId">Meta Ad ID</label>
+            <input type="text" id="metaAdId" class="form-input" placeholder="ex: 120205830203 (opcional)">
+          </div>
+        </div>
+      </details>
+
+      <div class="form-group mb-0">
+        <label class="form-label" for="linkNotes">Notas adicionais</label>
+        <textarea id="linkNotes" class="form-input" rows="2" placeholder="Observações internas..." style="resize:none;"></textarea>
+      </div>
+
+      <button type="submit" class="btn btn-primary" id="saveFormBtn" style="margin-top:8px;">Salvar link</button>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: QR Code / Compartilhar Link -->
+<div id="shareModal" class="modal-overlay">
+  <div class="modal-content" style="max-width: 380px;">
+    <div class="modal-header">
+      <h3 class="modal-title">Compartilhar link</h3>
+      <button class="btn btn-icon" id="shareModalClose"><i data-lucide="x"></i></button>
+    </div>
+    <div style="padding: 24px; text-align: center;">
+      <img src="" id="shareQrCode" class="mkt-qr-img" alt="QR Code do Link" />
+      <div id="shareUrl" class="mkt-qr-url"></div>
+      <button id="copyUrlBtn" class="btn btn-primary mkt-qr-copy-btn">
+        <i data-lucide="copy"></i> Copiar link
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="/vendor/lucide.min.js"></script>
+<script src="/js/ui.js?v=more-sheet-v2"></script>
+<script src="/js/pages/marketing.js"></script>
+</body>
+</html>

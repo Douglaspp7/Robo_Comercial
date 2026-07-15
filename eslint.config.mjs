@@ -14,6 +14,9 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Worker de disparo: projeto Node independente, com lint próprio.
     "worker/**",
+    // Atendente (cópia do Zapien que vende Zapien): app Express independente,
+    // com lint/testes próprios — não segue as regras do Next.
+    "atendente/**",
   ]),
 ]);
 

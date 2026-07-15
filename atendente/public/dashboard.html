@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zapien — Painel</title>
+  <link rel="icon" href="/favicon.ico?v=9" type="image/x-icon">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#4f46e5">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/reset.css" />
+  <link rel="stylesheet" href="/css/tokens.css?v=visual-system-v2" />
+  <link rel="stylesheet" href="/css/components.css?v=visual-system-v2" />
+  <link rel="stylesheet" href="/css/app-shell.css?v=mobile-clearance-v1" />
+  <link rel="stylesheet" href="/css/pages/dashboard.css?v=empty-report-v2" />
+  <link rel="stylesheet" href="/css/ui-polish.css?v=visual-system-v2" />
+  <style>
+    .spin { animation: spin 1s linear infinite; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+    @keyframes handoff-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+    .handoff-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      color: #fff;
+      padding: 14px 20px;
+      border-radius: 12px;
+      margin-bottom: 16px;
+      animation: handoff-pulse 2s ease-in-out infinite;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .handoff-banner { animation: none; }
+    }
+    /* Celular: texto em cima, botões embaixo — lado a lado o texto ficava
+       espremido numa coluna estreita ao lado dos botões. */
+    @media (max-width: 640px) {
+      .handoff-banner {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+      }
+    }
+    .handoff-banner-text { font-weight: 600; font-size: 0.9rem; }
+    .handoff-banner-sub { font-size: 0.8rem; opacity: 0.85; margin-top: 2px; }
+    .handoff-badge-waiting { display: inline-block; background: #dc2626; color: #fff; border-radius: 4px; padding: 2px 7px; font-size: 0.7rem; font-weight: 700; margin-left: 6px; }
+    .handoff-badge-in-progress { display: inline-block; background: #2563eb; color: #fff; border-radius: 4px; padding: 2px 7px; font-size: 0.7rem; font-weight: 700; margin-left: 6px; }
+  </style>
+  <script src="/vendor/chart.umd.min.js"></script>
+</head>
+<body>
+
+<div class="app-container">
+
+  <!-- Sidebar -->
+  <aside class="app-sidebar" id="app-sidebar">
+    <div class="app-sidebar-header">
+      <a href="/dashboard.html" class="app-sidebar-logo">
+        <img src="/assets/logo.png?v=9" alt="Zapien Logo" />
+      </a>
+      <button class="btn btn-icon" id="sidebar-close" style="margin-left:auto; color:var(--gray-900);">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+
+    <nav class="app-sidebar-nav">
+      <a href="/dashboard.html" class="nav-item active">
+        <i data-lucide="layout-dashboard"></i>
+        <span>Início</span>
+      </a>
+      <a href="/settings.html" class="nav-item">
+        <i data-lucide="settings"></i>
+        <span class="settings-nav-label">Configurações</span>
+      </a>
+      <a href="/vendas.html" class="nav-item">
+        <i data-lucide="trending-up"></i>
+        <span>Vendas</span>
+      </a>
+      <a href="/avisos.html" class="nav-item">
+        <i data-lucide="bell"></i>
+        <span>Avisos</span>
+        <span class="badge badge-danger hidden" id="navUnreadBadge" style="margin-left:auto;padding:1px 7px;font-size:0.68rem;"></span>
+      </a>
+      <a href="/automations.html" class="nav-item">
+        <i data-lucide="zap"></i>
+        <span>Automações</span>
+      </a>
+      <a href="/marketing.html" class="nav-item">
+        <i data-lucide="megaphone"></i>
+        <span>Marketing</span>
+      </a>
+      <a href="/integrations.html" class="nav-item">
+        <i data-lucide="plug"></i>
+        <span>Integrações</span>
+      </a>
+      <a href="/plans.html" class="nav-item">
+        <i data-lucide="credit-card"></i>
+        <span>Planos</span>
+      </a>
+      <a href="/admin.html" class="nav-item hidden" id="adminLink">
+        <i data-lucide="shield"></i>
+        <span>Admin</span>
+      </a>
+    </nav>
+
+    <div class="app-sidebar-footer">
+      <a href="#" target="_blank" rel="noopener" class="nav-item" id="supportBtn" style="display:none;">
+        <i data-lucide="message-circle"></i>
+        <span>Suporte</span>
+      </a>
+      <button class="nav-item w-full" id="logoutBtn">
+        <i data-lucide="log-out"></i>
+        <span>Sair</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="app-main">
+
+    <!-- Topbar -->
+    <header class="app-topbar">
+      <div class="flex items-center gap-4">
+        <button class="btn btn-icon mobile-menu-btn" id="sidebar-toggle">
+          <i data-lucide="menu"></i>
+        </button>
+        <a href="/dashboard.html" class="mobile-topbar-brand" aria-label="Zapien - início">
+          <img src="/assets/logo.png?v=9" alt="Zapien Logo" />
+        </a>
+      </div>
+      <div class="topbar-actions">
+        <span class="badge badge-ai hidden md:flex"><i data-lucide="bot" style="width:14px;height:14px;margin-right:4px;"></i> IA Ativa</span>
+        <div style="position:relative;">
+          <button id="profileBtn" class="topbar-avatar" title="Minha conta">
+            <span id="profileInitial"><i data-lucide="user" style="width:16px;height:16px;"></i></span>
+          </button>
+          <div id="profileDropdown" class="profile-dropdown hidden">
+            <div class="profile-dropdown-info">
+              <div class="profile-dropdown-email" id="profileEmail">—</div>
+              <div id="profilePlanBadge"></div>
+            </div>
+            <div class="profile-dropdown-divider"></div>
+            <button class="profile-dropdown-item" id="changePwBtn">
+              <i data-lucide="key-round"></i> Mudar senha
+            </button>
+            <button class="profile-dropdown-item text-danger" id="profileLogoutBtn">
+              <i data-lucide="log-out"></i> Sair
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal: Mudar Senha -->
+      <div id="changePwModal" class="modal-overlay">
+        <div class="modal-content password-modal-compact">
+          <div class="modal-header">
+            <h3 class="modal-title">Mudar senha</h3>
+            <button class="btn btn-icon" id="changePwClose"><i data-lucide="x"></i></button>
+          </div>
+          <div class="password-modal-body">
+            <div class="form-group mb-0">
+              <label class="form-label">Senha atual</label>
+              <input type="password" id="cpwCurrent" class="form-input" placeholder="••••••••">
+            </div>
+            <div class="form-group mb-0">
+              <label class="form-label">Nova senha</label>
+              <input type="password" id="cpwNew" class="form-input" placeholder="Mínimo 6 caracteres">
+            </div>
+            <div class="form-group mb-0">
+              <label class="form-label">Confirmar nova senha</label>
+              <input type="password" id="cpwConfirm" class="form-input" placeholder="Repita a nova senha">
+            </div>
+            <button class="btn btn-primary password-save-btn" id="cpwSaveBtn">Salvar nova senha</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Impersonate Banner -->
+    <div class="admin-banner" id="impersonateBar" style="display:none;">
+      <div>
+        <i data-lucide="eye" style="display:inline-block; vertical-align:middle; margin-right:8px;"></i>
+        Você está visualizando a conta de <strong id="impersonateEmail"></strong>
+      </div>
+      <button class="btn" id="stopImpersonateBtn">Voltar para Administração</button>
+    </div>
+
+    <!-- Content Area -->
+    <div class="app-content">
+      <div class="page-heading">
+        <p class="eyebrow">Atendimento ao vivo</p>
+        <h1 class="page-title" id="time-greeting">Hoje</h1>
+        <p class="page-subtitle">O que precisa da sua atenção no atendimento.</p>
+      </div>
+
+      <div id="bannerArea"></div>
+
+      <!-- Handoff banner — shown when there are waiting handoffs -->
+      <div id="handoffBannerArea" style="margin-bottom:0;"></div>
+
+      <!-- Saúde da operação — reúne bloqueios e próximos passos em um só lugar -->
+      <section id="operationHealth" class="operation-health-shell" aria-label="Saúde da operação" hidden></section>
+
+      <!-- Central de prioridades (ações recomendadas) -->
+      <div id="priorityCenter"></div>
+
+      <!-- Priority section -->
+      <div class="priority-section" id="priorityArea" style="display:none;">
+        <h2 class="priority-header">
+          <i data-lucide="alert-circle" style="color:var(--warning-500);"></i>
+          Precisa da sua atenção
+        </h2>
+        <div id="priorityList" class="flex flex-col gap-2"></div>
+      </div>
+
+      <!-- Hora de recompra -->
+      <div class="priority-section" id="repurchaseArea" style="display:none;">
+        <h2 class="priority-header">
+          <i data-lucide="rotate-ccw" style="color:var(--brand-500);"></i>
+          Hora de recompra
+        </h2>
+        <div id="repurchaseList" class="flex flex-col gap-2"></div>
+      </div>
+
+      <!-- Tendência agora (demanda agregada) -->
+      <div class="priority-section" id="demandArea" style="display:none;">
+        <h2 class="priority-header">
+          <i data-lucide="flame" style="color:var(--warning-500);"></i>
+          Tendência agora
+        </h2>
+        <div id="demandList" class="flex flex-col gap-2"></div>
+      </div>
+
+      <!-- Desempenho da atendente — sempre visível antes das conversas -->
+      <section id="performanceSection" class="performance-section performance-section-always-visible" aria-label="Desempenho da atendente">
+        <!-- Relatório de valor gerado pela IA -->
+        <div id="valueReport"></div>
+
+        <div class="dashboard-grid" id="kpisArea" style="margin-top:12px;">
+          <!-- Skeleton Loading -->
+          <div class="stat-card"><div class="skeleton skeleton-text"></div><div class="skeleton skeleton-text" style="height:32px;"></div></div>
+          <div class="stat-card"><div class="skeleton skeleton-text"></div><div class="skeleton skeleton-text" style="height:32px;"></div></div>
+          <div class="stat-card"><div class="skeleton skeleton-text"></div><div class="skeleton skeleton-text" style="height:32px;"></div></div>
+          <div class="stat-card"><div class="skeleton skeleton-text"></div><div class="skeleton skeleton-text" style="height:32px;"></div></div>
+        </div>
+
+        <div class="contact-report-section" style="margin-top:12px;">
+          <div class="charts-grid">
+            <div class="chart-card">
+              <div class="chart-header">
+                <h2 class="chart-title">Novos clientes nos últimos 14 dias</h2>
+              </div>
+              <div class="chart-container">
+                <canvas id="dailyChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="contacts-section">
+        <div class="contacts-header">
+          <div class="flex items-center justify-between flex-wrap gap-4 mb-4">
+            <div>
+              <h2 class="contacts-title">
+                Clientes e conversas
+                <span class="live-indicator" title="Painel ao vivo"></span>
+              </h2>
+              <p class="contacts-subtitle">Abra uma conversa para ver o histórico, assumir atendimento ou responder.</p>
+            </div>
+            <span id="lastUpdate" style="font-size:0.75rem; color:var(--text-secondary);"></span>
+          </div>
+
+          <div class="filter-bar contacts-filter-bar">
+            <div class="form-group contacts-search" style="margin:0; flex:1; min-width:200px;">
+              <input type="text" id="searchInput" class="form-input" placeholder="Buscar por nome ou WhatsApp...">
+            </div>
+            <details class="filters-details" open>
+              <summary>Filtros</summary>
+              <div class="filters-details-body">
+                <div class="form-group" style="margin:0;">
+                  <select id="stageFilter" class="form-select">
+                    <option value="">Todas as etapas</option>
+                  </select>
+                </div>
+                <div class="form-group" style="margin:0;">
+                  <select id="tagFilter" class="form-select">
+                    <option value="">Todas as tags</option>
+                  </select>
+                </div>
+                <div class="form-group" style="margin:0;">
+                  <select id="assignFilter" class="form-select">
+                    <option value="all" selected>Todas as conversas</option>
+                    <option value="mine">Minhas conversas</option>
+                    <option value="team">Minha equipe</option>
+                    <option value="unassigned">Sem atribuição</option>
+                  </select>
+                </div>
+                <button class="btn btn-secondary" id="archivedBtn" title="Ver contatos arquivados">
+                  <i data-lucide="archive"></i>
+                  <span>Arquivados</span>
+                </button>
+                <button class="btn btn-secondary" id="csvBtn">
+                  <i data-lucide="download"></i>
+                  <span>Exportar CSV</span>
+                </button>
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <div id="contactsArea">
+          <!-- Skeleton Table -->
+          <div style="padding: 24px;">
+            <div class="skeleton skeleton-text"></div>
+            <div class="skeleton skeleton-text"></div>
+            <div class="skeleton skeleton-text"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Mobile Bottom Nav (5 items) -->
+  <nav class="mobile-bottom-nav">
+    <a href="/dashboard.html" class="bottom-nav-item active">
+      <i data-lucide="layout-dashboard"></i>
+      <span>Início</span>
+    </a>
+    <a href="/vendas.html" class="bottom-nav-item">
+      <i data-lucide="trending-up"></i>
+      <span>Vendas</span>
+    </a>
+    <a href="/avisos.html" class="bottom-nav-item" style="position:relative;">
+      <i data-lucide="bell"></i>
+      <span>Avisos</span>
+      <span class="nav-badge hidden" id="bottomNavUnread"></span>
+    </a>
+    <a href="/settings.html" class="bottom-nav-item">
+      <i data-lucide="settings"></i>
+      <span>Configurar</span>
+    </a>
+    <button type="button" class="bottom-nav-item" id="bottom-nav-more" aria-haspopup="true" aria-expanded="false">
+      <i data-lucide="grid-2x2"></i>
+      <span>Mais</span>
+    </button>
+  </nav>
+
+</div>
+
+<!-- "Mais" Bottom Sheet -->
+<div id="more-sheet-overlay" class="more-sheet-overlay" aria-hidden="true" role="dialog" aria-label="Menu adicional" style="display:none;">
+  <div class="more-sheet">
+    <div class="more-sheet-handle"></div>
+    <nav class="more-sheet-nav" aria-label="Navegação adicional">
+      <a href="/automations.html" class="more-sheet-item">
+        <i data-lucide="zap"></i>
+        <span>Automações</span>
+      </a>
+      <a href="/marketing.html" class="more-sheet-item">
+        <i data-lucide="megaphone"></i>
+        <span>Marketing</span>
+      </a>
+      <a href="/integrations.html" class="more-sheet-item">
+        <i data-lucide="plug"></i>
+        <span>Integrações</span>
+      </a>
+      <a href="/plans.html" class="more-sheet-item">
+        <i data-lucide="credit-card"></i>
+        <span>Planos</span>
+      </a>
+      <a href="#" target="_blank" rel="noopener" class="more-sheet-item" id="moreSheetSupport" style="display:none;">
+        <i data-lucide="message-circle"></i>
+        <span>Suporte</span>
+      </a>
+      <a href="/admin.html" class="more-sheet-item" id="moreSheetAdmin" style="display:none;">
+        <i data-lucide="shield"></i>
+        <span>Admin</span>
+      </a>
+    </nav>
+  </div>
+</div>
+
+<!-- Conversation Drawer -->
+<div class="drawer-overlay" id="drawerOverlay"></div>
+<div class="drawer" id="drawer">
+
+  <div class="drawer-header">
+    <div class="drawer-header-top">
+      <div class="drawer-contact-info">
+        <div class="avatar" style="width:48px;height:48px;font-size:1.25rem;">
+          <i data-lucide="user"></i>
+        </div>
+        <div>
+          <h2 style="font-size:1.125rem; font-weight:700;" id="drawerName">Nome do Contato</h2>
+          <div style="display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; margin-top:4px; font-size:0.75rem;" id="drawerMeta">
+            <!-- Badges -->
+          </div>
+          <div id="drawerLtv" style="display:none; margin-top:4px; font-size:0.72rem; color:var(--text-secondary);"></div>
+        </div>
+      </div>
+      <div class="drawer-header-actions">
+        <div style="position:relative;">
+          <button class="btn btn-icon" id="drawerMoreBtn" title="Mais ações">
+            <i data-lucide="more-vertical"></i>
+          </button>
+          <div id="drawerMoreMenu" class="profile-dropdown hidden" style="right:0;min-width:220px;">
+            <button class="profile-dropdown-item" id="drawerClearBtn">
+              <i data-lucide="eraser" style="width:16px;height:16px;"></i> Limpar histórico
+            </button>
+            <button class="profile-dropdown-item" id="drawerArchiveBtn">
+              <i data-lucide="archive" style="width:16px;height:16px;"></i> Arquivar conversa
+            </button>
+            <div class="profile-dropdown-divider"></div>
+            <button class="profile-dropdown-item text-danger" id="drawerDeleteBtn">
+              <i data-lucide="trash-2" style="width:16px;height:16px;"></i> Excluir contato
+            </button>
+          </div>
+        </div>
+        <button class="btn btn-icon" id="drawerCloseBtn">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="mt-2">
+      <button class="btn btn-primary w-full" id="drawerHandoffBtn">Assumir conversa</button>
+    </div>
+
+    <!-- No celular, resumo + próxima ação ficam recolhidos por padrão — eram o
+         motivo do espaço de leitura da conversa ficar minúsculo (ver botão
+         abaixo, que só aparece no mobile via CSS). -->
+    <button type="button" class="drawer-details-toggle" id="drawerDetailsToggle">
+      <span>Ver resumo e próxima ação</span>
+      <i data-lucide="chevron-down"></i>
+    </button>
+
+    <div class="drawer-details" id="drawerDetails">
+      <div class="drawer-summary" id="drawerSummary" style="display:none;">
+        Resumo da conversa...
+      </div>
+
+      <div id="nextActionCard" style="display:none;margin-top:10px;padding:12px;border-radius:10px;background:#f0f9ff;border:1px solid #bae6fd;">
+        <div style="display:flex;align-items:center;gap:6px;font-size:0.7rem;font-weight:700;color:#0369a1;text-transform:uppercase;letter-spacing:0.03em;">
+          <i data-lucide="sparkles" style="width:13px;height:13px;"></i>
+          Próxima melhor ação
+        </div>
+        <div id="nextActionAcao" style="font-weight:700;font-size:0.9rem;margin-top:4px;"></div>
+        <div id="nextActionMotivo" style="font-size:0.8rem;color:var(--text-secondary);margin-top:2px;"></div>
+        <div id="nextActionMensagemRow" style="margin-top:8px;">
+          <div id="nextActionMensagem" style="font-size:0.8rem;background:white;border-radius:8px;padding:8px 10px;border:1px solid #e0e7ef;"></div>
+          <div style="display:flex;gap:8px;margin-top:6px;">
+            <button type="button" class="btn btn-secondary" id="nextActionCopyBtn" style="font-size:0.75rem;padding:6px 10px;">
+              <i data-lucide="copy" style="width:13px;height:13px;"></i> Copiar
+            </button>
+            <button type="button" class="btn btn-primary" id="nextActionUseBtn" style="font-size:0.75rem;padding:6px 10px;">
+              <i data-lucide="send" style="width:13px;height:13px;"></i> Usar na resposta
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="drawer-tabs">
+    <button class="drawer-tab active" data-target="paneMsg">Conversa</button>
+    <button class="drawer-tab" data-target="paneNotes">Notas Internas</button>
+    <button class="drawer-tab" data-target="paneSales">Histórico de Vendas</button>
+    <button class="drawer-tab" data-target="paneCadastro">Cadastro</button>
+  </div>
+
+  <div class="drawer-content">
+
+    <!-- Messages Pane -->
+    <div class="drawer-pane active" id="paneMsg">
+      <div class="chat-container" id="drawerMsgsArea">
+        <!-- Messages -->
+      </div>
+    </div>
+
+    <!-- Notes Pane -->
+    <div class="drawer-pane" id="paneNotes">
+      <div id="drawerNotesArea" style="flex:1;">
+        <!-- Notes list -->
+      </div>
+      <div class="note-form">
+        <div class="form-group mb-2">
+          <textarea class="form-textarea" id="noteInput" placeholder="Adicionar nota interna (não visível ao cliente)..." style="min-height:80px;"></textarea>
+        </div>
+        <div class="flex justify-end">
+          <button class="btn btn-secondary" id="noteSaveBtn">Salvar nota</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Sales Pane -->
+    <div class="drawer-pane" id="paneSales">
+      <div id="drawerSalesArea" style="padding: 16px;">
+        <!-- Sales list -->
+      </div>
+    </div>
+
+    <!-- Cadastro Pane -->
+    <div class="drawer-pane" id="paneCadastro">
+      <div class="crm-accordion-wrap">
+        <!-- PR 2: Atribuição de Conversa -->
+        <details class="crm-group" open>
+          <summary>
+            <span>Atribuição da conversa</span>
+            <small>Defina o atendente ou equipe responsável.</small>
+          </summary>
+          <div class="crm-group-body">
+            <div class="form-group mb-0">
+              <label class="form-label" for="crmAssignedUser">Atendente Responsável</label>
+              <select class="form-select" id="crmAssignedUser">
+                <option value="">Ninguém (Sem atendente)</option>
+              </select>
+            </div>
+            <div class="form-group mb-0" style="margin-top: 12px;">
+              <label class="form-label" for="crmAssignedTeam">Equipe Responsável</label>
+              <select class="form-select" id="crmAssignedTeam">
+                <option value="">Nenhuma (Sem equipe)</option>
+              </select>
+            </div>
+          </div>
+        </details>
+
+        <details class="crm-group" open>
+          <summary>
+            <span>Dados rápidos</span>
+            <small>Informações básicas para identificar o cliente.</small>
+          </summary>
+          <div class="crm-group-body">
+            <div class="form-group mb-0">
+              <label class="form-label">Tags</label>
+              <div id="crmTagsArea" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
+              <div style="display:flex;gap:8px;">
+                <input type="text" class="form-input" id="crmTagInput" list="crmTagSuggestions" placeholder="Adicionar tag..." style="flex:1;min-width:150px;">
+                <datalist id="crmTagSuggestions"></datalist>
+                <button type="button" class="btn btn-secondary" id="crmTagAddBtn" style="flex-shrink:0;">Adicionar</button>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="form-group mb-0">
+                <label class="form-label">Tipo de cliente</label>
+                <select class="form-select" id="crmTipoCliente">
+                  <option value="">Não informado</option>
+                  <option value="pf">Pessoa física</option>
+                  <option value="pj">Empresa</option>
+                </select>
+              </div>
+              <div class="form-group mb-0">
+                <label class="form-label">Origem do lead</label>
+                <select class="form-select" id="crmLeadSource">
+                  <option value="whatsapp_direto">WhatsApp direto</option>
+                  <option value="instagram_facebook">Instagram/Facebook</option>
+                  <option value="meta_ads">Anúncio (Meta Ads)</option>
+                  <option value="mercado_livre">Mercado Livre</option>
+                  <option value="site">Site</option>
+                  <option value="indicacao">Indicação</option>
+                  <option value="google">Google</option>
+                  <option value="outro">Outro</option>
+                </select>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="form-group mb-0">
+                <label class="form-label">E-mail</label>
+                <input type="email" class="form-input" id="crmEmail">
+              </div>
+              <div class="form-group mb-0">
+                <label class="form-label">Cidade</label>
+                <input type="text" class="form-input" id="crmCidade">
+              </div>
+            </div>
+            <div class="form-group mb-0">
+              <label class="form-label">UF</label>
+              <input type="text" class="form-input" id="crmUf" maxlength="2" style="text-transform:uppercase;">
+            </div>
+          </div>
+        </details>
+
+        <details class="crm-group">
+          <summary>
+            <span>Dados fiscais e entrega</span>
+            <small>Use quando precisar de nota fiscal, orçamento ou envio.</small>
+          </summary>
+          <div class="crm-group-body">
+            <div class="form-group mb-0">
+              <label class="form-label">CPF ou CNPJ <span style="font-weight:400;color:var(--text-secondary);">(opcional)</span></label>
+              <div id="crmDocSaved" style="display:none;align-items:center;gap:8px;margin-bottom:6px;">
+                <code id="crmDocMasked" style="font-size:0.9rem;"></code>
+                <button type="button" class="btn btn-icon" id="crmDocRevealBtn" title="Mostrar completo"><i data-lucide="eye"></i></button>
+                <button type="button" class="btn btn-icon" id="crmDocEditBtn" title="Editar"><i data-lucide="pencil"></i></button>
+              </div>
+              <div id="crmDocEditRow" style="display:flex;gap:8px;flex-wrap:wrap;">
+                <input type="text" class="form-input" id="crmDocInput" placeholder="000.000.000-00 ou 00.000.000/0000-00" style="flex:1;min-width:180px;">
+                <button type="button" class="btn btn-secondary" id="crmCnpjLookupBtn" style="display:none;white-space:nowrap;flex-shrink:0;">Buscar dados</button>
+              </div>
+              <div class="form-hint">Só pedimos quando fizer sentido: orçamento formal, pagamento, entrega ou nota fiscal.</div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="crmPjFields" style="display:none;">
+              <div class="form-group mb-0">
+                <label class="form-label">Razão social</label>
+                <input type="text" class="form-input" id="crmRazaoSocial">
+              </div>
+              <div class="form-group mb-0">
+                <label class="form-label">Nome fantasia</label>
+                <input type="text" class="form-input" id="crmNomeFantasia">
+              </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="form-group mb-0">
+                <label class="form-label">CEP</label>
+                <input type="text" class="form-input" id="crmCep">
+              </div>
+              <div class="form-group mb-0">
+                <label class="form-label">Endereço</label>
+                <input type="text" class="form-input" id="crmEndereco">
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <details class="crm-group">
+          <summary>
+            <span>Tarefas internas</span>
+            <small>Organize próximos passos para sua equipe.</small>
+          </summary>
+          <div class="crm-group-body">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="form-group mb-0">
+                <label class="form-label">Responsável</label>
+                <input type="text" class="form-input" id="crmResponsavel" placeholder="Ex: João">
+              </div>
+              <div class="form-group mb-0">
+                <label class="form-label">Prioridade</label>
+                <select class="form-select" id="crmPrioridade">
+                  <option value="baixa">Baixa</option>
+                  <option value="media">Média</option>
+                  <option value="alta">Alta</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group mb-0">
+              <label class="form-label">Próxima tarefa</label>
+              <input type="text" class="form-input" id="crmProximaTarefa" placeholder="Ex: Enviar link de pagamento">
+            </div>
+            <div class="form-group mb-0">
+              <label class="form-label">Prazo de resposta</label>
+              <input type="datetime-local" class="form-input" id="crmPrazoResposta">
+            </div>
+          </div>
+        </details>
+
+        <button class="btn btn-primary w-full" id="crmSaveBtn">Salvar cadastro</button>
+      </div>
+    </div>
+
+  <div class="drawer-footer" id="drawerFooter" style="display:none;">
+    <div class="quick-replies" id="quickReplies">
+      <!-- Quick replies buttons -->
+    </div>
+    <div class="file-preview" id="drawerFilePreview" style="display:none;">
+      <i data-lucide="paperclip"></i>
+      <span id="drawerFilePreviewName"></span>
+      <button type="button" id="drawerFileRemoveBtn" title="Remover anexo"><i data-lucide="x"></i></button>
+    </div>
+    <div class="composer">
+      <button class="btn-attach" id="drawerAttachBtn" type="button" title="Anexar foto, vídeo ou documento">
+        <i data-lucide="paperclip"></i>
+      </button>
+      <input type="file" id="drawerFileInput" accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx" style="display:none;" />
+      <textarea id="drawerInput" placeholder="Digite sua mensagem..."></textarea>
+      <button class="btn-send" id="drawerSendBtn">
+        <i data-lucide="send"></i>
+      </button>
+    </div>
+    <div style="font-size:0.6875rem; color:var(--text-secondary); text-align:center; margin-top:8px;">
+      Pressione Enter para enviar, Shift+Enter para quebrar linha
+    </div>
+  </div>
+
+  <!-- Modal: Contatos arquivados -->
+  <div id="archivedModal" class="modal-overlay">
+    <div class="modal-content" style="max-width:480px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Contatos arquivados</h3>
+        <button class="btn btn-icon" id="archivedModalClose"><i data-lucide="x"></i></button>
+      </div>
+      <div id="archivedListArea" style="padding:8px 20px 20px;max-height:60vh;overflow-y:auto;">
+        <!-- Preenchido via JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Central de Testes — simulação privada sem criar dados comerciais -->
+  <div id="operationTestModal" class="modal-overlay">
+    <div class="modal-content operation-test-modal" role="dialog" aria-modal="true" aria-labelledby="operationTestTitle">
+      <div class="modal-header">
+        <div>
+          <span class="operation-test-kicker">Ambiente seguro</span>
+          <h3 class="modal-title" id="operationTestTitle">Teste completo da operação</h3>
+        </div>
+        <button class="btn btn-icon" id="operationTestClose" aria-label="Fechar"><i data-lucide="x"></i></button>
+      </div>
+      <div class="operation-test-body">
+        <div class="operation-test-safety">
+          <i data-lucide="shield-check"></i>
+          <div><strong>Nada será enviado ou cadastrado.</strong><span>O teste não cria cliente, venda, pagamento nem mensagem no WhatsApp.</span></div>
+        </div>
+        <div id="operationTestSetup">
+          <label class="form-label" for="operationTestMessage">O que o cliente de teste vai perguntar?</label>
+          <textarea class="form-input operation-test-message" id="operationTestMessage" rows="3" maxlength="500">Olá! Estou procurando uma opção e gostaria de saber o que você recomenda.</textarea>
+          <p class="form-hint">A resposta da sua atendente será gerada com as configurações atuais do negócio.</p>
+          <button type="button" class="btn btn-primary operation-test-start" id="operationTestStart"><i data-lucide="play"></i> Executar teste completo</button>
+        </div>
+        <div id="operationTestRunning" hidden>
+          <div class="operation-test-progress"><span id="operationTestProgressBar"></span></div>
+          <div class="operation-test-summary" id="operationTestSummary" aria-live="polite">Preparando ambiente seguro…</div>
+          <div class="operation-test-steps" id="operationTestSteps"></div>
+          <div class="operation-test-ai-preview" id="operationTestAiPreview" hidden>
+            <span>Resposta da atendente no teste</span>
+            <p id="operationTestAiText"></p>
+          </div>
+          <div class="operation-test-finish" id="operationTestFinish" hidden></div>
+        </div>
+      </div>
+      <div class="automation-builder-footer operation-test-footer">
+        <button type="button" class="btn btn-secondary" id="operationTestAgain" hidden>Testar novamente</button>
+        <button type="button" class="btn btn-secondary" id="operationTestDone">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // Close performance section by default on mobile
+  if (window.innerWidth <= 768) {
+    const ps = document.getElementById('performanceSection');
+    if (ps) ps.removeAttribute('open');
+  }
+</script>
+<script src="/vendor/lucide.min.js"></script>
+<script src="/js/ui.js?v=more-sheet-v2"></script>
+<script src="/js/pages/dashboard.js?v=fix-skeleton-v2"></script>
+</body>
+</html>

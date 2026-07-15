@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zapien — Equipes & Usuários</title>
+  <link rel="icon" href="/favicon.ico?v=9" type="image/x-icon">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#4f46e5">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/reset.css" />
+  <link rel="stylesheet" href="/css/tokens.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+  <link rel="stylesheet" href="/css/app-shell.css?v=settings-highlight-v1" />
+  <link rel="stylesheet" href="/css/ui-polish.css" />
+  <link rel="stylesheet" href="/css/pages/dashboard.css?v=3" />
+  <link rel="stylesheet" href="/css/pages/marketing.css?v=3" />
+  <style>
+    .users-teams-content {
+      width: min(100%, 1200px);
+      margin: 0 auto;
+      padding: 8px 0 96px;
+    }
+    .users-teams-tab-container {
+      display: flex;
+      gap: 28px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 28px;
+    }
+    .users-teams-tab {
+      padding: 12px 0;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      margin-bottom: -1px;
+    }
+    .users-teams-tab:hover {
+      color: var(--text-primary);
+    }
+    .users-teams-tab.active {
+      color: var(--brand-600);
+      border-bottom-color: var(--brand-600);
+    }
+    .badge-status {
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .badge-status.active {
+      background-color: var(--brand-50);
+      color: var(--brand-700);
+    }
+    .badge-status.inactive {
+      background-color: var(--gray-100);
+      color: var(--gray-500);
+    }
+    .badge-status.online {
+      background-color: #e6f4ea;
+      color: #137333;
+    }
+    .badge-status.offline {
+      background-color: #fce8e6;
+      color: #c5221f;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+
+  <!-- Sidebar -->
+  <aside class="app-sidebar" id="app-sidebar">
+    <div class="app-sidebar-header">
+      <a href="/dashboard.html" class="app-sidebar-logo">
+        <img src="/assets/logo.png?v=9" alt="Zapien Logo" />
+      </a>
+      <button class="btn btn-icon" id="sidebar-close" style="margin-left:auto; color:var(--gray-900);">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+
+    <nav class="app-sidebar-nav">
+      <a href="/dashboard.html" class="nav-item">
+        <i data-lucide="layout-dashboard"></i>
+        <span>Início</span>
+      </a>
+      <a href="/settings.html" class="nav-item">
+        <i data-lucide="settings"></i>
+        <span class="settings-nav-label">Configurações</span>
+      </a>
+      <a href="/vendas.html" class="nav-item">
+        <i data-lucide="trending-up"></i>
+        <span>Vendas</span>
+      </a>
+      <a href="/avisos.html" class="nav-item">
+        <i data-lucide="bell"></i>
+        <span>Avisos</span>
+        <span class="badge badge-danger hidden" id="navUnreadBadge" style="margin-left:auto;padding:1px 7px;font-size:0.68rem;"></span>
+      </a>
+      <a href="/automations.html" class="nav-item">
+        <i data-lucide="zap"></i>
+        <span>Automações</span>
+      </a>
+      <a href="/marketing.html" class="nav-item">
+        <i data-lucide="megaphone"></i>
+        <span>Marketing</span>
+      </a>
+      <a href="/integrations.html" class="nav-item">
+        <i data-lucide="plug"></i>
+        <span>Integrações</span>
+      </a>
+      <a href="/plans.html" class="nav-item">
+        <i data-lucide="credit-card"></i>
+        <span>Planos</span>
+      </a>
+      <a href="/admin.html" class="nav-item hidden" id="adminLink">
+        <i data-lucide="shield"></i>
+        <span>Admin</span>
+      </a>
+    </nav>
+
+    <div class="app-sidebar-footer">
+      <button class="nav-item w-full" id="logoutBtn">
+        <i data-lucide="log-out"></i>
+        <span>Sair</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="app-main">
+
+    <!-- Topbar -->
+    <header class="app-topbar">
+      <div class="flex items-center gap-4">
+        <button class="btn btn-icon mobile-menu-btn" id="sidebar-toggle">
+          <i data-lucide="menu"></i>
+        </button>
+        <a href="/dashboard.html" class="mobile-topbar-brand" aria-label="Zapien - início">
+          <img src="/assets/logo.png?v=9" alt="Zapien Logo" />
+        </a>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <div class="relative">
+          <button class="app-topbar-profile" id="profileBtn" aria-label="Menu de perfil">
+            <span class="app-topbar-avatar" id="profileInitial">D</span>
+          </button>
+          
+          <div class="app-topbar-dropdown hidden" id="profileDropdown">
+            <div class="app-topbar-dropdown-header">
+              <span id="profileEmail">...</span>
+              <span id="profilePlanBadge"></span>
+            </div>
+            <div class="app-topbar-dropdown-body">
+              <button class="dropdown-item" id="changePwBtn">
+                <i data-lucide="key"></i> Alterar senha
+              </button>
+              <button class="dropdown-item" id="profileLogoutBtn">
+                <i data-lucide="log-out"></i> Sair
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="app-content">
+      <div class="users-teams-content">
+
+        <!-- Page Heading -->
+        <div class="page-heading flex-row-layout" style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:24px;">
+          <div>
+            <p class="eyebrow">Multiusuário & Distribuição</p>
+            <h1 class="page-title">Equipes & Usuários</h1>
+            <p class="page-subtitle">Gerencie colaboradores, organize equipes e configure a atribuição de conversas.</p>
+          </div>
+          <div class="page-heading-actions" style="display: flex; gap: 8px;">
+            <button id="inviteUserBtn" class="btn btn-primary">
+              <i data-lucide="user-plus"></i> Convidar usuário
+            </button>
+            <button id="newTeamBtn" class="btn btn-secondary">
+              <i data-lucide="plus"></i> Criar equipe
+            </button>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="users-teams-tab-container">
+          <button class="users-teams-tab active" id="tabUsersBtn">Usuários & Convites</button>
+          <button class="users-teams-tab" id="tabTeamsBtn">Equipes</button>
+        </div>
+
+        <!-- Tab: Usuários -->
+        <div id="tabUsersContent">
+          <!-- Lista de Usuários Ativos -->
+          <div class="card card-table mb-4" style="margin-bottom:24px; padding:0; overflow:hidden;">
+            <div style="padding:16px 20px; border-bottom:1px solid var(--border);">
+              <h2 style="font-size:1rem; font-weight:700;">Colaboradores Ativos</h2>
+            </div>
+            <div style="overflow-x:auto; -webkit-overflow-scrolling:touch;">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>E-mail</th>
+                  <th>Papel</th>
+                  <th>Disponibilidade</th>
+                  <th>Status</th>
+                  <th style="width: 120px;">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="usersTableBody">
+                <tr>
+                  <td colspan="6" class="text-center" style="padding:40px; color:var(--gray-500);">Carregando usuários...</td>
+                </tr>
+              </tbody>
+            </table>
+            </div>
+          </div>
+
+          <!-- Convites Pendentes -->
+          <div class="card card-table" style="padding:0; overflow:hidden;">
+            <div style="padding:16px 20px; border-bottom:1px solid var(--border);">
+              <h2 style="font-size:1rem; font-weight:700;">Convites Enviados (Pendentes)</h2>
+            </div>
+            <div style="overflow-x:auto; -webkit-overflow-scrolling:touch;">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>E-mail</th>
+                  <th>Papel</th>
+                  <th>Expira em</th>
+                  <th style="width: 100px;">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="invitesTableBody">
+                <tr>
+                  <td colspan="4" class="text-center" style="padding:40px; color:var(--gray-500);">Não há convites pendentes.</td>
+                </tr>
+              </tbody>
+            </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Equipes -->
+        <div id="tabTeamsContent" class="hidden">
+          <div class="card card-table" style="padding:0; overflow:hidden;">
+            <div style="overflow-x:auto; -webkit-overflow-scrolling:touch;">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Nome da Equipe</th>
+                  <th>Descrição</th>
+                  <th>Membros</th>
+                  <th style="width: 150px;">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="teamsTableBody">
+                <tr>
+                  <td colspan="4" class="text-center" style="padding:40px; color:var(--gray-500);">Nenhuma equipe cadastrada.</td>
+                </tr>
+              </tbody>
+            </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- Mobile Bottom Nav (5 items) -->
+  <nav class="mobile-bottom-nav">
+    <a href="/dashboard.html" class="bottom-nav-item">
+      <i data-lucide="layout-dashboard"></i>
+      <span>Início</span>
+    </a>
+    <a href="/vendas.html" class="bottom-nav-item">
+      <i data-lucide="trending-up"></i>
+      <span>Vendas</span>
+    </a>
+    <a href="/avisos.html" class="bottom-nav-item" style="position:relative;">
+      <i data-lucide="bell"></i>
+      <span>Avisos</span>
+      <span class="nav-badge hidden" id="bottomNavUnread"></span>
+    </a>
+    <a href="/settings.html" class="bottom-nav-item">
+      <i data-lucide="settings"></i>
+      <span>Configurar</span>
+    </a>
+    <button type="button" class="bottom-nav-item active" id="bottom-nav-more" aria-haspopup="true" aria-expanded="false">
+      <i data-lucide="grid-2x2"></i>
+      <span>Mais</span>
+    </button>
+  </nav>
+
+</div>
+
+<!-- "Mais" Bottom Sheet -->
+<div id="more-sheet-overlay" class="more-sheet-overlay" aria-hidden="true" role="dialog" aria-label="Menu adicional" style="display:none;">
+  <div class="more-sheet">
+    <div class="more-sheet-handle"></div>
+    <nav class="more-sheet-nav" aria-label="Navegação adicional">
+      <a href="/automations.html" class="more-sheet-item">
+        <i data-lucide="zap"></i>
+        <span>Automações</span>
+      </a>
+      <a href="/marketing.html" class="more-sheet-item">
+        <i data-lucide="megaphone"></i>
+        <span>Marketing</span>
+      </a>
+      <a href="/integrations.html" class="more-sheet-item">
+        <i data-lucide="plug"></i>
+        <span>Integrações</span>
+      </a>
+      <a href="/plans.html" class="more-sheet-item">
+        <i data-lucide="credit-card"></i>
+        <span>Planos</span>
+      </a>
+      <a href="#" target="_blank" rel="noopener" class="more-sheet-item" id="moreSheetSupport" style="display:none;">
+        <i data-lucide="message-circle"></i>
+        <span>Suporte</span>
+      </a>
+      <a href="/admin.html" class="more-sheet-item" id="moreSheetAdmin" style="display:none;">
+        <i data-lucide="shield"></i>
+        <span>Admin</span>
+      </a>
+    </nav>
+  </div>
+</div>
+
+<!-- Modal: Convidar Usuário -->
+<div id="inviteModal" class="modal-overlay">
+  <div class="modal-content" style="max-width: 420px;">
+    <div class="modal-header">
+      <h3 class="modal-title">Convidar novo usuário</h3>
+      <button class="btn btn-icon" id="inviteModalClose"><i data-lucide="x"></i></button>
+    </div>
+    <form id="inviteForm" style="padding: 20px; display:flex; flex-direction:column; gap:16px;">
+      <div class="form-group mb-0">
+        <label class="form-label" for="inviteEmail">E-mail do colaborador</label>
+        <input type="email" id="inviteEmail" class="form-input" placeholder="ex: atendente@empresa.com" required>
+      </div>
+
+      <div class="form-group mb-0">
+        <label class="form-label" for="inviteRole">Papel de acesso</label>
+        <select id="inviteRole" class="form-select" required>
+          <option value="agent" selected>Atendente (Acesso apenas a conversas/atendimento)</option>
+          <option value="admin">Administrador (Acesso total)</option>
+        </select>
+      </div>
+
+      <button type="submit" class="btn btn-primary" id="saveInviteBtn" style="margin-top:8px;">Enviar convite por e-mail</button>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Criar / Editar Equipe -->
+<div id="teamModal" class="modal-overlay">
+  <div class="modal-content" style="max-width: 450px;">
+    <div class="modal-header">
+      <h3 class="modal-title" id="teamModalTitle">Criar nova equipe</h3>
+      <button class="btn btn-icon" id="teamModalClose"><i data-lucide="x"></i></button>
+    </div>
+    <form id="teamForm" style="padding: 20px; display:flex; flex-direction:column; gap:16px;">
+      <input type="hidden" id="teamId">
+      <div class="form-group mb-0">
+        <label class="form-label" for="teamName">Nome da equipe</label>
+        <input type="text" id="teamName" class="form-input" placeholder="ex: Comercial, Suporte Técnico" required>
+      </div>
+
+      <div class="form-group mb-0">
+        <label class="form-label" for="teamDescription">Descrição da equipe</label>
+        <textarea id="teamDescription" class="form-input" rows="3" placeholder="Função desta equipe..." style="resize:none;"></textarea>
+      </div>
+
+      <button type="submit" class="btn btn-primary" id="saveTeamBtn" style="margin-top:8px;">Salvar equipe</button>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Gerenciar Membros da Equipe -->
+<div id="membersModal" class="modal-overlay">
+  <div class="modal-content" style="max-width: 480px;">
+    <div class="modal-header">
+      <h3 class="modal-title">Gerenciar membros da equipe</h3>
+      <button class="btn btn-icon" id="membersModalClose"><i data-lucide="x"></i></button>
+    </div>
+    <div style="padding: 20px;">
+      <h4 id="membersTeamName" style="font-weight:700; margin-bottom:12px;">Equipe: ...</h4>
+      <p style="font-size:0.85rem; color:var(--gray-500); margin-bottom:20px;">Selecione os colaboradores que fazem parte desta equipe:</p>
+      
+      <form id="membersForm" style="display:flex; flex-direction:column; gap:12px; max-height:260px; overflow-y:auto; padding-right:8px; margin-bottom:20px;">
+        <div id="membersListContainer" style="display:flex; flex-direction:column; gap:10px;">
+          Carregando colaboradores...
+        </div>
+      </form>
+
+      <button id="saveMembersBtn" class="btn btn-primary w-full">Salvar membros</button>
+    </div>
+  </div>
+</div>
+
+<script src="/vendor/lucide.min.js"></script>
+<script src="/js/ui.js?v=more-sheet-v2"></script>
+<script src="/js/pages/users-teams.js"></script>
+</body>
+</html>

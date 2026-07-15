@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zapien — Integrações</title>
+  <link rel="icon" href="/favicon.ico?v=9" type="image/x-icon">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#4f46e5">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/reset.css" />
+  <link rel="stylesheet" href="/css/tokens.css?v=visual-system-v2" />
+  <link rel="stylesheet" href="/css/components.css?v=visual-system-v2" />
+  <link rel="stylesheet" href="/css/app-shell.css?v=mobile-clearance-v1" />
+  <link rel="stylesheet" href="/css/pages/settings.css" />
+  <link rel="stylesheet" href="/css/pages/integrations.css?v=save-position-v3" />
+  <link rel="stylesheet" href="/css/ui-polish.css?v=visual-system-v2" />
+  <style>
+    .spin { animation: spin 1s linear infinite; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+    .category-card {
+      background-color: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: all 0.2s ease;
+      box-shadow: var(--shadow-sm);
+    }
+    .category-card:hover {
+      border-color: var(--primary-300);
+      background-color: var(--gray-50);
+      box-shadow: var(--shadow-md);
+    }
+    .category-card-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .category-card-title {
+      margin: 0;
+      color: var(--text-primary);
+      font-size: 1.05rem;
+      font-weight: 800;
+    }
+    .category-card-subtitle {
+      margin: 0;
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+    }
+    .category-chevron {
+      transition: transform 0.2s ease;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+    }
+    .category-card.expanded .category-chevron {
+      transform: rotate(180deg);
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+
+  <!-- Sidebar -->
+  <aside class="app-sidebar" id="app-sidebar">
+    <div class="app-sidebar-header">
+      <a href="/dashboard.html" class="app-sidebar-logo">
+        <img src="/assets/logo.png?v=9" alt="Zapien Logo" />
+      </a>
+      <button class="btn btn-icon" id="sidebar-close" style="margin-left:auto; color:var(--gray-900);">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+
+    <nav class="app-sidebar-nav">
+      <a href="/dashboard.html" class="nav-item">
+        <i data-lucide="layout-dashboard"></i>
+        <span>Início</span>
+      </a>
+      <a href="/settings.html" class="nav-item">
+        <i data-lucide="settings"></i>
+        <span class="settings-nav-label">Configurações</span>
+      </a>
+      <a href="/vendas.html" class="nav-item">
+        <i data-lucide="trending-up"></i>
+        <span>Vendas</span>
+      </a>
+      <a href="/avisos.html" class="nav-item">
+        <i data-lucide="bell"></i>
+        <span>Avisos</span>
+        <span class="badge badge-danger hidden" id="navUnreadBadge" style="margin-left:auto;padding:1px 7px;font-size:0.68rem;"></span>
+      </a>
+      <a href="/automations.html" class="nav-item">
+        <i data-lucide="zap"></i>
+        <span>Automações</span>
+      </a>
+      <a href="/marketing.html" class="nav-item">
+        <i data-lucide="megaphone"></i>
+        <span>Marketing</span>
+      </a>
+      <a href="/integrations.html" class="nav-item active">
+        <i data-lucide="plug"></i>
+        <span>Integrações</span>
+      </a>
+      <a href="/plans.html" class="nav-item">
+        <i data-lucide="credit-card"></i>
+        <span>Planos</span>
+      </a>
+      <a href="/admin.html" class="nav-item hidden" id="adminLink">
+        <i data-lucide="shield"></i>
+        <span>Admin</span>
+      </a>
+    </nav>
+
+    <div class="app-sidebar-footer">
+      <a href="#" target="_blank" rel="noopener" class="nav-item" id="supportBtn" style="display:none;">
+        <i data-lucide="message-circle"></i>
+        <span>Suporte</span>
+      </a>
+      <button class="nav-item w-full" id="logoutBtn">
+        <i data-lucide="log-out"></i>
+        <span>Sair</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="app-main">
+
+    <!-- Topbar -->
+    <header class="app-topbar">
+      <div class="flex items-center gap-4">
+        <button class="btn btn-icon mobile-menu-btn" id="sidebar-toggle">
+          <i data-lucide="menu"></i>
+        </button>
+        <a href="/dashboard.html" class="mobile-topbar-brand" aria-label="Zapien - início">
+          <img src="/assets/logo.png?v=9" alt="Zapien Logo" />
+        </a>
+      </div>
+      <div class="topbar-actions">
+        <div style="position:relative;">
+          <button id="profileBtn" class="topbar-avatar" title="Minha conta">
+            <span id="profileInitial"><i data-lucide="user" style="width:16px;height:16px;"></i></span>
+          </button>
+          <div id="profileDropdown" class="profile-dropdown hidden">
+            <div class="profile-dropdown-info">
+              <div class="profile-dropdown-email" id="profileEmail">—</div>
+              <div id="profilePlanBadge"></div>
+            </div>
+            <div class="profile-dropdown-divider"></div>
+            <button class="profile-dropdown-item" id="changePwBtn">
+              <i data-lucide="key-round"></i> Mudar senha
+            </button>
+            <button class="profile-dropdown-item text-danger" id="profileLogoutBtn">
+              <i data-lucide="log-out"></i> Sair
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal: Mudar Senha -->
+      <div id="changePwModal" class="modal-overlay">
+        <div class="modal-content password-modal-compact">
+          <div class="modal-header">
+            <h3 class="modal-title">Mudar senha</h3>
+            <button class="btn btn-icon" id="changePwClose"><i data-lucide="x"></i></button>
+          </div>
+          <div class="password-modal-body">
+            <div class="form-group mb-0">
+              <label class="form-label">Senha atual</label>
+              <input type="password" id="cpwCurrent" class="form-input" placeholder="••••••••">
+            </div>
+            <div class="form-group mb-0">
+              <label class="form-label">Nova senha</label>
+              <input type="password" id="cpwNew" class="form-input" placeholder="Mínimo 6 caracteres">
+            </div>
+            <div class="form-group mb-0">
+              <label class="form-label">Confirmar nova senha</label>
+              <input type="password" id="cpwConfirm" class="form-input" placeholder="Repita a nova senha">
+            </div>
+            <button class="btn btn-primary password-save-btn" id="cpwSaveBtn">Salvar nova senha</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Impersonate Banner -->
+    <div class="admin-banner" id="impersonateBar" style="display:none;">
+      <div>
+        <i data-lucide="eye" style="display:inline-block; vertical-align:middle; margin-right:8px;"></i>
+        Você está visualizando a conta de <strong id="impersonateEmail"></strong>
+      </div>
+      <button class="btn" id="stopImpersonateBtn">Voltar para Administração</button>
+    </div>
+
+    <!-- Content Area -->
+    <div class="app-content">
+      <div class="page-heading">
+        <p class="eyebrow">Conexões do Zapien</p>
+        <h1 class="page-title">Integrações</h1>
+        <p class="page-subtitle">Conecte pagamentos, planilhas, lojas e automações externas.</p>
+      </div>
+
+      <section id="integrationGuide" class="integration-guide-shell" aria-label="Integrações recomendadas">
+        <div class="integration-guide-skeleton">
+          <div class="skeleton skeleton-text"></div>
+          <div class="skeleton skeleton-text"></div>
+        </div>
+      </section>
+
+      <!-- Saúde do WhatsApp (Central da Meta) -->
+      <section class="integration-section" id="meta-health">
+        <div class="category-card" data-target="meta-health-body">
+          <div class="category-card-info">
+            <h2 class="category-card-title">Saúde do WhatsApp</h2>
+            <p class="category-card-subtitle">Acompanhe se a conexão com o WhatsApp está funcionando bem.</p>
+          </div>
+          <i data-lucide="chevron-down" class="category-chevron"></i>
+        </div>
+        <div class="integration-section-body" id="meta-health-body" style="display:none; flex-direction:column; gap:16px;">
+          <div class="integration-card" id="meta-health-card">
+          <div class="integration-header">
+            <div class="integration-logo" style="background:#25D366;">
+              <i data-lucide="activity" style="color:white;width:22px;height:22px;"></i>
+            </div>
+            <div class="integration-header-text">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <h3 class="integration-title">Conexão do WhatsApp</h3>
+                <span class="badge badge-gray" id="meta-health-badge">Verificando…</span>
+              </div>
+              <p class="integration-subtitle" id="meta-health-subtitle">Carregando informações da conexão…</p>
+            </div>
+          </div>
+
+          <!-- Skeleton durante o carregamento -->
+          <div id="meta-health-skeleton" class="form-hint">Carregando…</div>
+
+          <!-- Problemas com ajuda contextual -->
+          <div id="meta-health-issues" style="display:none; flex-direction:column; gap:8px; margin-bottom:12px;"></div>
+
+          <!-- Grade de detalhes -->
+          <div id="meta-health-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4" style="display:none;"></div>
+
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:12px;">
+            <button type="button" class="btn btn-primary" id="meta-health-check-btn">
+              <i data-lucide="refresh-cw"></i> Verificar conexão agora
+            </button>
+            <button type="button" class="btn btn-secondary" id="meta-health-refresh-btn">
+              <i data-lucide="rotate-cw"></i> Atualizar dados
+            </button>
+            <a href="#whatsapp-templates" class="btn btn-secondary" id="meta-health-templates-btn">
+              <i data-lucide="quote"></i> Ver templates
+            </a>
+            <a href="#" class="btn btn-secondary" id="meta-health-reconnect-btn" style="display:none;">
+              <i data-lucide="link"></i> Reconectar WhatsApp
+            </a>
+          </div>
+          <div class="form-hint mt-2" id="meta-health-checked-at"></div>
+        </div>
+
+        <!-- Notificações no aparelho (Web Push) -->
+        <div class="integration-card" id="push-card" style="margin-top:16px;">
+          <div class="integration-header">
+            <div class="integration-logo" style="background:#6366F1;">
+              <i data-lucide="bell-ring" style="color:white;width:22px;height:22px;"></i>
+            </div>
+            <div class="integration-header-text">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <h3 class="integration-title">Alertas operacionais</h3>
+                <span class="badge badge-gray text-xs" id="push-status-badge">—</span>
+              </div>
+              <p class="integration-subtitle">Escolha onde e sobre o que o Zapien deve avisar você.</p>
+            </div>
+          </div>
+          <div class="alert-destination-box">
+            <div>
+              <label class="form-label" for="alert-whatsapp-phone">WhatsApp que recebe avisos</label>
+              <div class="form-hint">Usado para pedidos de atendimento, limites da IA e resumo diário. Deixe vazio para não receber por WhatsApp.</div>
+            </div>
+            <div class="alert-destination-row">
+              <input type="tel" class="form-input" id="alert-whatsapp-phone" placeholder="5511999999999" inputmode="numeric">
+              <button type="button" class="btn btn-secondary" id="alert-preferences-save"><i data-lucide="save"></i> Salvar</button>
+            </div>
+          </div>
+          <div class="alert-channel-heading"><strong>Notificações neste aparelho</strong><span>Ative para receber alertas mesmo com o painel fechado.</span></div>
+          <div id="push-unavailable" class="form-hint" style="display:none;">Notificações não estão habilitadas nesta instalação do Zapien.</div>
+          <div id="push-controls" style="display:none;">
+            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px;">
+              <button type="button" class="btn btn-primary" id="push-enable-btn">
+                <i data-lucide="bell-plus"></i> Ativar notificações neste aparelho
+              </button>
+              <button type="button" class="btn btn-secondary" id="push-disable-btn" style="display:none;">
+                <i data-lucide="bell-off"></i> Desativar neste aparelho
+              </button>
+            </div>
+            <div id="push-preferences" style="display:none; flex-direction:column; gap:6px;">
+              <div class="form-label" style="margin-bottom:2px;">O que avisar</div>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;"><input type="checkbox" id="push-pref-vendas"> Vendas confirmadas</label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;"><input type="checkbox" id="push-pref-atendimento"> Pedidos de atendimento humano</label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;"><input type="checkbox" id="push-pref-meta"> Problemas na conexão do WhatsApp</label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;"><input type="checkbox" id="push-pref-campanhas"> Campanhas concluídas</label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;"><input type="checkbox" id="push-pref-documentos"> Documentos processados</label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;"><input type="checkbox" id="push-pref-automacoes"> Avisos das suas automações</label>
+            </div>
+          </div>
+          <details class="integration-help">
+            <summary>Como funciona</summary>
+            <ol>
+              <li>Toque em <strong>Ativar notificações neste aparelho</strong> — o navegador vai pedir sua permissão.</li>
+              <li>Instale o Zapien na tela inicial (menu do navegador → "Adicionar à tela inicial") para a melhor experiência.</li>
+              <li>Escolha acima o que você quer que o Zapien avise. Dá para desativar quando quiser.</li>
+            </ol>
+            <p class="integration-help-note info">Os avisos nunca mostram telefone, dados do cliente ou conteúdo da conversa na tela bloqueada.</p>
+          </details>
+        </div>
+      </div><!-- .integration-section-body -->
+      </section>
+
+      <section class="integration-section">
+        <div class="category-card" data-target="essenciais-body">
+          <div class="category-card-info">
+            <h2 class="category-card-title">Essenciais</h2>
+            <p class="category-card-subtitle">Conexões principais para atendimento e pagamento.</p>
+          </div>
+          <i data-lucide="chevron-down" class="category-chevron"></i>
+        </div>
+        <div class="integration-section-body" id="essenciais-body" style="display:none;">
+        <div class="integration-card-grid">
+      <!-- WhatsApp Business API -->
+      <div class="integration-card" id="integration-whatsapp">
+        <div class="integration-header">
+          <div class="integration-logo" style="background:#25D366;">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="white" aria-hidden="true">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+            </svg>
+          </div>
+          <div class="integration-header-text">
+            <h3 class="integration-title">WhatsApp Business API</h3>
+            <p class="integration-subtitle">Conexão com número próprio (Meta Cloud API).</p>
+          </div>
+          <span class="badge badge-gray" id="badge-wa" style="margin-left:auto;flex-shrink:0;">Não conectado</span>
+        </div>
+        <div class="wa-link-card integration-wa-link-card" id="integrations-wa-link-section">
+          <div class="wa-link-card-header">
+            <div class="wa-link-card-icon"><i data-lucide="send" style="color:#fff;width:19px;height:19px;"></i></div>
+            <div>
+              <div class="wa-link-card-title">Link para clientes chamarem sua IA</div>
+              <div class="wa-link-card-sub">Compartilhe o link com a mensagem padrão que identifica sua loja.</div>
+            </div>
+          </div>
+          <div id="integrations-wa-link-display" style="display:none; flex-direction:column; gap:10px;">
+            <div class="wa-link-slug-row">Código da loja: <code id="integrations-wa-attendance-code"></code></div>
+            <input id="integrations-wa-link-input" class="form-input wa-link-url-input" readonly>
+            <div id="integrations-wa-link-message-preview" class="wa-link-message-preview" style="display:none;">
+              <div class="wa-link-preview-label">Mensagem enviada ao cliente</div>
+              <div id="integrations-wa-link-preview-text" class="wa-link-preview-text"></div>
+              <div class="wa-link-preview-hint">Esse código identifica sua loja quando o cliente envia a mensagem.</div>
+            </div>
+            <div class="wa-link-actions">
+              <button type="button" id="integrations-wa-link-copy-btn" class="btn btn-secondary wa-link-btn"><i data-lucide="copy"></i> Copiar link</button>
+              <button type="button" id="integrations-wa-link-qr-btn" class="btn btn-secondary wa-link-btn"><i data-lucide="qr-code"></i> QR Code</button>
+              <a id="integrations-wa-link-open-btn" href="#" target="_blank" rel="noopener" class="btn btn-primary wa-link-btn" style="text-decoration:none;"><i data-lucide="external-link"></i> Testar</a>
+            </div>
+          </div>
+          <div id="integrations-wa-link-not-configured" class="form-hint" style="display:none;">Número da plataforma não configurado. Fale com o suporte.</div>
+        </div>
+        <details class="integration-help">
+          <summary>Como usar</summary>
+          <ol>
+            <li>Complete <strong>Meu Negócio</strong> e <strong>Meus Produtos</strong> na aba Configurações — a IA precisa saber quem é você e o que vende.</li>
+            <li>Copie o link acima e divulgue: Instagram bio, Google Meu Negócio, cartão de visita, QR Code na loja.</li>
+            <li>Qualquer cliente que clicar entra em contato via WhatsApp e a IA responde na hora, no número da plataforma Zapien.</li>
+            <li>Você acompanha e assume a conversa quando quiser em <strong>Painel de Vendas</strong>.</li>
+          </ol>
+        </details>
+      </div>
+
+      <!-- Mercado Pago -->
+      <div class="integration-card" id="mercado-pago">
+        <div class="integration-header">
+          <div class="integration-logo" style="background:#009EE3;">
+            <svg viewBox="0 0 48 48" width="28" height="28" fill="none" aria-hidden="true">
+              <path d="M33.5 16.5H14.5C13.1 16.5 12 17.6 12 19v10c0 1.4 1.1 2.5 2.5 2.5h19c1.4 0 2.5-1.1 2.5-2.5V19c0-1.4-1.1-2.5-2.5-2.5zM24 27c-1.7 0-3-1.3-3-3s1.3-3 3-3 3 1.3 3 3-1.3 3-3 3z" fill="white"/>
+            </svg>
+          </div>
+          <div class="integration-header-text">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <h3 class="integration-title">Mercado Pago</h3>
+              <span class="badge badge-gray text-xs" id="badge-mp">Não configurado</span>
+            </div>
+            <p class="integration-subtitle">Permite que a IA gere links de pagamento automaticamente.</p>
+          </div>
+        </div>
+
+        <!-- MP OAuth (mostrado quando mpOAuthEnabled=true no backend) -->
+        <div id="mp-oauth-section" style="display:none;">
+          <div id="mp-connected-box" style="display:none; align-items:center; gap:12px; padding:12px 16px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; margin-bottom:12px;">
+            <i data-lucide="check-circle" style="color:#16a34a; flex-shrink:0; width:20px; height:20px;"></i>
+            <div>
+              <div style="font-weight:600; color:#15803d; font-size:0.9rem;">Mercado Pago conectado</div>
+              <div style="font-size:0.8rem; color:#166534;">Sua conta está vinculada. A IA pode gerar links de pagamento automaticamente.</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <a href="/api/mp/oauth/start" id="mp-oauth-btn" class="btn btn-secondary" style="text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
+              <svg width="16" height="16" viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="24" fill="#009EE3"/><path d="M33.5 16.5H14.5C13.1 16.5 12 17.6 12 19v10c0 1.4 1.1 2.5 2.5 2.5h19c1.4 0 2.5-1.1 2.5-2.5V19c0-1.4-1.1-2.5-2.5-2.5zM24 27c-1.7 0-3-1.3-3-3s1.3-3 3-3 3 1.3 3 3-1.3 3-3 3z" fill="white"/></svg>
+              Conectar com Mercado Pago
+            </a>
+            <button type="button" id="mp-disconnect-btn" class="btn btn-danger" style="display:none;"><i data-lucide="unlink"></i> Desconectar</button>
+          </div>
+          <div class="form-hint mt-2">Autorize o Zapien a gerar links de pagamento na sua conta Mercado Pago com 1 clique.</div>
+        </div>
+
+        <!-- MP token manual (mostrado quando mpOAuthEnabled=false) -->
+        <details id="mp-manual-section" class="integration-advanced">
+          <summary>Configuração avançada por chave</summary>
+          <div class="form-group mb-0">
+            <label class="form-label">Chave de conexão (Access Token)</label>
+            <input type="password" class="form-input" id="mp_access_token" placeholder="APP_USR-...">
+            <div class="form-hint">Use somente se a conexão automática não estiver disponível.</div>
+          </div>
+        </details>
+        <details class="integration-help">
+          <summary>Como usar</summary>
+          <ol>
+            <li>Clique em <strong>Conectar com Mercado Pago</strong> — o botão abre a autorização OAuth (1 clique, sem copiar token).</li>
+            <li>Autorize o Zapien na sua conta Mercado Pago.</li>
+            <li>Pronto: quando o cliente decidir comprar, a IA gera o link de pagamento (Pix, cartão ou boleto) direto no WhatsApp.</li>
+            <li>O pagamento cai na sua conta MP e o Zapien marca a venda como paga automaticamente.</li>
+          </ol>
+          <p class="integration-help-note info">Dica: use Pix para receber na hora e reduzir a chance de o cliente desistir na tela de checkout.</p>
+        </details>
+      </div>
+      </div><!-- .integration-section-body -->
+      </section>
+
+      <section class="integration-section">
+        <div class="category-card" data-target="crm-body">
+          <div class="category-card-info">
+            <h2 class="category-card-title">CRM e dados</h2>
+            <p class="category-card-subtitle">Salve clientes, vendas e oportunidades fora do Zapien.</p>
+          </div>
+          <i data-lucide="chevron-down" class="category-chevron"></i>
+        </div>
+        <div class="integration-section-body" id="crm-body" style="display:none;">
+        <div class="integration-card-grid">
+          <!-- Google Sheets -->
+          <div class="integration-card" id="integration-google-sheets">
+            <div class="integration-header">
+              <div class="integration-logo" style="background:#0F9D58;">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="white" aria-hidden="true">
+                  <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+                </svg>
+              </div>
+              <div class="integration-header-text">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                  <h3 class="integration-title">Google Sheets</h3>
+                  <span class="badge badge-gray text-xs" id="badge-google-sheets">Não configurado</span>
+                </div>
+                <p class="integration-subtitle">Salva cada lead e pedido de venda na planilha em tempo real.</p>
+              </div>
+            </div>
+            
+            <div id="google-sheets-disconnected" style="display:block; margin-top:12px;">
+              <a href="/api/google/oauth/start" class="btn btn-secondary" style="text-decoration:none;"><i data-lucide="link"></i> Conectar Google Sheets</a>
+            </div>
+            
+            <div id="google-sheets-connected" style="display:none; margin-top:12px;">
+              <div class="flex items-center gap-3" style="padding:10px 12px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px;">
+                <i data-lucide="check-circle" style="color:#16a34a; flex-shrink:0;"></i>
+                <div style="min-width:0;">
+                  <div style="font-weight:600; color:#15803d; font-size:0.875rem;">Sincronização Ativa</div>
+                  <div id="google-sheets-name" style="font-size:0.75rem; color:#166534; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">CRM Zapien</div>
+                </div>
+              </div>
+              <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">
+                <a id="google-sheets-open-btn" href="#" target="_blank" rel="noopener" class="btn btn-secondary" style="text-decoration:none; display:none;"><i data-lucide="external-link"></i> Abrir planilha</a>
+                <button type="button" id="google-sheets-sync-btn" class="btn btn-secondary"><i data-lucide="refresh-cw"></i> Sincronizar dados</button>
+                <button type="button" id="google-sheets-disconnect-btn" class="btn btn-danger"><i data-lucide="unlink"></i> Desconectar</button>
+              </div>
+            </div>
+            
+            <details class="integration-help">
+              <summary>Como usar</summary>
+              <ol>
+                <li>Clique em <strong>Conectar Google Sheets</strong> e autorize o acesso à sua conta Google.</li>
+                <li>O Zapien cria uma planilha nova chamada "CRM Zapien" no seu Drive.</li>
+                <li>Cada conversa, cliente e venda vira uma linha (abas separadas para contatos e pedidos).</li>
+                <li>Use pra relatórios, contabilidade, export ou juntar com outras ferramentas (Looker Studio, Excel).</li>
+              </ol>
+            </details>
+          </div>
+        </div>
+      </div><!-- .integration-section-body -->
+      </section>
+
+      <section class="integration-section">
+        <div class="category-card" data-target="loja-body">
+          <div class="category-card-info">
+            <h2 class="category-card-title">Loja e operação</h2>
+            <p class="category-card-subtitle">Sincronize produtos, estoque, frete e vendas.</p>
+          </div>
+          <i data-lucide="chevron-down" class="category-chevron"></i>
+        </div>
+        <div class="integration-section-body" id="loja-body" style="display:none;">
+        <div class="integration-card-grid">
+      <!-- Melhor Envio -->
+      <div class="integration-card" id="integration-melhor-envio">
+        <div class="integration-header">
+          <div class="integration-logo" style="background:#E8A100;">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="white" aria-hidden="true">
+              <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5S5.17 15.5 6 15.5s1.5.67 1.5 1.5S6.83 18.5 6 18.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
+            </svg>
+          </div>
+          <div class="integration-header-text">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <h3 class="integration-title">Melhor Envio</h3>
+              <span class="badge badge-warning text-xs">Elite</span>
+              <span class="badge badge-gray text-xs" id="badge-frete">Não configurado</span>
+            </div>
+            <p class="integration-subtitle">A IA calculará o frete automaticamente usando o CEP do cliente.</p>
+          </div>
+        </div>
+
+        <!-- ME integração plataforma (mostrado quando mePlatformEnabled=true no backend) -->
+        <div id="me-platform-info" style="display:none; align-items:center; gap:12px; padding:12px 16px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; margin-bottom:16px;">
+          <i data-lucide="zap" style="color:#2563eb; flex-shrink:0; width:20px; height:20px;"></i>
+          <div>
+            <div style="font-weight:600; color:#1e40af; font-size:0.9rem;">Integração Zapien ativa</div>
+            <div style="font-size:0.8rem; color:#1d4ed8;">O cálculo de frete já está disponível via plataforma Zapien — você não precisa configurar nenhum token. Informe apenas o CEP de despacho abaixo.</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div class="form-group">
+            <label class="form-label">CEP de origem (seu CEP de despacho)</label>
+            <input type="text" class="form-input" id="cep_origem" placeholder="01001000" maxlength="9">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Peso médio do pacote (kg)</label>
+            <input type="number" step="0.1" min="0.1" class="form-input" id="peso_padrao_kg" placeholder="0.5">
+          </div>
+        </div>
+        <div id="me-token-section" class="form-group mb-0">
+          <label class="form-label">Token do Melhor Envio (deixe em branco para manter)</label>
+          <input type="password" class="form-input" id="melhor_envio_token" placeholder="Cole o token aqui">
+        </div>
+        <label class="flex items-center gap-2" style="margin-top:12px; cursor:pointer; font-size:0.9rem;">
+          <input type="checkbox" id="me_auto_send_tracking" class="w-4 h-4">
+          <span>Enviar rastreio automaticamente no WhatsApp quando a etiqueta for gerada</span>
+        </label>
+        <details class="integration-help">
+          <summary>Como usar</summary>
+          <ol>
+            <li>Crie uma conta grátis em <strong>melhorenvio.com.br</strong> (integrado com Correios PAC/SEDEX, Jadlog, Loggi e outros).</li>
+            <li>Entre em <strong>Configurações → Tokens</strong> e clique em <strong>Novo token</strong>.</li>
+            <li>Marque estes escopos:
+              <ul>
+                <li><code>shipping-calculate</code> — Cotação de fretes</li>
+                <li><code>shipping-generate</code> — Geração de novas etiquetas</li>
+                <li><code>shipping-checkout</code> — Compra (usa saldo da carteira)</li>
+                <li><code>shipping-print</code> — Impressão de etiquetas</li>
+              </ul>
+            </li>
+            <li>Cole o token no campo acima e informe o <strong>CEP de origem</strong> (de onde você despacha) e o <strong>peso médio</strong> dos seus pacotes.</li>
+            <li>A IA passa a calcular o frete na hora e — com os escopos completos — você consegue gerar etiqueta com 1 clique no Painel de Vendas.</li>
+          </ol>
+          <p class="integration-help-note info">Se você já tem um token só com <code>shipping-calculate</code>, o cálculo de frete continua funcionando. Só a geração de etiqueta pede os 3 escopos extras — regenere o token no Melhor Envio marcando todos.</p>
+        </details>
+      </div>
+
+      <!-- Bling ERP -->
+      <div class="integration-card" id="integration-bling">
+        <div class="integration-header">
+          <div class="integration-logo" style="background:#F97316;">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="white" aria-hidden="true">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4-3c0 1.66-1.34 3-3 3h-1v-2h1c.55 0 1-.45 1-1v-1c0-.55-.45-1-1-1H9V8h3c1.66 0 3 1.34 3 3v2z"/>
+            </svg>
+          </div>
+          <div class="integration-header-text">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <h3 class="integration-title">Bling ERP</h3>
+              <span class="badge badge-warning text-xs">Elite</span>
+              <span class="badge badge-gray text-xs" id="badge-bling">Não conectado</span>
+            </div>
+            <p class="integration-subtitle">Sincroniza produtos/estoque e envia vendas fechadas para emissão de nota fiscal.</p>
+          </div>
+        </div>
+
+        <div id="bling-oauth-section" style="display:none;">
+          <div id="bling-connected-box" style="display:none; align-items:center; gap:12px; padding:12px 16px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; margin-bottom:12px;">
+            <i data-lucide="check-circle" style="color:#16a34a; flex-shrink:0; width:20px; height:20px;"></i>
+            <div>
+              <div style="font-weight:600; color:#15803d; font-size:0.9rem;">Bling conectado</div>
+              <div style="font-size:0.8rem; color:#166534;">Produtos e estoque são sincronizados automaticamente a cada 15 min.</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <a href="/api/bling/oauth/start" id="bling-oauth-btn" class="btn btn-secondary" style="text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
+              <i data-lucide="link" style="width:16px;height:16px;"></i>
+              Conectar com Bling
+            </a>
+            <button type="button" id="bling-import-products-btn" class="btn btn-primary" style="display:none;"><i data-lucide="download"></i> Importar Produtos</button>
+            <button type="button" id="bling-disconnect-btn" class="btn btn-secondary" style="display:none;">Desconectar</button>
+          </div>
+          <div class="form-hint mt-2">Disponível nos planos Elite e Especial. Autorize o Zapien a ler produtos/estoque e criar pedidos de venda na sua conta Bling.</div>
+        </div>
+        <div id="bling-not-available" class="form-hint" style="display:none;">Disponível nos planos Elite e Especial — faça upgrade para conectar.</div>
+        <details class="integration-help">
+          <summary>Como usar</summary>
+          <ol>
+            <li>Tenha uma conta Bling ativa (planos a partir de R$ 30/mês em bling.com.br).</li>
+            <li>Clique em <strong>Conectar com Bling</strong> — autorização via OAuth (sem copiar tokens).</li>
+            <li>Autorize os escopos de produtos e pedidos.</li>
+            <li>Use <strong>Importar Produtos</strong> para trazer seu catálogo Bling pro Zapien de uma vez.</li>
+            <li>Cada pedido pago vira uma venda no Bling, com o estoque baixado. Depois é só emitir NF-e/NFC-e por lá.</li>
+          </ol>
+          <p class="integration-help-note">Importante: o <strong>SKU do produto</strong> precisa ser idêntico no Bling e no Zapien — é o que identifica cada item na hora de sincronizar estoque e pedidos.</p>
+        </details>
+      </div>
+
+      <!-- Nuvemshop -->
+      <div class="integration-card">
+        <div class="integration-header">
+          <div class="integration-logo" style="background:#6363F5;">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="white" aria-hidden="true">
+              <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/>
+            </svg>
+          </div>
+          <div class="integration-header-text">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <h3 class="integration-title">Nuvemshop</h3>
+              <span class="badge badge-warning text-xs">Elite</span>
+              <span class="badge badge-gray text-xs" id="badge-nuvemshop">Não conectado</span>
+            </div>
+            <p class="integration-subtitle">Sincroniza produtos e estoque da sua loja Nuvemshop automaticamente.</p>
+          </div>
+        </div>
+
+        <div id="nuvemshop-oauth-section" style="display:none;">
+          <div id="nuvemshop-connected-box" style="display:none; align-items:center; gap:12px; padding:12px 16px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; margin-bottom:12px;">
+            <i data-lucide="check-circle" style="color:#16a34a; flex-shrink:0; width:20px; height:20px;"></i>
+            <div>
+              <div style="font-weight:600; color:#15803d; font-size:0.9rem;">Nuvemshop conectada</div>
+              <div style="font-size:0.8rem; color:#166534;">Produtos e estoque são sincronizados automaticamente a cada 15 min.</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <a href="/api/nuvemshop/oauth/start" id="nuvemshop-oauth-btn" class="btn btn-secondary" style="text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
+              <i data-lucide="link" style="width:16px;height:16px;"></i>
+              Conectar com Nuvemshop
+            </a>
+            <button type="button" id="nuvemshop-disconnect-btn" class="btn btn-secondary" style="display:none;">Desconectar</button>
+          </div>
+          <div class="form-hint mt-2">Disponível nos planos Elite e Especial. Autorize o Zapien a ler produtos/estoque da sua loja Nuvemshop.</div>
+        </div>
+        <div id="nuvemshop-not-available" class="form-hint" style="display:none;">Disponível nos planos Elite e Especial — faça upgrade para conectar.</div>
+        <details class="integration-help">
+          <summary>Como usar</summary>
+          <ol>
+            <li>Tenha uma loja ativa na Nuvemshop.</li>
+            <li>Clique em <strong>Conectar com Nuvemshop</strong>. A autorização é OAuth (sem copiar chaves).</li>
+            <li>Autorize a leitura de produtos e pedidos.</li>
+            <li>Seu catálogo aparece automaticamente no Zapien e a sincronização de estoque roda a cada 15 min.</li>
+            <li>Quando o cliente comprar pela IA no WhatsApp, o pedido também aparece no seu admin Nuvemshop.</li>
+          </ol>
+        </details>
+      </div>
+
+      <!-- Hotmart -->
+      <div class="integration-card" id="integration-hotmart">
+        <div class="integration-header">
+          <div class="integration-logo" style="background:#F04E23;">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="white" aria-hidden="true">
+              <path d="M13.5 0.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z"/>
+            </svg>
+          </div>
+          <div class="integration-header-text">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <h3 class="integration-title">Hotmart</h3>
+              <span class="badge badge-warning text-xs">Elite</span>
+              <span class="badge badge-gray text-xs" id="badge-hotmart">Não conectado</span>
+            </div>
+            <p class="integration-subtitle">Confirma vendas de produtos digitais aprovadas no Hotmart e entrega o acesso automaticamente pelo WhatsApp.</p>
+          </div>
+        </div>
+
+        <div id="hotmart-section" style="display:none;">
+          <div id="hotmart-connected-box" style="display:none; align-items:center; gap:12px; padding:12px 16px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; margin-bottom:12px;">
+            <i data-lucide="check-circle" style="color:#16a34a; flex-shrink:0; width:20px; height:20px;"></i>
+            <div style="font-weight:600; color:#15803d; font-size:0.9rem;">Hotmart conectado</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">URL do webhook (cole no painel do Hotmart)</label>
+            <input type="text" class="form-input" id="hotmart-webhook-url" readonly>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Hottok (token do webhook do Hotmart)</label>
+            <input type="password" class="form-input" id="hotmart-hottok" placeholder="Cole o Hottok aqui">
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <button type="button" class="btn btn-primary" id="hotmart-save-btn">Salvar</button>
+            <button type="button" id="hotmart-disconnect-btn" class="btn btn-secondary" style="display:none;">Desconectar</button>
+          </div>
+          <div class="form-hint mt-2">No painel do Hotmart, cadastre a URL acima em Ferramentas → Webhook, usando o mesmo Hottok.</div>
+        </div>
+        <div id="hotmart-not-available" class="form-hint" style="display:none;">Disponível nos planos Elite e Especial — faça upgrade para conectar.</div>
+        <details class="integration-help">
+          <summary>Como usar</summary>
+          <ol>
+            <li>No painel do Hotmart, entre em <strong>Ferramentas → Webhook</strong>.</li>
+            <li>Crie um novo webhook usando a URL exibida no campo acima e um <strong>Hottok</strong> (senha que só você e o Zapien conhecem).</li>
+            <li>Cole o mesmo Hottok no campo aqui e salve.</li>
+            <li>A cada venda aprovada, o Zapien envia o link/acesso do produto digital ao cliente pelo WhatsApp automaticamente.</li>
+          </ol>
+        </details>
+      </div>
+
+      <!-- PrintNode -->
+      <div class="integration-card" id="integration-printnode">
+        <div class="integration-header">
+          <div class="integration-logo" style="background:#1a1a2e;">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="white" aria-hidden="true">
+              <path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/>
+            </svg>
+          </div>
+          <div class="integration-header-text">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <h3 class="integration-title">PrintNode</h3>
+              <span class="badge badge-gray text-xs" id="badge-printnode">Não configurado</span>
+            </div>
+            <p class="integration-subtitle">Imprime comandas em impressoras térmicas na cozinha/balcão ao receber um pedido.</p>
+          </div>
+        </div>
+
+        <div id="printnode-connected-box" style="display:none; align-items:center; gap:12px; padding:12px 16px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; margin-bottom:12px;">
+          <i data-lucide="check-circle" style="color:#16a34a; flex-shrink:0; width:20px; height:20px;"></i>
+          <div>
+            <div style="font-weight:600; color:#15803d; font-size:0.9rem;">PrintNode configurado</div>
+            <div style="font-size:0.8rem; color:#166534;">Comandas serão impressas automaticamente ao clicar em "Imprimir" no painel de vendas.</div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Chave de API (deixe em branco para manter)</label>
+          <input type="password" class="form-input" id="printnode-api-key" placeholder="Cole sua API Key do PrintNode">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Impressora</label>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <select class="form-select" id="printnode-printer-id" style="flex:1;min-width:180px;">
+              <option value="">Selecione uma impressora...</option>
+            </select>
+            <button type="button" class="btn btn-secondary" id="printnode-load-printers-btn">
+              <i data-lucide="refresh-cw"></i> Carregar
+            </button>
+          </div>
+          <div class="form-hint">Clique em "Carregar" para buscar as impressoras disponíveis na sua conta PrintNode.</div>
+        </div>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <button type="button" class="btn btn-primary" id="printnode-save-btn">Salvar</button>
+          <button type="button" id="printnode-disconnect-btn" class="btn btn-secondary" style="display:none;">Desconectar</button>
+        </div>
+        <div class="form-hint mt-2">
+          Crie uma conta gratuita em <a href="https://app.printnode.com" target="_blank" rel="noopener">app.printnode.com</a>,
+          instale o cliente no computador conectado à impressora e use a chave de API gerada lá.
+        </div>
+        <details class="integration-help">
+          <summary>Como usar</summary>
+          <ol>
+            <li>Crie conta grátis em <strong>app.printnode.com</strong> e instale o app PrintNode no computador conectado à impressora térmica.</li>
+            <li>Em <strong>API Keys</strong>, gere uma chave e cole no campo acima.</li>
+            <li>Clique em <strong>Carregar</strong> para listar as impressoras disponíveis e escolha a sua.</li>
+            <li>A cada pedido pago, a comanda é impressa automaticamente — perfeito pra restaurantes, lanchonetes e delivery.</li>
+          </ol>
+        </details>
+      </div>
+      </div><!-- .integration-section-body -->
+      </section>
+
+      <section class="integration-section">
+        <div class="category-card" data-target="marketing-body">
+          <div class="category-card-info">
+            <h2 class="category-card-title">Marketing</h2>
+            <p class="category-card-subtitle">Templates aprovados no WhatsApp Business API, usados nas campanhas segmentadas do Painel de Vendas.</p>
+          </div>
+          <i data-lucide="chevron-down" class="category-chevron"></i>
+        </div>
+        <div class="integration-section-body" id="marketing-body" style="display:none;">
+        <div class="integration-card-grid">
+      <!-- Templates de Mensagem (WhatsApp Business API) -->
+      <div class="integration-card" id="whatsapp-templates">
+        <div class="integration-header">
+          <div class="integration-logo" style="background:#25D366;">
+            <i data-lucide="quote" style="color:white;width:22px;height:22px;"></i>
+          </div>
+          <div class="integration-header-text">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <h3 class="integration-title">Templates de Mensagem</h3>
+              <span class="badge badge-warning text-xs">Elite</span>
+            </div>
+            <p class="integration-subtitle">Cadastre aqui os templates que você já aprovou no Meta Business Manager — eles ficam disponíveis para as campanhas segmentadas.</p>
+          </div>
+        </div>
+
+        <div id="templates-section" style="display:none;">
+          <div id="templates-list" class="flex flex-col gap-2 mb-3"></div>
+
+          <div class="form-group">
+            <label class="form-label">Nome do template (exatamente como aprovado)</label>
+            <input type="text" class="form-input" id="template-nome" placeholder="ex: recompra_v1">
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <div class="form-group" style="flex:1;min-width:120px;">
+              <label class="form-label">Idioma</label>
+              <input type="text" class="form-input" id="template-idioma" value="pt_BR">
+            </div>
+            <div class="form-group" style="flex:1;min-width:160px;">
+              <label class="form-label">Categoria</label>
+              <select class="form-select" id="template-categoria">
+                <option value="marketing">Marketing</option>
+                <option value="utility">Utilidade</option>
+                <option value="authentication">Autenticação</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Corpo aprovado (use {{1}}, {{2}}... para as variáveis)</label>
+            <textarea class="form-input" id="template-corpo" rows="3" placeholder="Oi {{1}}, notamos que já faz um tempo desde sua última compra de {{2}}..."></textarea>
+          </div>
+          <button type="button" class="btn btn-primary" id="template-add-btn">Adicionar template</button>
+        </div>
+        <div id="templates-not-available" class="form-hint" style="display:none;">Disponível nos planos Elite e Especial — faça upgrade para cadastrar templates e usar campanhas segmentadas.</div>
+        <details class="integration-help">
+          <summary>Como usar</summary>
+          <ol>
+            <li>No Meta Business Manager, cadastre e envie o template para aprovação (regra do WhatsApp: mensagens fora da janela de 24h precisam de template).</li>
+            <li>Espere a aprovação (normalmente algumas horas até 1 dia).</li>
+            <li>Cadastre aqui o <strong>mesmo nome, idioma e corpo</strong> aprovados — o Zapien usa esses templates nas campanhas segmentadas do Painel de Vendas.</li>
+            <li>Use variáveis <code>{{1}}</code>, <code>{{2}}</code> para personalizar (nome do cliente, produto, valor).</li>
+          </ol>
+          <p class="integration-help-note info">Sem template, o Zapien só consegue responder quem falou com você nas últimas 24h.</p>
+        </details>
+      </div>
+      </div><!-- .integration-section-body -->
+      </section>
+
+      <section class="integration-section">
+        <div class="category-card" data-target="avancado-body">
+          <div class="category-card-info">
+            <h2 class="category-card-title">Avançado</h2>
+            <p class="category-card-subtitle">Conecte o Zapien com Make, Zapier, Pluga, CRMs ou sistemas próprios.</p>
+          </div>
+          <i data-lucide="chevron-down" class="category-chevron"></i>
+        </div>
+        <div class="integration-section-body" id="avancado-body" style="display:none;">
+        <div class="integration-card-grid">
+      <!-- Meta Conversions API (CAPI) -->
+      <div class="integration-card">
+        <div class="integration-header">
+          <div class="integration-logo" style="background:#1877F2;">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="white" aria-hidden="true">
+              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+            </svg>
+          </div>
+          <div class="integration-header-text">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <h3 class="integration-title">Meta Conversions API (CAPI)</h3>
+              <span class="badge badge-gray text-xs" id="badge-meta-capi">Desconectado</span>
+            </div>
+            <p class="integration-subtitle">Rastreie conversões de anúncios (Lead, Purchase...) diretamente dos chats do WhatsApp.</p>
+          </div>
+        </div>
+        <div class="integration-body" style="padding-top:16px;">
+          <div id="meta-capi-fields" style="display:none;">
+            <label style="display:flex; align-items:center; gap:8px; margin-bottom:12px; font-size:0.85rem; font-weight: 600;">
+              <input type="checkbox" id="capi_enabled"> Conversions API Ativa
+            </label>
+            <div class="form-group">
+              <label class="form-label" for="capi_pixel_id">Pixel ID da Meta</label>
+              <input type="text" class="form-input" id="capi_pixel_id" placeholder="ex: 120205830201">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="capi_access_token">Access Token da Meta (CAPI)</label>
+              <input type="password" class="form-input" id="capi_access_token" placeholder="ex: EAABw...">
+              <div class="form-hint" id="capi_token_hint" style="display:none;">Token salvo com sucesso (criptografado). Deixe em branco para manter.</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="capi_test_code">Código de Evento de Teste (opcional)</label>
+              <input type="text" class="form-input" id="capi_test_code" placeholder="ex: TEST12345">
+              <div class="form-hint">Usado para depurar eventos no Gerenciador de Eventos da Meta. Remova em produção.</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="capi_graph_version">Versão da Graph API (padrão v21.0)</label>
+              <input type="text" class="form-input" id="capi_graph_version" placeholder="v21.0" value="v21.0">
+            </div>
+
+            <!-- Test section -->
+            <div style="display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap;">
+              <button type="button" id="meta-capi-test-btn" class="btn btn-secondary">Enviar evento de teste</button>
+              <span id="meta-capi-test-result" class="form-hint" style="margin:0;"></span>
+            </div>
+
+            <!-- Health Status -->
+            <div id="meta-capi-status-box" style="display:none; padding:12px; background:var(--gray-50); border:1px solid var(--border-color); border-radius:8px; font-size:0.8rem; line-height:1.4;">
+              <div style="font-weight:600; margin-bottom:4px; color:var(--gray-800);">Status da Entrega (CAPI)</div>
+              <div>Sucessos (últimas 24h): <span id="capi-status-success-24h" style="font-weight:600;">0</span></div>
+              <div>Jobs pendentes na fila: <span id="capi-status-pending" style="font-weight:600;">0</span></div>
+              <div id="capi-status-last-completed-row">Último envio com sucesso: <span id="capi-status-last-completed">—</span></div>
+              <div id="capi-status-last-error-row" style="color:var(--danger-color); display:none;">Último erro crítico: <span id="capi-status-last-error">—</span></div>
+            </div>
+          </div>
+          <div id="meta-capi-not-available" class="form-hint" style="display:none;">Disponível nos planos Elite e Especial — faça upgrade para conectar.</div>
+          <details class="integration-help">
+            <summary>Como usar</summary>
+            <ol>
+              <li>Acesse o <strong>Gerenciador de Eventos da Meta</strong> e copie o ID do seu Pixel.</li>
+              <li>Vá em <strong>Configurações</strong> no Gerenciador de Eventos, role até a seção da Conversions API e gere um <strong>Token de Acesso</strong>.</li>
+              <li>Insira os dados acima e salve as configurações de integração.</li>
+              <li>Use o <strong>Código de Evento de Teste</strong> para validar que os eventos aparecem em tempo real no Gerenciador de Eventos da Meta.</li>
+            </ol>
+          </details>
+        </div>
+      </div>
+
+      <!-- Webhook (Zapier / Make) -->
+      <div class="integration-card">
+        <div class="integration-header">
+          <div class="integration-logo" style="background:#6366F1;">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="white" aria-hidden="true">
+              <path d="M13 10h7l-9 13v-9H4l9-13z"/>
+            </svg>
+          </div>
+          <div class="integration-header-text">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <h3 class="integration-title">Webhook (Zapier / Make)</h3>
+              <span class="badge badge-gray text-xs" id="badge-webhook">Não configurado</span>
+            </div>
+            <p class="integration-subtitle">Receba eventos (venda paga, novo contato, pedido de humano) na sua própria automação.</p>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">URL do webhook</label>
+          <input type="url" class="form-input" id="webhook_url" placeholder="https://hooks.zapier.com/hooks/catch/...">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Assinatura (HMAC) — mostrada só uma vez ao gerar</label>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input type="text" class="form-input" id="webhook_secret_display" placeholder="Clique em Gerar para criar" readonly>
+            <button type="button" id="webhook-regenerate-btn" class="btn btn-secondary" style="white-space:nowrap;">Gerar/Regenerar</button>
+          </div>
+          <div class="form-hint">Envie este valor como segredo no seu Zapier/Make — usado para validar a assinatura <code>X-Zapien-Signature</code> de cada evento.</div>
+        </div>
+        <label style="display:flex; align-items:center; gap:8px; margin-bottom:12px; font-size:0.85rem;">
+          <input type="checkbox" id="webhook_enabled" checked> Webhook ativo
+        </label>
+        <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+          <button type="button" id="webhook-test-btn" class="btn btn-secondary">Enviar evento de teste</button>
+          <span id="webhook-test-result" class="form-hint" style="margin:0;"></span>
+        </div>
+        <div id="webhook-log-area" class="form-hint"></div>
+        <details class="integration-help">
+          <summary>Como usar</summary>
+          <ol>
+            <li>Crie um Zap (Zapier) ou Cenário (Make) começando com <strong>Webhooks by Zapier → Catch Hook</strong>.</li>
+            <li>Copie a URL gerada e cole no campo acima.</li>
+            <li>Clique em <strong>Gerar/Regenerar</strong> para criar uma assinatura HMAC — configure ela como segredo no seu Zap/Cenário para validar a origem.</li>
+            <li>Use <strong>Enviar evento de teste</strong> para conferir se o Zapier/Make recebe os campos.</li>
+            <li>Cada venda paga, novo contato ou pedido de humano dispara o webhook em tempo real.</li>
+          </ol>
+        </details>
+      </div>
+      </div><!-- .integration-section-body -->
+      </section>
+      <!-- Salvar configurações de integração -->
+      <div class="integrations-save-row">
+        <button class="btn btn-primary" id="integrationsSaveBtn">
+          <i data-lucide="save"></i> Salvar configurações
+        </button>
+      </div>
+
+    </div><!-- /.app-content -->
+  </main>
+
+  <!-- Mobile Bottom Nav (5 items) -->
+  <nav class="mobile-bottom-nav">
+    <a href="/dashboard.html" class="bottom-nav-item">
+      <i data-lucide="layout-dashboard"></i>
+      <span>Início</span>
+    </a>
+    <a href="/vendas.html" class="bottom-nav-item">
+      <i data-lucide="trending-up"></i>
+      <span>Vendas</span>
+    </a>
+    <a href="/avisos.html" class="bottom-nav-item" style="position:relative;">
+      <i data-lucide="bell"></i>
+      <span>Avisos</span>
+      <span class="nav-badge hidden" id="bottomNavUnread"></span>
+    </a>
+    <a href="/settings.html" class="bottom-nav-item">
+      <i data-lucide="settings"></i>
+      <span>Configurar</span>
+    </a>
+    <button type="button" class="bottom-nav-item active" id="bottom-nav-more" aria-haspopup="true" aria-expanded="false">
+      <i data-lucide="grid-2x2"></i>
+      <span>Mais</span>
+    </button>
+  </nav>
+
+</div>
+
+<!-- "Mais" Bottom Sheet -->
+<div id="more-sheet-overlay" class="more-sheet-overlay" aria-hidden="true" role="dialog" aria-label="Menu adicional" style="display:none;">
+  <div class="more-sheet">
+    <div class="more-sheet-handle"></div>
+    <nav class="more-sheet-nav" aria-label="Navegação adicional">
+      <a href="/automations.html" class="more-sheet-item">
+        <i data-lucide="zap"></i>
+        <span>Automações</span>
+      </a>
+      <a href="/marketing.html" class="more-sheet-item">
+        <i data-lucide="megaphone"></i>
+        <span>Marketing</span>
+      </a>
+      <a href="/integrations.html" class="more-sheet-item active">
+        <i data-lucide="plug"></i>
+        <span>Integrações</span>
+      </a>
+      <a href="/plans.html" class="more-sheet-item">
+        <i data-lucide="credit-card"></i>
+        <span>Planos</span>
+      </a>
+      <a href="#" target="_blank" rel="noopener" class="more-sheet-item" id="moreSheetSupport" style="display:none;">
+        <i data-lucide="message-circle"></i>
+        <span>Suporte</span>
+      </a>
+      <a href="/admin.html" class="more-sheet-item" id="moreSheetAdmin" style="display:none;">
+        <i data-lucide="shield"></i>
+        <span>Admin</span>
+      </a>
+    </nav>
+  </div>
+</div>
+
+<script src="/vendor/lucide.min.js"></script>
+<script src="/js/ui.js?v=more-sheet-v2"></script>
+<script src="/js/pages/integrations.js?v=smart-guide-v1?v=alert-center-v1"></script>
+<script src="/js/wa-qr.js"></script>
+</body>
+</html>

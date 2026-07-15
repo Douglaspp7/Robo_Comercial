@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Primeiros passos — Zapien</title>
+  <link rel="icon" href="/favicon.ico?v=9">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/reset.css">
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/pages/onboarding.css?v=onboarding-chat-v2">
+</head>
+<body>
+  <main class="onboarding-shell">
+    <header class="onboarding-header">
+      <img src="/assets/logo.png?v=9" alt="Zapien" class="onboarding-logo">
+      <button type="button" class="text-button" id="leaveBtn">Continuar depois</button>
+    </header>
+
+    <section class="wizard-card" aria-labelledby="wizardTitle">
+      <div class="wizard-progress-row">
+        <span id="stepLabel">Passo 1 de 6</span>
+        <span id="progressLabel">17%</span>
+      </div>
+      <div class="wizard-progress"><div id="progressBar"></div></div>
+
+      <div id="statusMessage" class="status-message" role="status" aria-live="polite"></div>
+
+      <section class="wizard-step active" data-step="1">
+        <p class="eyebrow">Uma pergunta de cada vez</p>
+        <h1 id="wizardTitle">Qual tipo de negócio você tem?</h1>
+        <p class="lead">Isso ajuda a Zapien a usar exemplos e sugestões que combinam com sua rotina.</p>
+        <div class="choice-grid business-type-grid" id="businessTypeGrid">
+          <button type="button" class="choice-card choice-button" data-business-type="loja">
+            <strong>Loja e produtos</strong><span>Roupas, cosméticos, decoração, autopeças e outros produtos.</span>
+          </button>
+          <button type="button" class="choice-card choice-button" data-business-type="servicos">
+            <strong>Serviços</strong><span>Consultoria, manutenção, beleza, saúde, aulas e agendamentos.</span>
+          </button>
+          <button type="button" class="choice-card choice-button" data-business-type="alimentacao">
+            <strong>Alimentação</strong><span>Restaurante, pizzaria, confeitaria, delivery ou cardápio.</span>
+          </button>
+          <button type="button" class="choice-card choice-button" data-business-type="digital">
+            <strong>Produtos digitais</strong><span>Cursos, mentorias, comunidades, assinaturas e infoprodutos.</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="wizard-step" data-step="2">
+        <p class="eyebrow">Agora fale como você falaria</p>
+        <h1>Como se chama e o que seu negócio oferece?</h1>
+        <p class="lead" id="descriptionHelp">Uma frase já basta. A Zapien organiza isso para você.</p>
+        <label class="field">
+          <span>Nome do negócio <small>opcional</small></span>
+          <input id="businessName" class="form-input" placeholder="Ex.: Loja da Ana" autocomplete="organization">
+        </label>
+        <label class="field">
+          <span>Conte em uma frase <small>pode escrever do seu jeito</small></span>
+          <textarea id="description" class="form-textarea" rows="5" placeholder="Ex.: Vendo roupas femininas e entrego na Baixada Santista."></textarea>
+        </label>
+        <div class="tip">Não precisa usar palavras técnicas nem escrever perfeito. Você poderá revisar tudo depois.</div>
+      </section>
+
+      <section class="wizard-step" data-step="3">
+        <p class="eyebrow">Produtos e serviços</p>
+        <h1>Como você prefere ensinar à IA o que vende?</h1>
+        <p class="lead">Escolha apenas o caminho mais fácil para você. O cadastro será feito depois desta entrevista.</p>
+        <div class="choice-grid" id="productMethodGrid">
+          <button type="button" class="choice-card choice-button" data-product-method="catalogo">
+            <strong>Enviar meu catálogo</strong><span>PDF, cardápio ou documento que você já utiliza.</span>
+          </button>
+          <button type="button" class="choice-card choice-button" data-product-method="manual">
+            <strong>Cadastrar aos poucos</strong><span>Começar com apenas um produto ou serviço.</span>
+          </button>
+          <button type="button" class="choice-card choice-button" data-product-method="depois">
+            <strong>Decidir depois</strong><span>Continuar preparando a atendente sem cadastrar agora.</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="wizard-step" data-step="4">
+        <p class="eyebrow">Personalidade da atendente</p>
+        <h1>Como sua IA deve conversar?</h1>
+        <p class="lead">Escolha uma opção pronta. A Zapien já escreve as instruções por você.</p>
+        <div class="tone-grid" role="radiogroup" aria-label="Tom de voz">
+          <label class="tone-card"><input type="radio" name="tone" value="Amigável, simples e prestativa, como uma conversa natural no WhatsApp." checked><span><strong>Amigável</strong><small>Próxima e fácil de entender</small></span></label>
+          <label class="tone-card"><input type="radio" name="tone" value="Objetiva, clara e profissional. Responda de forma curta e vá direto ao que o cliente precisa."><span><strong>Objetiva</strong><small>Rápida e direta</small></span></label>
+          <label class="tone-card"><input type="radio" name="tone" value="Consultiva, atenciosa e profissional. Faça perguntas para entender a necessidade antes de recomendar."><span><strong>Consultiva</strong><small>Ajuda o cliente a escolher</small></span></label>
+        </div>
+        <label class="field compact"><span>Nome da atendente <small>opcional</small></span><input id="assistantName" class="form-input" value="Ana" placeholder="Ex.: Ana"></label>
+      </section>
+
+      <section class="wizard-step" data-step="5">
+        <p class="eyebrow">Teste sem risco</p>
+        <h1>Converse com sua atendente agora</h1>
+        <p class="lead">É uma simulação privada: nenhuma mensagem será enviada ao WhatsApp ou a clientes.</p>
+
+        <div class="test-suggestions" id="testSuggestions" aria-label="Mensagens sugeridas">
+          <button type="button" data-test-message="Olá! Quero conhecer o que vocês oferecem.">Quero conhecer as opções</button>
+          <button type="button" data-test-message="Qual produto ou serviço você recomenda para mim?">Peça uma recomendação</button>
+          <button type="button" data-test-message="Como funciona o pagamento?">Pergunte sobre pagamento</button>
+        </div>
+
+        <div class="onboarding-chat" id="testChat" aria-live="polite">
+          <div class="chat-empty" id="testChatEmpty">
+            <img src="/assets/ai-avatar.png?v=1" class="ai-avatar-lg" alt="Atendente IA">
+            <strong id="previewName">Ana</strong>
+            <p id="previewText">Escolha uma sugestão acima ou escreva uma mensagem como se fosse um cliente real.</p>
+          </div>
+          <div id="testMessages" class="test-messages"></div>
+          <div id="testTyping" class="test-typing" hidden><span></span><span></span><span></span> respondendo…</div>
+        </div>
+
+        <div class="test-compose">
+          <input id="testInput" class="form-input" maxlength="500" placeholder="Escreva como se fosse um cliente…">
+          <button type="button" class="btn btn-primary" id="testSendBtn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+        <p class="muted-center">Simulação privada — nenhum cliente será contactado.</p>
+      </section>
+
+      <section class="wizard-step" data-step="6">
+        <p class="eyebrow">Entrevista concluída</p>
+        <h1>Ótimo, já sabemos por onde começar</h1>
+        <p class="lead">Confira o resumo. O painel mostrará somente o próximo passo necessário.</p>
+        <ul class="summary-list" id="summaryList"></ul>
+        <div class="finish-note" id="finishNote"><strong>Próximo passo:</strong> adicionar o primeiro produto ou serviço.</div>
+      </section>
+
+      <footer class="wizard-actions">
+        <button type="button" class="btn btn-secondary" id="backBtn">Voltar</button>
+        <button type="button" class="text-button skip-button" id="skipBtn">Fazer depois</button>
+        <button type="button" class="btn btn-primary" id="nextBtn">Salvar e continuar</button>
+      </footer>
+    </section>
+    <p class="autosave-note">Seu progresso fica salvo neste aparelho. As informações do negócio são salvas na sua conta ao avançar.</p>
+  </main>
+  <script src="/js/pages/onboarding.js?v=onboarding-chat-v2"></script>
+</body>
+</html>

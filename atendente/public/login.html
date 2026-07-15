@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zapien — Atendente de vendas com IA para WhatsApp</title>
+  <meta name="description" content="Agente comercial com IA para WhatsApp. Atende clientes, qualifica leads e gerencia todo o funil de vendas — do primeiro contato ao fechamento.">
+
+  <!-- Open Graph / WhatsApp / redes sociais -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://zapien.app/">
+  <meta property="og:title" content="Zapien — Atendente de vendas com IA para WhatsApp">
+  <meta property="og:description" content="Agente comercial com IA para WhatsApp. Atende clientes, qualifica leads e gerencia todo o funil de vendas — do primeiro contato ao fechamento.">
+  <meta property="og:image" content="https://zapien.app/images/og-image.png">
+  <meta property="og:image:width" content="1424">
+  <meta property="og:image:height" content="752">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:site_name" content="Zapien">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Zapien — Atendente de vendas com IA para WhatsApp">
+  <meta name="twitter:description" content="Agente comercial com IA para WhatsApp. Funil de vendas, CRM e atendimento automático.">
+  <meta name="twitter:image" content="https://zapien.app/images/og-image.png">
+
+  <link rel="icon" href="/favicon.ico?v=9" type="image/x-icon">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/reset.css" />
+  <link rel="stylesheet" href="/css/tokens.css" />
+  <link rel="stylesheet" href="/css/components.css" />
+  <link rel="stylesheet" href="/css/pages/login.css?v=2" />
+  <style>
+    .spin { animation: spin 1s linear infinite; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<div class="login-layout">
+  
+  <div class="login-aside">
+    <div class="login-aside-content">
+      <a href="/" class="login-aside-logo">
+        <div class="login-aside-logo-pill">
+          <img src="/assets/logo.png?v=9" alt="Zapien Logo" />
+        </div>
+      </a>
+      
+      <h2>Venda no automático enquanto você dorme</h2>
+      <p style="font-size:1.125rem; color:var(--brand-100); line-height:1.6;">
+        Junte-se a milhares de negócios que usam IA para qualificar leads, apresentar produtos e gerar links de pagamento diretamente no WhatsApp.
+      </p>
+      
+      <div class="login-features">
+        <div class="login-feature">
+          <i data-lucide="clock"></i> Atendimento instantâneo 24h
+        </div>
+        <div class="login-feature">
+          <i data-lucide="filter"></i> Funil automático de vendas
+        </div>
+        <div class="login-feature">
+          <i data-lucide="user"></i> Assuma a conversa quando quiser
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="login-main">
+    <div class="login-box">
+      <a href="/" class="mobile-logo">
+        <img src="/assets/logo.png?v=9" alt="Zapien Logo" />
+      </a>
+      
+      <div class="login-header">
+        <h1 class="login-title" id="loginTitle">Bem-vindo de volta</h1>
+        <p class="login-subtitle" id="loginSubtitle">Entre com seus dados para acessar o painel.</p>
+      </div>
+      
+      <div id="signupBadge" class="signup-badge">
+        <i data-lucide="gift"></i>
+        <span>Teste grátis por 7 dias. Sem cartão de crédito.</span>
+      </div>
+      
+      <div class="login-alert" id="errorAlert"></div>
+      <div class="login-alert login-alert-success" id="successAlert" style="display:none; background:#ECFDF5; color:#065F46; border:1px solid #A7F3D0;"></div>
+
+      <form id="loginForm">
+        <div class="form-group" id="emailGroup">
+          <label class="form-label" for="email">E-mail</label>
+          <input class="form-input" type="email" id="email" autocomplete="email" placeholder="seu@email.com" />
+        </div>
+
+        <div class="form-group form-group-password" id="passwordGroup">
+          <div class="flex justify-between items-center">
+            <label class="form-label" for="password"><span id="passwordLabel">Senha</span></label>
+            <a href="#forgot" id="forgotLink" style="font-size:0.75rem; font-weight:500;">Esqueceu a senha?</a>
+          </div>
+          <input class="form-input" type="password" id="password" autocomplete="current-password" placeholder="Sua senha" />
+          <button type="button" class="toggle-password" id="togglePwd" aria-label="Mostrar/ocultar senha">
+            <i data-lucide="eye"></i>
+          </button>
+        </div>
+
+        <div class="form-group" id="termsGroup" style="display:none;">
+          <label style="display:flex; align-items:flex-start; gap:8px; font-size:0.8125rem; color:var(--text-secondary); cursor:pointer;">
+            <input type="checkbox" id="acceptTerms" style="margin-top:3px;" />
+            <span>Li e aceito os <a href="/terms-conditions/" target="_blank" rel="noopener">Termos de Uso</a> e a <a href="/privacy-policy/" target="_blank" rel="noopener">Política de Privacidade</a>.</span>
+          </label>
+        </div>
+
+        <button type="submit" id="submitBtn" class="btn btn-primary w-full mt-4" style="padding:12px; font-size:1rem;">Entrar no painel</button>
+      </form>
+
+      <div id="googleSection" style="display:none;">
+        <div class="login-divider"><span>ou</span></div>
+        <a href="/api/auth/google/start" class="btn-google" id="googleBtn">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+            <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+            <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z" fill="#34A853"/>
+            <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+            <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+          </svg>
+          Continuar com Google
+        </a>
+      </div>
+
+      <div class="login-footer">
+        <span id="toggleText">Não tem uma conta?</span>
+        <a href="#" id="toggleLink" style="font-weight:600; margin-left:4px;">Criar conta</a>
+      </div>
+    </div>
+  </div>
+  
+</div>
+
+<script src="/vendor/lucide.min.js"></script>
+<script src="/js/zapien-analytics.js"></script>
+<script src="/js/ui.js"></script>
+<script src="/js/pages/login.js?v=email-verify-v1"></script>
+</body>
+</html>
