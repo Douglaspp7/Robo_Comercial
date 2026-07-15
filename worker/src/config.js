@@ -36,12 +36,16 @@ export const config = {
   minDelaySec: num(process.env.WA_MIN_DELAY_SEC, 30),
   maxDelaySec: num(process.env.WA_MAX_DELAY_SEC, 90),
 
-  // Cota diária de envios (proteção anti-ban). Ao atingir, para até o dia virar.
-  dailyLimit: num(process.env.WA_DAILY_LIMIT, 40),
+  // Cota diária de envios POR CHIP (proteção anti-ban). Ao atingir, para até o
+  // dia virar. 60 é um padrão moderado (2 chips = 120/dia). Cold outreach é
+  // arriscado: ≤60 conservador; 60-100 só em chip aquecido com boa taxa de
+  // resposta; >100 risco alto. Escale com MAIS CHIPS antes de subir por chip.
+  dailyLimit: num(process.env.WA_DAILY_LIMIT, 60),
 
-  // Aquecimento: nos primeiros dias de um número novo, limita ainda mais.
-  // Ex.: "5,10,20" = 5 no 1º dia de uso, 10 no 2º, 20 no 3º, depois dailyLimit.
-  warmupRamp: (process.env.WA_WARMUP_RAMP || "")
+  // Aquecimento: nos primeiros dias de um número novo, limita ainda mais e sobe
+  // gradual até a cota. Ex.: "15,25,40,55" = 15 no 1º dia de uso, 25 no 2º, 40
+  // no 3º, 55 no 4º, depois dailyLimit. Chip novo queima fácil — não pule isto.
+  warmupRamp: (process.env.WA_WARMUP_RAMP || "15,25,40,55")
     .split(",")
     .map((s) => Number(s.trim()))
     .filter((n) => Number.isFinite(n) && n > 0),

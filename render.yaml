@@ -27,9 +27,9 @@ services:
       - key: WA_NUMBERS
         sync: false          # 2+ chips: lista separada por vírgula (ex.: 5511111,5522222). Se preenchido, ignora WA_PAIR_PHONE.
       - key: WA_DAILY_LIMIT
-        value: "40"
+        value: "60"            # por chip (2 chips = 120/dia). Ver faixas de risco no .env.example
       - key: WA_WARMUP_RAMP
-        value: "5,10,20"
+        value: "15,25,40,55"   # aquecimento gradual nos primeiros dias
       - key: WA_MIN_DELAY_SEC
         value: "30"
       - key: WA_MAX_DELAY_SEC

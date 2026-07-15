@@ -28,8 +28,9 @@ O atendente roda em modo gateway e **não tem as credenciais Meta** do Zapien de
 produção. Todo o disparo frio (a atividade de risco) acontece **só nos chips
 dedicados**. Se um chip cair, você perde o chip — nunca o número oficial nem os
 clientes pagantes. Dois cuidados: (1) não vincule os chips e o número central no
-mesmo WhatsApp Business/Meta Business Manager; (2) mantenha os 2 chips a ~40/dia
-cada (o worker já faz com cota + aquecimento por número).
+mesmo WhatsApp Business/Meta Business Manager; (2) mantenha os 2 chips em cota
+moderada (~60/dia cada por padrão; o worker já faz com cota + aquecimento por
+número).
 
 ## Variáveis que ligam os dois lados
 

@@ -89,7 +89,7 @@ Feito isso, siga os passos abaixo (celular → worker → painel).
 Um celular dual-SIM pode rodar **dois WhatsApp** (a conta principal + o
 WhatsApp Business, ou o recurso de duas contas). Registre um número em cada e
 o worker opera os **dois em paralelo** — cada um com cota/aquecimento próprios,
-e a fila é dividida entre eles (ex.: 2 × 40 = **80/dia** no total, com o mesmo
+e a fila é dividida entre eles (ex.: 2 × 60 = **120/dia** no total, com o mesmo
 risco por número). Basta listar os dois em `WA_NUMBERS` (Passo 2).
 
 ## Passo 2 — o worker no Pi
