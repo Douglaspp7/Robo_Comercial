@@ -29,6 +29,9 @@ html, body {
   margin: 0;
 }
 
+/* No Raspberry doméstico não existe sessão para encerrar. */
+.auth-disabled form[action="/api/auth/logout"] { display: none; }
+
 /* Background gradient effect */
 body::before {
   content: "";

@@ -150,6 +150,7 @@ const EMAIL_PRESETS = [
 ];
 
 export default function Home() {
+  const [workspaceTab, setWorkspaceTab] = useState<"contacts" | "campaign" | "results">("contacts");
   const [niche, setNiche] = useState("");
   const [location, setLocation] = useState("");
   const [deepSearch, setDeepSearch] = useState(false);
@@ -303,6 +304,8 @@ export default function Home() {
               "Nenhum contato público encontrado. Tente outra hashtag ou perfis " +
                 "comerciais que tenham WhatsApp/telefone na bio."
             );
+          } else {
+            setWorkspaceTab("campaign");
           }
         } else {
           alert("Erro no Instagram: " + (data.error || "Desconhecido"));
@@ -348,6 +351,7 @@ export default function Home() {
           return [...prev, ...newUnique];
         });
         setNextPageToken(data.nextPageToken);
+        if (data.results.length > 0) setWorkspaceTab("campaign");
       } else {
         alert("Erro ao buscar resultados: " + (data.error || "Desconhecido"));
       }
@@ -444,6 +448,7 @@ export default function Home() {
           return [...prev, ...newUnique];
         });
         setNextPageToken(null);
+        if (parsedData.length > 0) setWorkspaceTab("campaign");
         alert("Planilha importada e adicionada à tabela com sucesso!");
       } catch (err) {
         console.error(err);
@@ -829,6 +834,12 @@ export default function Home() {
     return () => { clearTimeout(initial); clearInterval(id); };
   }, [cloudPanelOpen]);
 
+  // Carrega um resumo inicial para o indicador compacto do WhatsApp.
+  useEffect(() => {
+    const initial = setTimeout(fetchCloudStatus, 0);
+    return () => clearTimeout(initial);
+  }, []);
+
   // Status do atendente Zapien (1x ao abrir a página). setState só no .then
   // (assíncrono) para não incorrer no aviso de setState-em-efeito.
   useEffect(() => {
@@ -1107,7 +1118,31 @@ export default function Home() {
         </form>
       </header>
 
-      <section className="glass-panel">
+      <nav className={styles.workspaceNav} aria-label="Etapas do trabalho">
+        <button className={workspaceTab === "contacts" ? styles.workspaceActive : ""} onClick={() => setWorkspaceTab("contacts")}>
+          <span>1</span> Contatos
+        </button>
+        <button className={workspaceTab === "campaign" ? styles.workspaceActive : ""} onClick={() => setWorkspaceTab("campaign")}>
+          <span>2</span> Campanha {results.length > 0 && <small>{results.length}</small>}
+        </button>
+        <button className={workspaceTab === "results" ? styles.workspaceActive : ""} onClick={() => { setWorkspaceTab("results"); setCloudPanelOpen(true); }}>
+          <span>3</span> Resultados
+        </button>
+      </nav>
+
+      <div className={styles.statusStrip}>
+        <button type="button" onClick={() => setWorkspaceTab("results")}>
+          <i style={{ background: cloudConnMeta.color }} />
+          <span><strong>WhatsApp</strong><small>{cloudConnMeta.label}</small></span>
+        </button>
+        <button type="button" onClick={() => setWorkspaceTab("results")}>
+          <i style={{ background: attendant?.online ? "#22c55e" : "#f59e0b" }} />
+          <span><strong>Conversas</strong><small>{attendant?.online ? "Atendente disponível" : "Verificar atendente"}</small></span>
+        </button>
+        <div><strong>{cloudStatus?.today ?? 0}</strong><small>enviadas hoje</small></div>
+      </div>
+
+      <section className={`glass-panel ${workspaceTab !== "contacts" ? styles.isHidden : ""}`}>
         <form className={styles.searchForm} onSubmit={handleSearch}>
           {/* Seletor de fonte de leads */}
           <div style={{ flexBasis: "100%", display: "flex", gap: "0.5rem", marginBottom: "0.25rem" }}>
@@ -1267,11 +1302,11 @@ export default function Home() {
       </section>
 
       {/* Plano de busca + pool de leads (busca uma vez, dispara os pendentes) */}
-      <section className="glass-panel" style={{ padding: "1.5rem", marginTop: "1rem" }}>
+      <section className={`glass-panel ${workspaceTab !== "contacts" ? styles.isHidden : ""}`} style={{ padding: "1.5rem", marginTop: "1rem" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
-          <h2 className={styles.subtitle} style={{ margin: 0 }}>🎯 Plano de busca</h2>
+          <h2 className={styles.subtitle} style={{ margin: 0 }}>⚙️ Busca automática</h2>
           <button className="btn-secondary" onClick={() => setPlanOpen((o) => !o)}>
-            {planOpen ? "Ocultar" : "Abrir plano"}
+            {planOpen ? "Ocultar" : "Configurar"}
           </button>
         </div>
 
@@ -1280,7 +1315,7 @@ export default function Home() {
             {/* Pool + ações principais */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem", marginBottom: "1rem" }}>
               <div style={{ fontSize: "0.9rem" }}>
-                Pool: <strong>{poolStats?.total ?? 0}</strong> leads
+                  Lista: <strong>{poolStats?.total ?? 0}</strong> contatos
                 {" · "}📱 {poolStats?.whatsapp ?? 0}
                 {" · "}⏳ <strong>{poolStats?.pending_wa ?? 0}</strong> pendentes
                 {" · "}✅ {poolStats?.contacted ?? 0} contatados
@@ -1294,7 +1329,7 @@ export default function Home() {
                 <button className="btn-primary" onClick={dispatchPending} disabled={pendingSending}
                   style={{ background: "#25D366", borderColor: "#25D366", display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
                   {pendingSending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                  Disparar pendentes ({poolStats?.pending_wa ?? 0})
+                  Iniciar campanha ({poolStats?.pending_wa ?? 0})
                 </button>
               </div>
             </div>
@@ -1376,10 +1411,10 @@ export default function Home() {
       </section>
 
       {/* Painel de acompanhamento do robô na nuvem (Pi) */}
-      <section className="glass-panel" style={{ padding: "1.5rem", marginTop: "1rem" }}>
+      <section className={`glass-panel ${workspaceTab !== "results" ? styles.isHidden : ""}`} style={{ padding: "1.5rem", marginTop: "1rem" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
           <h2 className={styles.subtitle} style={{ margin: 0, display: "inline-flex", alignItems: "center", gap: "0.6rem" }}>
-            🤖 Robô na nuvem (Pi)
+            📱 WhatsApp conectado
             {cloudPanelOpen && (
               <span style={{ fontSize: "0.8rem", fontWeight: 600, color: cloudConnMeta.color, display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
                 <span style={{ width: 9, height: 9, borderRadius: "50%", background: cloudConnMeta.color, display: "inline-block" }} />
@@ -1388,7 +1423,7 @@ export default function Home() {
             )}
           </h2>
           <button className="btn-secondary" onClick={() => setCloudPanelOpen((o) => !o)}>
-            {cloudPanelOpen ? "Ocultar" : "Acompanhar disparos"}
+            {cloudPanelOpen ? "Ocultar detalhes" : "Ver campanha"}
           </button>
         </div>
 
@@ -1539,10 +1574,10 @@ export default function Home() {
       {/* Atendente Zapien — o número que vende Zapien. Mostra se está no ar e
           abre o dashboard (onde as respostas caem e você assume a conversa),
           unificando disparo + atendimento numa tela só. */}
-      <section className="glass-panel" style={{ padding: "1.5rem", marginTop: "1rem" }}>
+      <section className={`glass-panel ${workspaceTab !== "results" ? styles.isHidden : ""}`} style={{ padding: "1.5rem", marginTop: "1rem" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
           <h2 className={styles.subtitle} style={{ margin: 0, display: "inline-flex", alignItems: "center", gap: "0.6rem" }}>
-            💬 Atendente Zapien
+            💬 Conversas e oportunidades
             {attendant?.configured && (
               <span style={{ fontSize: "0.8rem", fontWeight: 600, color: attendant.online ? "#22c55e" : "var(--error, #ef4444)", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
                 <span style={{ width: 9, height: 9, borderRadius: "50%", background: attendant.online ? "#22c55e" : "#ef4444", display: "inline-block" }} />
@@ -1574,7 +1609,7 @@ export default function Home() {
       </section>
 
       {results.length > 0 && (
-        <section className="glass-panel" style={{ padding: "2rem" }}>
+        <section className={`glass-panel ${workspaceTab !== "campaign" ? styles.isHidden : ""}`} style={{ padding: "2rem" }}>
           <div className={styles.resultsHeader}>
             <h2 className={styles.subtitle}>
               {results.length} empresas encontradas
@@ -1846,9 +1881,8 @@ export default function Home() {
             {!waRunning && waIndex === 0 && (
               <>
                 <p style={{ fontSize: "0.85rem", color: "var(--text-muted, #888)", marginBottom: "1rem" }}>
-                  {waQueue.length} contato(s) com WhatsApp válido na fila. O envio é semi-automático:
-                  o app abre cada conversa já preenchida na vez certa e você dá o clique final em enviar.
-                  O logo aparece no preview se a URL do app tiver Open Graph configurado.
+                  {waQueue.length} contato(s) com WhatsApp válido. Ao iniciar, a campanha vai para o
+                  Raspberry Pi e continua sozinha, mesmo com este app fechado.
                 </p>
 
                 <div className={styles.inputGroup}>
@@ -1920,6 +1954,9 @@ export default function Home() {
                     </label>
                   )}
                 </div>
+
+                <details className={styles.advancedOptions}>
+                  <summary>Opções avançadas, teste e envio manual</summary>
 
                 {/* Teste de disparo para um número avulso */}
                 <div className={styles.inputGroup} style={{ background: "rgba(37,211,102,0.06)", padding: "0.75rem", borderRadius: "8px" }}>
@@ -2013,34 +2050,30 @@ export default function Home() {
                       Zerar cota de hoje
                     </button>
                   </div>
-                  <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+                  <button
+                    className="btn-secondary"
+                    onClick={startWaCampaign}
+                  >
+                    <Play size={18} /> Usar envio manual pelo navegador
+                  </button>
+                </div>
+                </details>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem", marginTop: "1.25rem", flexWrap: "wrap" }}>
                   <button className="btn-secondary" onClick={() => setIsWaModalOpen(false)}>
                     Cancelar
                   </button>
                   <button
-                    className="btn-secondary"
+                    className="btn-primary"
                     onClick={sendCloudCampaign}
                     disabled={cloudSending}
                     title="Envia a fila para o worker no Raspberry Pi, que dispara sozinho 24/7"
-                    style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}
+                    style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", background: "#25D366", borderColor: "#25D366" }}
                   >
                     {cloudSending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-                    {cloudSending ? "Enviando..." : "Disparar na nuvem (Pi)"}
+                    {cloudSending ? "Enviando..." : "Iniciar campanha no Pi"}
                   </button>
-                  <button
-                    className="btn-primary"
-                    onClick={startWaCampaign}
-                    style={{ background: "#25D366", borderColor: "#25D366" }}
-                  >
-                    <Play size={18} /> Iniciar disparo
-                  </button>
-                  </div>
                 </div>
-                <p style={{ fontSize: "0.8rem", color: "var(--text-muted, #888)", marginTop: "0.75rem" }}>
-                  <strong>Iniciar disparo</strong>: semi-automático, aqui no navegador (abre cada conversa
-                  para você clicar). <strong>Disparar na nuvem (Pi)</strong>: manda a fila para o robô no
-                  Raspberry Pi, que envia sozinho 24/7 — não precisa deixar o computador ligado.
-                </p>
               </>
             )}
 
