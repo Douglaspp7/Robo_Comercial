@@ -104,8 +104,8 @@ Edite `~/Robo_Comercial/worker/.env`:
 ```ini
 WORKER_API_TOKEN=<mesmo token gerado>
 WA_NUMBERS=5511999990001,5511999990002   # seus 2 chips
-WA_DAILY_LIMIT=40                         # por chip (2 chips = 80/dia no total)
-WA_WARMUP_RAMP=5,10,20                    # aquecimento nos primeiros dias
+WA_DAILY_LIMIT=60                         # por chip (2 chips = 120/dia). Faixas: ≤60 ok, 60-100 chip aquecido, >100 risco alto
+WA_WARMUP_RAMP=15,25,40,55                # aquecimento gradual nos primeiros dias
 PANEL_URL=http://localhost:3000
 ATTENDANT_URL=http://localhost:3001       # onde o atendente vai rodar
 ATTENDANT_TOKEN=<mesmo token gerado>
@@ -260,9 +260,11 @@ código, um chip de cada vez. Quando os dois ficarem **verdes**, estão prontos.
 - **Reiniciar:** `sudo systemctl restart robo-worker` (etc.).
 - **Reconexão do chip:** o celular com os SIMs precisa ver a internet a cada
   ~14 dias, senão o WhatsApp desconecta a sessão vinculada.
-- **Anti-ban:** mantenha `WA_DAILY_LIMIT` ~40 por chip (2 chips = 80/dia),
-  aquecimento nos primeiros dias, janela de horário (`WA_SEND_WINDOW`) e não
-  recontatar (`WA_RECONTACT_DAYS`). Opt-out (SAIR/PARAR) já suprime sozinho.
+- **Anti-ban:** `WA_DAILY_LIMIT` padrão 60 por chip (2 chips = 120/dia).
+  Faixas de cold outreach: **≤60** conservador; **60-100** só em chip aquecido
+  com boa taxa de resposta; **>100** risco alto. Escale com **mais chips** antes
+  de subir por chip. Mantenha aquecimento, janela de horário (`WA_SEND_WINDOW`)
+  e não recontatar (`WA_RECONTACT_DAYS`). Opt-out (SAIR/PARAR) já suprime.
 - **Número central do Zapien:** intocado — o atendente é uma cópia sem
   credenciais Meta; o risco fica todo nos chips dedicados. Não vincule os chips
   e o número central no mesmo WhatsApp Business/Meta Business Manager.

@@ -184,7 +184,7 @@ export default function Home() {
   const [waPaused, setWaPaused] = useState(false);
   const [waCountdown, setWaCountdown] = useState(0);
   // Cota diária + histórico persistente (resume)
-  const [waDailyLimit, setWaDailyLimit] = useState(40);
+  const [waDailyLimit, setWaDailyLimit] = useState(60);
   const [waDailyCount, setWaDailyCount] = useState(0);
   const [waPersistSent, setWaPersistSent] = useState<Set<string>>(new Set());
   // Modo macro: cadência controlada por script externo (AutoHotkey). Atalho F2 dispara o envio.
@@ -521,7 +521,7 @@ export default function Home() {
         }
       }
       const rawLimit = localStorage.getItem(LS_WA_LIMIT);
-      if (rawLimit) setWaDailyLimit(Number(rawLimit) || 40);
+      if (rawLimit) setWaDailyLimit(Number(rawLimit) || 60);
       const rawSent = localStorage.getItem(LS_WA_SENT);
       if (rawSent) setWaPersistSent(new Set(JSON.parse(rawSent)));
     } catch (e) {
