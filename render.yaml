@@ -56,6 +56,13 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "22"
+      # Login obrigatório do painel privado de prospecção.
+      - key: PANEL_ADMIN_EMAIL
+        sync: false
+      - key: PANEL_ADMIN_PASSWORD
+        sync: false
+      - key: PANEL_SESSION_SECRET
+        generateValue: true
       # Token compartilhado automaticamente com o worker (não precisa copiar).
       - key: WORKER_API_TOKEN
         fromService:

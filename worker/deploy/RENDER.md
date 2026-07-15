@@ -69,6 +69,9 @@ se conecta ao worker assim:
   precisa copiar nada).
 - **`WORKER_URL`**: preencha depois que o worker subir, com a URL dele
   (ex.: `https://robo-worker.onrender.com`). É a única coisa manual aqui.
+- **`PANEL_ADMIN_EMAIL` e `PANEL_ADMIN_PASSWORD`**: seu login exclusivo do
+  painel. A senha aceita 6 ou mais caracteres; mantenha-a somente no Environment
+  do Render. `PANEL_SESSION_SECRET` é gerado pelo Blueprint.
 - **Chaves das fontes/canais** (preencha no painel do Render, em robo-painel →
   Environment): `GOOGLE_PLACES_API_KEY`, `IG_ACCESS_TOKEN`, `IG_BUSINESS_ID`,
   `SMTP_EMAIL`, `SMTP_PASSWORD` — conforme os canais que você for usar.

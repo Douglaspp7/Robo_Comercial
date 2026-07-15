@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { rateLimit } from "@/lib/rate-limit";
 
 // Ponte entre o painel e o worker de disparo (Baileys) que roda no Pi.
 // O token do worker fica só no servidor (nunca vai pro navegador).
@@ -39,6 +40,8 @@ export async function GET() {
 
 // POST → cria uma campanha no worker com os contatos selecionados.
 export async function POST(request: Request) {
+  const blocked = rateLimit(request, "wa-campaign", 10, 60 * 60 * 1000);
+  if (blocked) return blocked;
   let body: unknown;
   try {
     body = await request.json();

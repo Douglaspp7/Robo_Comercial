@@ -184,9 +184,22 @@ export default function Home() {
   const [waPaused, setWaPaused] = useState(false);
   const [waCountdown, setWaCountdown] = useState(0);
   // Cota diária + histórico persistente (resume)
-  const [waDailyLimit, setWaDailyLimit] = useState(60);
-  const [waDailyCount, setWaDailyCount] = useState(0);
-  const [waPersistSent, setWaPersistSent] = useState<Set<string>>(new Set());
+  const [waDailyLimit, setWaDailyLimit] = useState(() => {
+    if (typeof window === "undefined") return 60;
+    return Number(localStorage.getItem(LS_WA_LIMIT)) || 60;
+  });
+  const [waDailyCount, setWaDailyCount] = useState(() => {
+    if (typeof window === "undefined") return 0;
+    try {
+      const saved = JSON.parse(localStorage.getItem(LS_WA_DAILY) || "null");
+      return saved?.date === todayStr() ? Number(saved.count) || 0 : 0;
+    } catch { return 0; }
+  });
+  const [waPersistSent, setWaPersistSent] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try { return new Set(JSON.parse(localStorage.getItem(LS_WA_SENT) || "[]")); }
+    catch { return new Set(); }
+  });
   // Modo macro: cadência controlada por script externo (AutoHotkey). Atalho F2 dispara o envio.
   const [waMacroMode, setWaMacroMode] = useState(false);
   // Disparo na nuvem: envia a fila para o worker (Raspberry Pi) que dispara sozinho.
@@ -412,7 +425,9 @@ export default function Home() {
         const ws = workbook.Sheets[wsname];
         const data = XLSX.utils.sheet_to_json(ws);
         
-        const parsedData = data.map((row: any) => ({
+        const parsedData = data.map((rawRow) => {
+          const row = rawRow as Record<string, unknown>;
+          return {
           id: row["ID Interno"] || String(Math.random()),
           name: row["Nome"] || "",
           address: row["Endereço"] || "",
@@ -420,7 +435,8 @@ export default function Home() {
           phone: row["Telefone"] || "",
           email: row["E-mail"] || "",
           website: row["Website"] || ""
-        })) as Business[];
+          };
+        }) as Business[];
 
         setResults((prev) => {
           const existingIds = new Set(prev.map(p => p.id));
@@ -454,7 +470,7 @@ export default function Home() {
 
   const selectAll = () => {
     if (selectedIds.size === results.length) {
-      setSelectedIds(newSet => new Set());
+      setSelectedIds(new Set());
     } else {
       setSelectedIds(new Set(results.map((r) => r.id)));
     }
@@ -506,29 +522,6 @@ export default function Home() {
     return () => clearInterval(id);
   }, [waRunning, waPaused]);
 
-  // Carrega cota/histórico do localStorage ao iniciar (reseta a contagem se virou o dia).
-  useEffect(() => {
-    try {
-      const today = todayStr();
-      const rawDaily = localStorage.getItem(LS_WA_DAILY);
-      if (rawDaily) {
-        const d = JSON.parse(rawDaily);
-        if (d.date === today) {
-          setWaDailyCount(d.count || 0);
-        } else {
-          localStorage.setItem(LS_WA_DAILY, JSON.stringify({ date: today, count: 0 }));
-          setWaDailyCount(0);
-        }
-      }
-      const rawLimit = localStorage.getItem(LS_WA_LIMIT);
-      if (rawLimit) setWaDailyLimit(Number(rawLimit) || 60);
-      const rawSent = localStorage.getItem(LS_WA_SENT);
-      if (rawSent) setWaPersistSent(new Set(JSON.parse(rawSent)));
-    } catch (e) {
-      console.error("Falha ao ler campanha salva:", e);
-    }
-  }, []);
-
   // Persiste o limite diário sempre que ele mudar.
   useEffect(() => {
     try {
@@ -537,22 +530,6 @@ export default function Home() {
   }, [waDailyLimit]);
 
   const quotaReached = waDailyCount >= waDailyLimit;
-
-  // Atalho de teclado F2: dispara o envio do contato atual (para macro/AutoHotkey).
-  useEffect(() => {
-    if (!isWaModalOpen || !waRunning) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "F2") return;
-      e.preventDefault();
-      const ready = !waPaused && !quotaReached && waIndex < waQueue.length;
-      if (ready && (waMacroMode || waCountdown === 0)) {
-        sendCurrentWa();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isWaModalOpen, waRunning, waPaused, quotaReached, waIndex, waCountdown, waMacroMode]);
 
   const openWaCampaign = () => {
     const targets = results.filter((r) => selectedIds.has(r.id) && getWaNumber(r.phone));
@@ -681,6 +658,20 @@ export default function Home() {
     }
     advanceWaQueue();
   };
+
+  // Atalho de teclado F2: dispara o envio do contato atual (para macro/AutoHotkey).
+  useEffect(() => {
+    if (!isWaModalOpen || !waRunning) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "F2") return;
+      e.preventDefault();
+      const ready = !waPaused && !quotaReached && waIndex < waQueue.length;
+      if (ready && (waMacroMode || waCountdown === 0)) sendCurrentWa();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isWaModalOpen, waRunning, waPaused, quotaReached, waIndex, waCountdown, waMacroMode]);
 
   const skipCurrentWa = () => {
     advanceWaQueue();
@@ -833,9 +824,9 @@ export default function Home() {
   // Enquanto o painel estiver aberto, atualiza a cada 8s.
   useEffect(() => {
     if (!cloudPanelOpen) return;
-    fetchCloudStatus();
+    const initial = setTimeout(fetchCloudStatus, 0);
     const id = setInterval(fetchCloudStatus, 8000);
-    return () => clearInterval(id);
+    return () => { clearTimeout(initial); clearInterval(id); };
   }, [cloudPanelOpen]);
 
   // Status do atendente Zapien (1x ao abrir a página). setState só no .then
@@ -1111,6 +1102,9 @@ export default function Home() {
       <header className={styles.header}>
         <h1 className={styles.title}>Robô Comercial</h1>
         <p className={styles.subtitle}>Extração oficial de leads e comunicação automatizada</p>
+        <form action="/api/auth/logout" method="post" className={styles.logoutForm}>
+          <button className="btn-secondary" type="submit">Sair</button>
+        </form>
       </header>
 
       <section className="glass-panel">
