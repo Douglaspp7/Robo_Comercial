@@ -37,6 +37,21 @@ export function classifyInterest(text) {
   return /\b(pre[cç]o|valor|quanto|demonstra[cç][aã]o|demo|quero|tenho interesse|como funciona|plano|contratar|assinatura)\b/u.test(clean);
 }
 
+export function classifyLeadHeat(text) {
+  const clean = String(text || '').trim().toLowerCase();
+  if (!clean) return null;
+  const hot = [
+    [/\b(pre[cç]o|valor|quanto custa|mensalidade)\b/u, 'perguntou preço'],
+    [/\b(demonstra[cç][aã]o|demo|testar|teste gr[aá]tis)\b/u, 'pediu demonstração'],
+    [/\b(quero contratar|tenho interesse|quero conhecer|como assino|fechar)\b/u, 'demonstrou intenção de compra'],
+  ].find(([pattern]) => pattern.test(clean));
+  if (hot) return { level: 'hot', reason: hot[1] };
+  if (/\b(sim|pode falar|me explica|como funciona|quero saber|manda mais|me conte)\b/u.test(clean)) {
+    return { level: 'warm', reason: 'abriu a conversa' };
+  }
+  return null;
+}
+
 /**
  * Encaminha uma resposta ao atendente. Best-effort: nunca lança — uma falha de
  * rede não pode derrubar a sessão do WhatsApp. Retorna true se entregou (2xx).
