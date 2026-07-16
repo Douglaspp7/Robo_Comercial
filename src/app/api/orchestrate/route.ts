@@ -18,6 +18,8 @@ export async function POST(request: Request) {
     const waResponse = await workerFetch("/campaigns/from-pending", { method: "POST", body: JSON.stringify({
       name: body.name || `Orquestração ${new Date().toLocaleDateString('pt-BR')}`,
       message, app_url: body.app_url || "", approach: body.approach || "custom", image: body.image,
+      followup_enabled: Boolean(body.followup_enabled), followup_delay_hours: body.followup_delay_hours,
+      followup_message: body.followup_message,
     }) });
     const waData = await waResponse.json().catch(() => ({}));
     const wa = waResponse.ok ? { created: true, count: waData.count || 0, campaign_id: waData.id } :

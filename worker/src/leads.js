@@ -88,6 +88,21 @@ export const leadAlertQueries = {
   markSent: db.prepare(`UPDATE lead_alerts SET sent_at=@sent_at WHERE jid=@jid`),
 };
 
+// Depende das tabelas de campanhas (db.js) e leads (criadas acima), por isso
+// vive neste módulo e só é preparada depois das duas existirem.
+export const followupQueries = {
+  claim: db.prepare(`UPDATE campaign_items SET followup_status='sending', number_id=@number_id
+    WHERE id=(SELECT i.id FROM campaign_items i
+      JOIN campaigns c ON c.id=i.campaign_id LEFT JOIN leads l ON l.jid=i.jid
+      WHERE i.status='sent' AND i.followup_status='waiting' AND i.followup_due_at<=@now
+        AND c.followup_enabled=1 AND c.followup_message IS NOT NULL
+        AND l.replied_at IS NULL AND l.opted_out_at IS NULL
+      ORDER BY i.followup_due_at ASC LIMIT 1) RETURNING *`),
+  cancelIneligible: db.prepare(`UPDATE campaign_items SET followup_status='cancelled'
+    WHERE followup_status='waiting' AND EXISTS(SELECT 1 FROM leads l
+      WHERE l.jid=campaign_items.jid AND (l.replied_at IS NOT NULL OR l.opted_out_at IS NOT NULL))`),
+};
+
 // ── Plano de busca ───────────────────────────────────────────────────────────
 const stmtAddPlan = db.prepare(
   `INSERT INTO search_plan (source, mode, query, location, deep, created_at)

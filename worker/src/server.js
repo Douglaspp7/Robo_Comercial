@@ -209,6 +209,9 @@ const server = http.createServer(async (req, res) => {
           message,
           app_url: body.app_url || "",
           approach: body.approach || "custom",
+          followup_enabled: Boolean(body.followup_enabled),
+          followup_delay_hours: body.followup_delay_hours,
+          followup_message: body.followup_message,
         },
         items
       );
@@ -365,6 +368,9 @@ const server = http.createServer(async (req, res) => {
         auto_dispatch: getSetting("schedule_auto_dispatch") === "1",
         message: getSetting("dispatch_message", "") || "",
         app_url: getSetting("dispatch_app_url", "") || "",
+        followup_enabled: getSetting("followup_enabled", "0") === "1",
+        followup_delay_hours: Number(getSetting("followup_delay_hours", "24")),
+        followup_message: getSetting("followup_message", "") || "",
         last_run: getSetting("schedule_last_run", "") || "",
       });
     }
@@ -376,6 +382,9 @@ const server = http.createServer(async (req, res) => {
       if (typeof body.message === "string") setSetting("dispatch_message", body.message);
       if (typeof body.app_url === "string") setSetting("dispatch_app_url", body.app_url);
       if (typeof body.approach === "string") setSetting("dispatch_approach", body.approach);
+      setSetting("followup_enabled", body.followup_enabled ? "1" : "0");
+      if (body.followup_delay_hours != null) setSetting("followup_delay_hours", String(Math.max(12, Math.min(168, Number(body.followup_delay_hours) || 24))));
+      if (typeof body.followup_message === "string") setSetting("followup_message", body.followup_message.trim());
       return send(res, 200, { ok: true });
     }
     // Roda o plano agora (busca imediata pelo worker).
@@ -394,6 +403,10 @@ const server = http.createServer(async (req, res) => {
         return send(res, 400, { error: "data de início deve estar entre 1 minuto e 30 dias" });
       }
       const limit = Math.max(1, Math.min(5000, Number(body.limit) || 1000));
+      const followupEnabled = Boolean(body.followup_enabled);
+      const followupMessage = String(body.followup_message || '').trim();
+      const followupDelayHours = Math.max(12, Math.min(168, Number(body.followup_delay_hours) || 24));
+      if (followupEnabled && !followupMessage) return send(res, 400, { error: "mensagem de acompanhamento obrigatória" });
       const pending = pendingWhatsappLeads(limit);
       if (pending.length === 0) {
         return send(res, 400, { error: "nenhum lead pendente" });
@@ -411,6 +424,9 @@ const server = http.createServer(async (req, res) => {
           name: body.name || "Campanha", message, app_url: body.app_url || "",
           approach: body.approach || "custom", status: scheduledFor ? "scheduled" : "active",
           scheduled_for: scheduledFor,
+          followup_enabled: followupEnabled,
+          followup_delay_hours: followupDelayHours,
+          followup_message: followupMessage,
         },
         items
       );

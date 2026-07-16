@@ -21,6 +21,7 @@ import {
 import { getSessionState, checkOnWhatsApp, sendText, sendImage } from "./wa.js";
 import { numberToJid, normalizeNumber, renderMessage } from "./phone.js";
 import { recordDeliveryFailure, resetDeliveryFailures } from './chip-protection.js';
+import { followupQueries } from './leads.js';
 
 let paused = false;
 let stopped = false;
@@ -98,22 +99,26 @@ async function tick(numberId) {
   }
 
   // Reserva atômica do próximo pendente (marca 'sending' + este número).
-  const item = queries.claimNext.get({ number_id: numberId });
+  let followup = false;
+  let item = queries.claimNext.get({ number_id: numberId });
   if (!item) {
     queries.closeFinished.run();
-    return schedule(numberId, 15000); // ocioso
+    followupQueries.cancelIneligible.run();
+    item = followupQueries.claim.get({ number_id: numberId, now: Date.now() });
+    followup = Boolean(item);
+    if (!item) return schedule(numberId, 15000); // ocioso
   }
 
   const number = normalizeNumber(item.phone);
   if (!number) {
-    queries.markInvalid.run({ id: item.id, error: "telefone inválido" });
+    (followup ? queries.markFollowupFailed : queries.markInvalid).run({ id: item.id, error: "telefone inválido" });
     return schedule(numberId, 500);
   }
 
   // Valida no WhatsApp usando ESTA sessão (não gasta cota se não existe).
   const { exists, jid: canonicalJid } = await checkOnWhatsApp(numberId, number);
   if (!exists) {
-    queries.markInvalid.run({ id: item.id, error: "sem WhatsApp" });
+    (followup ? queries.markFollowupFailed : queries.markInvalid).run({ id: item.id, error: "sem WhatsApp" });
     return schedule(numberId, 1500);
   }
   const jid = canonicalJid || item.jid || numberToJid(item.phone);
@@ -121,12 +126,12 @@ async function tick(numberId) {
 
   // Supressão: opt-out (SAIR) ou "não recontatar" → não envia.
   if (isSuppressed(jid)) {
-    queries.markInvalid.run({ id: item.id, error: "opt-out/supressão" });
+    (followup ? queries.markFollowupFailed : queries.markInvalid).run({ id: item.id, error: "opt-out/supressão" });
     return schedule(numberId, 300);
   }
 
   // Não recontatar: já recebeu (em qualquer campanha) nos últimos N dias?
-  if (config.recontactDays > 0) {
+  if (!followup && config.recontactDays > 0) {
     const since = Date.now() - config.recontactDays * 86_400_000;
     if (queries.recentlyContacted.get({ jid, since })) {
       queries.markInvalid.run({ id: item.id, error: `já contatado (${config.recontactDays}d)` });
@@ -135,24 +140,31 @@ async function tick(numberId) {
   }
 
   const camp = stmtCampaign.get(item.campaign_id);
-  let text = renderMessage(camp.message, item.name, camp.app_url, item);
+  let text = renderMessage(followup ? camp.followup_message : camp.message, item.name, camp.app_url, item);
   if (config.optoutFooter) text += `\n\n${config.optoutFooter}`;
   const tail = number.slice(-4);
   try {
-    if (camp.image_path && fs.existsSync(camp.image_path)) {
+    if (!followup && camp.image_path && fs.existsSync(camp.image_path)) {
       await sendImage(numberId, jid, fs.readFileSync(camp.image_path), text);
     } else {
       await sendText(numberId, jid, text);
     }
-    queries.markSent.run({ id: item.id, ts: Date.now() });
+    if (followup) queries.markFollowupSent.run({ id: item.id, ts: Date.now() });
+    else queries.markSent.run({ id: item.id, ts: Date.now() });
     incTodayCount(numberId);
     incHourCount(numberId);
     resetDeliveryFailures();
     console.log(
-      `  [${numberId}] enviado ...${tail} ` +
+      `  [${numberId}] ${followup ? 'acompanhamento enviado' : 'enviado'} ...${tail} ` +
         `(${getTodayCount(numberId)}/${effectiveDailyLimit(numberId)} hoje).`
     );
   } catch (e) {
+    if (followup) {
+      queries.markFollowupFailed.run({ id: item.id, error: e.message });
+      recordDeliveryFailure();
+      console.warn(`  [${numberId}] acompanhamento falhou ...${tail}: ${e.message}`);
+      return schedule(numberId, randomDelaySec() * 1000);
+    }
     const attempts = item.attempts + 1;
     if (attempts >= config.maxAttempts) {
       queries.markFailed.run({ id: item.id, error: e.message, ts: Date.now() });

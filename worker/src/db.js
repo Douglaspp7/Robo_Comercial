@@ -83,6 +83,9 @@ if (!campaignCols.includes("scheduled_for")) db.exec(`ALTER TABLE campaigns ADD 
 if (!campaignCols.includes("preflight_at")) db.exec(`ALTER TABLE campaigns ADD COLUMN preflight_at INTEGER`);
 if (!campaignCols.includes("preflight_status")) db.exec(`ALTER TABLE campaigns ADD COLUMN preflight_status TEXT`);
 if (!campaignCols.includes("preflight_reason")) db.exec(`ALTER TABLE campaigns ADD COLUMN preflight_reason TEXT`);
+if (!campaignCols.includes("followup_enabled")) db.exec(`ALTER TABLE campaigns ADD COLUMN followup_enabled INTEGER NOT NULL DEFAULT 0`);
+if (!campaignCols.includes("followup_delay_hours")) db.exec(`ALTER TABLE campaigns ADD COLUMN followup_delay_hours INTEGER NOT NULL DEFAULT 24`);
+if (!campaignCols.includes("followup_message")) db.exec(`ALTER TABLE campaigns ADD COLUMN followup_message TEXT`);
 
 // Migração idempotente: qual número (chip) enviou cada item (atribuição).
 const itemCols = db.prepare(`PRAGMA table_info(campaign_items)`).all().map((c) => c.name);
@@ -94,15 +97,21 @@ if (!itemCols.includes("failed_at")) {
 }
 if (!itemCols.includes("company_name")) db.exec(`ALTER TABLE campaign_items ADD COLUMN company_name TEXT`);
 if (!itemCols.includes("opening_question")) db.exec(`ALTER TABLE campaign_items ADD COLUMN opening_question TEXT`);
+if (!itemCols.includes("followup_status")) db.exec(`ALTER TABLE campaign_items ADD COLUMN followup_status TEXT`);
+if (!itemCols.includes("followup_due_at")) db.exec(`ALTER TABLE campaign_items ADD COLUMN followup_due_at INTEGER`);
+if (!itemCols.includes("followup_sent_at")) db.exec(`ALTER TABLE campaign_items ADD COLUMN followup_sent_at INTEGER`);
 
 // Recuperação de crash: itens que ficaram travados em 'sending' (reserva sem
 // conclusão) voltam para 'pending' no boot.
 db.exec(`UPDATE campaign_items SET status='pending' WHERE status='sending'`);
+db.exec(`UPDATE campaign_items SET followup_status='waiting' WHERE followup_status='sending'`);
 
 // ── Campanhas ────────────────────────────────────────────────────────────────
 const stmtInsertCampaign = db.prepare(
-  `INSERT INTO campaigns (name, message, app_url, approach, status, created_at, scheduled_for)
-   VALUES (@name, @message, @app_url, @approach, @status, @created_at, @scheduled_for)`
+  `INSERT INTO campaigns (name, message, app_url, approach, status, created_at, scheduled_for,
+     followup_enabled, followup_delay_hours, followup_message)
+   VALUES (@name, @message, @app_url, @approach, @status, @created_at, @scheduled_for,
+     @followup_enabled, @followup_delay_hours, @followup_message)`
 );
 const stmtInsertItem = db.prepare(
   `INSERT OR IGNORE INTO campaign_items (campaign_id, lead_id, name, phone, jid, company_name, opening_question)
@@ -118,6 +127,9 @@ export const createCampaign = db.transaction((camp, items) => {
     approach: camp.approach || "custom",
     status: camp.status === "scheduled" ? "scheduled" : "active",
     scheduled_for: Number(camp.scheduled_for) || null,
+    followup_enabled: camp.followup_enabled ? 1 : 0,
+    followup_delay_hours: Math.max(12, Math.min(168, Number(camp.followup_delay_hours) || 24)),
+    followup_message: camp.followup_enabled ? String(camp.followup_message || '').trim() : null,
     created_at: Date.now(),
   });
   const campaignId = info.lastInsertRowid;
@@ -153,8 +165,14 @@ export const queries = {
      RETURNING *`
   ),
   markSent: db.prepare(
-    `UPDATE campaign_items SET status='sent', sent_at=@ts, error=NULL WHERE id=@id`
+    `UPDATE campaign_items SET status='sent', sent_at=@ts, error=NULL,
+       followup_status=CASE WHEN (SELECT followup_enabled FROM campaigns WHERE id=campaign_id)=1 THEN 'waiting' ELSE NULL END,
+       followup_due_at=CASE WHEN (SELECT followup_enabled FROM campaigns WHERE id=campaign_id)=1
+         THEN @ts + (SELECT followup_delay_hours FROM campaigns WHERE id=campaign_id)*3600000 ELSE NULL END
+     WHERE id=@id`
   ),
+  markFollowupSent: db.prepare(`UPDATE campaign_items SET followup_status='sent', followup_sent_at=@ts WHERE id=@id`),
+  markFollowupFailed: db.prepare(`UPDATE campaign_items SET followup_status='failed', error=@error WHERE id=@id`),
   markInvalid: db.prepare(
     `UPDATE campaign_items SET status='invalid', error=@error WHERE id=@id`
   ),
@@ -189,6 +207,9 @@ export const queries = {
             SUM(i.status='pending')                        AS pending,
             SUM(i.status='failed')                         AS failed,
             SUM(i.status='invalid')                        AS invalid
+            ,SUM(i.followup_status='waiting')              AS followup_waiting
+            ,SUM(i.followup_status='sent')                 AS followup_sent
+            ,SUM(i.followup_status='cancelled')            AS followup_cancelled
      FROM campaigns c LEFT JOIN campaign_items i ON i.campaign_id = c.id
      GROUP BY c.id ORDER BY c.id DESC`
   ),

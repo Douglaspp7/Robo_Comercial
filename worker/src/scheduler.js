@@ -124,7 +124,10 @@ export async function runPlanOnce() {
           jid: l.jid,
         }));
         const { id } = createCampaign(
-          { name: `Agendada ${todayStr()}`, message, app_url: getSetting("dispatch_app_url", "") || "", approach: getSetting("dispatch_approach", "permission") },
+          { name: `Agendada ${todayStr()}`, message, app_url: getSetting("dispatch_app_url", "") || "", approach: getSetting("dispatch_approach", "permission"),
+            followup_enabled: getSetting("followup_enabled", "0") === "1",
+            followup_delay_hours: Number(getSetting("followup_delay_hours", "24")),
+            followup_message: getSetting("followup_message", "") },
           items
         );
         markLeadsContacted(pending.map((l) => l.dedup_key));

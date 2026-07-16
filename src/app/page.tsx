@@ -35,6 +35,9 @@ interface CloudCampaign {
   scheduled_for?: number | null;
   preflight_status?: string | null;
   preflight_reason?: string | null;
+  followup_waiting?: number | null;
+  followup_sent?: number | null;
+  followup_cancelled?: number | null;
 }
 interface CloudNumber {
   id: string;
@@ -244,6 +247,9 @@ export default function Home() {
   const [waMessage, setWaMessage] = useState(WA_PRESETS[0].text);
   const [waAppUrl, setWaAppUrl] = useState(WA_PRESETS[0].appUrl);
   const [waApproach, setWaApproach] = useState(WA_PRESETS[0].id);
+  const [followupEnabled, setFollowupEnabled] = useState(false);
+  const [followupDelayHours, setFollowupDelayHours] = useState(24);
+  const [followupMessage, setFollowupMessage] = useState("Oi! Só passando uma última vez: faz sentido eu te mostrar rapidamente como o Zapien pode ajudar no atendimento? Se não for o momento, tudo bem 😊");
   const [waMinDelay, setWaMinDelay] = useState(30);
   const [waMaxDelay, setWaMaxDelay] = useState(90);
   const [waQueue, setWaQueue] = useState<Business[]>([]);
@@ -875,6 +881,9 @@ export default function Home() {
           message: waMessage,
           app_url: waAppUrl,
           approach: waApproach,
+          followup_enabled: followupEnabled,
+          followup_delay_hours: followupDelayHours,
+          followup_message: followupMessage,
           image: waImage || undefined,
         }),
       });
@@ -920,6 +929,9 @@ export default function Home() {
           app_url: waAppUrl,
           image: waImage || undefined,
           approach: waApproach,
+          followup_enabled: followupEnabled,
+          followup_delay_hours: followupDelayHours,
+          followup_message: followupMessage,
           contacts: waQueue.map((b) => ({
             id: b.id,
             name: b.name,
@@ -1146,6 +1158,9 @@ export default function Home() {
           setSchedEnabled(Boolean(sc.enabled));
           if (sc.time) setSchedTime(sc.time);
           setSchedAuto(Boolean(sc.auto_dispatch));
+          setFollowupEnabled(Boolean(sc.followup_enabled));
+          if (sc.followup_delay_hours) setFollowupDelayHours(Number(sc.followup_delay_hours));
+          if (sc.followup_message) setFollowupMessage(sc.followup_message);
         }
       })
       .catch(() => {});
@@ -1167,6 +1182,9 @@ export default function Home() {
           message: waMessage,
           app_url: waAppUrl,
           approach: waApproach,
+          followup_enabled: followupEnabled,
+          followup_delay_hours: followupDelayHours,
+          followup_message: followupMessage,
         }),
       });
       if (res.ok) alert("Agendamento salvo. ✅");
@@ -1319,6 +1337,9 @@ export default function Home() {
           app_url: waAppUrl,
           image: waImage || undefined,
           approach: waApproach,
+          followup_enabled: followupEnabled,
+          followup_delay_hours: followupDelayHours,
+          followup_message: followupMessage,
         }),
       });
       const data = await res.json();
@@ -1345,6 +1366,7 @@ export default function Home() {
       const response = await fetch("/api/orchestrate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
         message: waMessage, app_url: waAppUrl, approach: waApproach, image: waImage || undefined,
         email_subject: emailSubject, email_body: emailBody, email_image: emailImage || undefined,
+        followup_enabled: followupEnabled, followup_delay_hours: followupDelayHours, followup_message: followupMessage,
       }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Não foi possível executar os canais.");
@@ -1373,6 +1395,7 @@ export default function Home() {
           name: `Campanha ${new Date(scheduledFor).toLocaleDateString("pt-BR")} ${nextDayTime}`,
           message: waMessage, app_url: waAppUrl, image: waImage || undefined,
           approach: waApproach, scheduled_for: scheduledFor,
+          followup_enabled: followupEnabled, followup_delay_hours: followupDelayHours, followup_message: followupMessage,
         }),
       });
       const data = await res.json();
@@ -1821,6 +1844,25 @@ export default function Home() {
             )}
 
             <div style={{ marginTop: "1.25rem", padding: "1rem", border: "1px solid rgba(37,211,102,.35)", background: "rgba(37,211,102,.05)", borderRadius: "10px" }}>
+              <strong>💬 Uma única tentativa de acompanhamento</strong>
+              <label style={{ display: "flex", alignItems: "center", gap: ".5rem", margin: ".55rem 0", cursor: "pointer" }}>
+                <input type="checkbox" checked={followupEnabled} onChange={(event) => setFollowupEnabled(event.target.checked)} />
+                Enviar somente se o lead não responder nem pedir para parar
+              </label>
+              <div style={{ display: followupEnabled ? "grid" : "none", gridTemplateColumns: "minmax(110px,160px) 1fr", gap: ".55rem" }}>
+                <label style={{ fontSize: ".78rem" }}>Esperar
+                  <select className="input-glass" value={followupDelayHours} onChange={(event) => setFollowupDelayHours(Number(event.target.value))} style={{ width: "100%", marginTop: ".25rem" }}>
+                    <option value={24}>24 horas</option><option value={48}>48 horas</option><option value={72}>72 horas</option><option value={168}>7 dias</option>
+                  </select>
+                </label>
+                <label style={{ fontSize: ".78rem" }}>Última mensagem
+                  <textarea className="input-glass" value={followupMessage} onChange={(event) => setFollowupMessage(event.target.value)} rows={2} maxLength={1000} style={{ width: "100%", marginTop: ".25rem", resize: "vertical" }} />
+                </label>
+              </div>
+              <p style={{ fontSize: ".73rem", color: "var(--text-muted,#888)", marginTop: ".45rem" }}>Limite rígido: no máximo um acompanhamento por lead. Resposta, recusa ou supressão cancela o envio.</p>
+            </div>
+
+            <div style={{ marginTop: "1.25rem", padding: "1rem", border: "1px solid rgba(37,211,102,.35)", background: "rgba(37,211,102,.05)", borderRadius: "10px" }}>
               <strong>🌙 Campanha do dia seguinte</strong>
               <p style={{ fontSize: ".78rem", color: "var(--text-muted, #888)", margin: ".25rem 0 .75rem" }}>
                 Congele os leads aprovados agora. Cinco minutos antes, o Pi verifica chips, atendente, fila e criativo; se algo falhar, não dispara.
@@ -2111,6 +2153,9 @@ export default function Home() {
                         {failed > 0 && <span style={{ color: "var(--error)" }}>⚠ {failed} falhas</span>}
                         {invalid > 0 && <span>🚫 {invalid} sem WhatsApp</span>}
                         <span>· {c.total} total</span>
+                        {(c.followup_waiting || 0) > 0 && <span>💬 {c.followup_waiting} aguardando acompanhamento</span>}
+                        {(c.followup_sent || 0) > 0 && <span>↪️ {c.followup_sent} acompanhamentos enviados</span>}
+                        {(c.followup_cancelled || 0) > 0 && <span>🛑 {c.followup_cancelled} cancelados por resposta/recusa</span>}
                       </div>
                     </div>
                   );
