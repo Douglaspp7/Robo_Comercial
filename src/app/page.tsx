@@ -46,6 +46,15 @@ interface PlanLine {
   location: string | null;
   deep: number;
 }
+interface PlanSuggestion {
+  source: "google" | "instagram";
+  mode: "hashtag" | null;
+  query: string;
+  location: string | null;
+  score: number;
+  reason: string;
+  selected: boolean;
+}
 interface PoolStats {
   total: number;
   whatsapp: number;
@@ -252,6 +261,10 @@ export default function Home() {
   const [planGLoc, setPlanGLoc] = useState("");
   const [planIgMode, setPlanIgMode] = useState<"hashtag" | "profiles">("hashtag");
   const [planIgQuery, setPlanIgQuery] = useState("");
+  const [aiPlanCity, setAiPlanCity] = useState("São Paulo, SP");
+  const [aiPlanObjective, setAiPlanObjective] = useState("");
+  const [aiPlanLoading, setAiPlanLoading] = useState(false);
+  const [aiPlanSuggestions, setAiPlanSuggestions] = useState<PlanSuggestion[]>([]);
   const [planRunning, setPlanRunning] = useState(false);
   const [planProgress, setPlanProgress] = useState("");
   const [pendingSending, setPendingSending] = useState(false);
@@ -1055,8 +1068,43 @@ export default function Home() {
     loadPlan();
   };
 
+  const suggestPlanWithAI = async () => {
+    if (!aiPlanCity.trim()) return alert("Informe a cidade da prospecção.");
+    setAiPlanLoading(true);
+    try {
+      const res = await fetch("/api/plan/suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ city: aiPlanCity, objective: aiPlanObjective }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Não foi possível gerar o plano.");
+      setAiPlanSuggestions((data.suggestions || []).map((item: Omit<PlanSuggestion, "selected">) => ({ ...item, selected: true })));
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Não foi possível gerar o plano.");
+    } finally {
+      setAiPlanLoading(false);
+    }
+  };
+
+  const approveAISuggestions = async () => {
+    const selected = aiPlanSuggestions.filter((item) => item.selected);
+    if (!selected.length) return alert("Selecione ao menos uma sugestão.");
+    for (const item of selected) {
+      await fetch("/api/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(item.source === "google"
+          ? { source: "google", query: item.query, location: item.location, deep: true }
+          : { source: "instagram", mode: "hashtag", query: item.query }),
+      });
+    }
+    setAiPlanSuggestions([]);
+    await loadPlan();
+  };
+
   const runPlanSearch = async () => {
-    if (planLines.length === 0) return alert("Adicione linhas ao plano (ou use 'Sugerir Zapien').");
+    if (planLines.length === 0) return alert("Adicione linhas ao plano ou gere sugestões com IA.");
     setPlanRunning(true);
     const collected: (Business & { source?: string })[] = [];
     try {
@@ -1400,13 +1448,45 @@ export default function Home() {
               <input className="input-glass" placeholder={planIgMode === "hashtag" ? "hashtag (sem #)" : "@perfis"} value={planIgQuery}
                 onChange={(e) => setPlanIgQuery(e.target.value)} style={{ flex: "1 1 200px" }} />
               <button className="btn-secondary" onClick={addPlanInstagram}>+ Instagram</button>
-              <button className="btn-secondary" onClick={seedPlanReq} title="Preenche com nichos/hashtags do Zapien">✨ Sugerir Zapien</button>
+              <button className="btn-secondary" onClick={seedPlanReq} title="Plano padrão para usar se a IA estiver indisponível">Sugestão rápida</button>
+            </div>
+
+            <div style={{ marginBottom: "0.9rem", padding: "0.85rem", border: "1px solid var(--border, rgba(255,255,255,0.1))", borderRadius: "10px", background: "rgba(124, 58, 237, 0.06)" }}>
+              <div style={{ fontWeight: 700, marginBottom: "0.25rem" }}>✨ Gerar plano com IA</div>
+              <p style={{ fontSize: "0.78rem", color: "var(--text-muted, #888)", marginBottom: "0.65rem" }}>
+                A IA cria hipóteses de nichos com maior aderência ao Zapien. Revise antes de adicionar; as notas não são dados históricos.
+              </p>
+              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                <input className="input-glass" value={aiPlanCity} onChange={(e) => setAiPlanCity(e.target.value)} placeholder="Cidade e estado" style={{ flex: "1 1 170px" }} />
+                <input className="input-glass" value={aiPlanObjective} onChange={(e) => setAiPlanObjective(e.target.value)} placeholder="Objetivo opcional (ex: clínicas)" style={{ flex: "2 1 220px" }} />
+                <button className="btn-primary" onClick={suggestPlanWithAI} disabled={aiPlanLoading}>
+                  {aiPlanLoading ? "Analisando..." : "Gerar sugestões"}
+                </button>
+              </div>
+              {aiPlanSuggestions.length > 0 && (
+                <div style={{ marginTop: "0.75rem", display: "flex", flexDirection: "column", gap: "0.45rem" }}>
+                  {aiPlanSuggestions.map((item, index) => (
+                    <label key={`${item.source}-${item.query}`} style={{ display: "grid", gridTemplateColumns: "auto 48px 1fr", gap: "0.55rem", alignItems: "start", padding: "0.55rem", border: "1px solid var(--border, rgba(255,255,255,0.1))", borderRadius: "8px", cursor: "pointer" }}>
+                      <input type="checkbox" checked={item.selected} onChange={() => setAiPlanSuggestions((items) => items.map((row, i) => i === index ? { ...row, selected: !row.selected } : row))} />
+                      <strong style={{ color: item.score >= 80 ? "#25D366" : "#f59e0b" }}>{item.score}</strong>
+                      <span style={{ fontSize: "0.82rem" }}>
+                        <strong>{item.source === "google" ? "📍" : "📸"} {item.query}</strong>{item.location ? ` · ${item.location}` : ""}
+                        <span style={{ display: "block", color: "var(--text-muted, #888)", marginTop: "0.15rem" }}>{item.reason}</span>
+                      </span>
+                    </label>
+                  ))}
+                  <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem" }}>
+                    <button className="btn-primary" onClick={approveAISuggestions}>Adicionar selecionadas ao plano</button>
+                    <button className="btn-secondary" onClick={() => setAiPlanSuggestions([])}>Descartar</button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Lista do plano */}
             {planLines.length === 0 ? (
               <p style={{ fontSize: "0.85rem", color: "var(--text-muted, #888)" }}>
-                Plano vazio. Adicione linhas acima ou clique “✨ Sugerir Zapien”.
+                Plano vazio. Adicione linhas acima ou gere sugestões com IA.
               </p>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem", maxHeight: "220px", overflowY: "auto" }}>
