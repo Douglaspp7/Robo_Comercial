@@ -24,6 +24,7 @@ import {
   addLeads,
   pendingWhatsappLeads,
   markLeadsContacted,
+  recordPlanRun,
 } from "./leads.js";
 
 let timer = null;
@@ -53,7 +54,9 @@ export async function runPlanOnce() {
   const collected = [];
   for (const line of plan) {
     try {
-      collected.push(...(await searchLine(line)));
+      const found = await searchLine(line);
+      recordPlanRun(line.id, found.length);
+      collected.push(...found.map((lead) => ({ ...lead, plan_id: line.id })));
     } catch (e) {
       console.warn(`  [agendador] linha falhou (${line.query}):`, e.message);
     }
