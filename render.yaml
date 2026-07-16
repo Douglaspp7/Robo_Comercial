@@ -124,6 +124,12 @@ services:
       # Conta admin do painel do atendente (para você logar e assumir conversa).
       - key: ADMIN_EMAIL
         sync: false
+      # OAuth do Google Calendar (mesmo projeto Google usado pelo Zapien).
+      # Redirect URI: https://SEU_ATENDENTE/api/google-calendar/oauth/callback
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
       # ── Ligação com o worker ─────────────────────────────────────────────
       # URL pública do worker — cole após o worker subir.
       - key: WORKER_URL

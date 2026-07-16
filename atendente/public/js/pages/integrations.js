@@ -66,6 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
       shipping:{name:'Melhor Envio',benefit:'Calcule frete e gere etiquetas usando o CEP do cliente.',connected:Boolean(settings.melhor_envio_token_set||settings.cep_origem||features.mePlatformEnabled),icon:'truck',target:'integration-melhor-envio',body:'loja-body'},
       bling:{name:'Bling',benefit:'Sincronize produtos, estoque e pedidos da sua operação.',connected:Boolean(settings.bling_connected),icon:'boxes',target:'integration-bling',body:'loja-body'},
       sheets:{name:'Google Sheets',benefit:'Mantenha leads e vendas também em uma planilha.',connected:Boolean(settings.google_sheets?.connected),icon:'table-2',target:'integration-google-sheets',body:'crm-body'},
+      calendar:{name:'Google Calendar',benefit:'Evite conflitos e crie eventos dos agendamentos automaticamente.',connected:Boolean(settings.google_calendar?.connected),icon:'calendar-days',target:'integration-google-calendar',body:'calendar-body'},
       hotmart:{name:'Hotmart',benefit:'Entregue automaticamente produtos digitais após a venda.',connected:Boolean(settings.hotmart_connected),icon:'flame',target:'integration-hotmart',body:'loja-body'},
       printnode:{name:'Impressão de comandas',benefit:'Imprima pedidos automaticamente na cozinha ou balcão.',connected:Boolean(settings.printnode_connected),icon:'printer',target:'integration-printnode',body:'loja-body'},
     };
@@ -399,11 +400,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function applyGoogleCalendarStatus(status = {}) {
     const connected = Boolean(status.connected);
+    const enabled = status.enabled !== false;
     const badge = document.getElementById('badge-google-calendar');
-    if (badge) { badge.textContent = connected ? 'Conectado' : 'Não conectado'; badge.className = connected ? 'badge badge-success text-xs' : 'badge badge-gray text-xs'; }
+    if (badge) { badge.textContent = connected ? 'Conectado' : enabled ? 'Não conectado' : 'Configuração pendente'; badge.className = connected ? 'badge badge-success text-xs' : enabled ? 'badge badge-gray text-xs' : 'badge badge-warning text-xs'; }
     const off = document.getElementById('google-calendar-disconnected'); if (off) off.style.display = connected ? 'none' : 'block';
     const on = document.getElementById('google-calendar-connected'); if (on) on.style.display = connected ? 'block' : 'none';
     const name = document.getElementById('google-calendar-name'); if (name) name.textContent = status.calendar_name || 'Agenda principal';
+    const hint = document.getElementById('google-calendar-config-hint'); if (hint) hint.style.display = !connected && !enabled ? 'block' : 'none';
   }
   document.getElementById('google-calendar-sync-btn')?.addEventListener('click', async (event) => {
     const btn = event.currentTarget; btn.disabled = true;
