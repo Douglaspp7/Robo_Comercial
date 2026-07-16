@@ -84,6 +84,9 @@ const itemCols = db.prepare(`PRAGMA table_info(campaign_items)`).all().map((c) =
 if (!itemCols.includes("number_id")) {
   db.exec(`ALTER TABLE campaign_items ADD COLUMN number_id TEXT`);
 }
+if (!itemCols.includes("failed_at")) {
+  db.exec(`ALTER TABLE campaign_items ADD COLUMN failed_at INTEGER`);
+}
 
 // Recuperação de crash: itens que ficaram travados em 'sending' (reserva sem
 // conclusão) voltam para 'pending' no boot.
@@ -148,7 +151,7 @@ export const queries = {
     `UPDATE campaign_items SET status='pending', attempts=attempts+1, error=@error WHERE id=@id`
   ),
   markFailed: db.prepare(
-    `UPDATE campaign_items SET status='failed', error=@error WHERE id=@id`
+    `UPDATE campaign_items SET status='failed', error=@error, failed_at=@ts WHERE id=@id`
   ),
   setJid: db.prepare(`UPDATE campaign_items SET jid=@jid WHERE id=@id`),
   setImage: db.prepare(`UPDATE campaigns SET image_path=@path WHERE id=@id`),
