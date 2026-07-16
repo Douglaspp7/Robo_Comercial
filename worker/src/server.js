@@ -39,6 +39,8 @@ import {
   leadStats,
   pendingWhatsappLeads,
   markLeadsContacted,
+  planPerformance,
+  recordPlanRun,
 } from "./leads.js";
 
 // Estado por número (chip): conexão + cota do dia.
@@ -254,7 +256,7 @@ const server = http.createServer(async (req, res) => {
 
     // ── Plano de busca ──────────────────────────────────────────────────────
     if (req.method === "GET" && path === "/plan") {
-      return send(res, 200, { plan: planQueries.list.all() });
+      return send(res, 200, { plan: planPerformance() });
     }
     if (req.method === "POST" && path === "/plan") {
       const body = await readJson(req);
@@ -275,6 +277,9 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && path === "/leads") {
       const body = await readJson(req);
       const leads = Array.isArray(body.leads) ? body.leads : [];
+      for (const run of Array.isArray(body.plan_runs) ? body.plan_runs : []) {
+        recordPlanRun(run.id, run.found);
+      }
       const { added, ignored } = addLeads(leads);
       return send(res, 200, { added, ignored, stats: leadStats() });
     }
