@@ -13,6 +13,16 @@ test('seed comercial novo contém oferta, demos, FAQs e objeções', () => {
   assert.deepEqual(result.seed_meta, { id: 'zapien-sales', version: ZAPIEN_SALES_SEED_VERSION });
 });
 
+test('seed v2 ensina a UI real e centraliza suporte na Zapi', () => {
+  const result = mergeZapienSalesSeed({});
+  const answers = result.perguntasFrequentes.map((item) => `${item.pergunta} ${item.resposta}`).join(' ');
+  assert.match(answers, /Configurações/);
+  assert.match(answers, /Integrações → Agenda → Google Calendar/);
+  assert.match(answers, /botão Suporte/);
+  assert.ok(result.regras.some((rule) => rule.includes('especialista também na interface atual')));
+  assert.equal(ZAPIEN_SALES_SEED_VERSION, 2);
+});
+
 test('migração preserva personalizações e adiciona conteúdo oficial sem duplicar', () => {
   const current = {
     descricao: 'Descrição personalizada do administrador.',

@@ -54,6 +54,17 @@ npm ci || npm install
 DB_PATH="$ATTENDANT_DIR/data/atendente.db"
 mkdir -p "$ATTENDANT_DIR/data"
 
+# O mesmo número dedicado atende vendas e suporte. Prioridade: valor explícito;
+# depois, primeiro chip configurado no worker.
+ZAPI_PHONE="${ATTENDANT_PHONE:-}"
+if [ -z "$ZAPI_PHONE" ] && [ -f "$WORKER_DIR/.env" ]; then
+  WA_LIST="$(grep -E '^WA_NUMBERS=' "$WORKER_DIR/.env" | cut -d= -f2- || true)"
+  ZAPI_PHONE="$(printf '%s' "$WA_LIST" | cut -d, -f1 | tr -cd '0-9')"
+  if [ -z "$ZAPI_PHONE" ]; then
+    ZAPI_PHONE="$(grep -E '^WA_PAIR_PHONE=' "$WORKER_DIR/.env" | cut -d= -f2- | tr -cd '0-9' || true)"
+  fi
+fi
+
 if [ ! -f "$ATTENDANT_DIR/.env" ]; then
   WTOKEN=""
   ATOKEN=""
@@ -83,6 +94,7 @@ NODE_ENV=production
 ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
 ANTHROPIC_MODEL=claude-haiku-4-5
 ADMIN_EMAIL=${ADMIN_EMAIL:-}
+ATTENDANT_PHONE=$ZAPI_PHONE
 
 # Proprios deste numero (gerados agora — NAO sao os de producao):
 DATABASE_PATH=$DB_PATH
@@ -102,6 +114,11 @@ ENV
   echo "==> .env criado (segredos gerados; tokens do worker puxados)."
 else
   echo "==> .env ja existe; mantido."
+  if grep -qE '^ATTENDANT_PHONE=' "$ATTENDANT_DIR/.env"; then
+    if [ -n "$ZAPI_PHONE" ]; then sed -i "s#^ATTENDANT_PHONE=.*#ATTENDANT_PHONE=$ZAPI_PHONE#" "$ATTENDANT_DIR/.env"; fi
+  else
+    printf '\n# Numero unico de vendas e suporte da Zapi.\nATTENDANT_PHONE=%s\n' "$ZAPI_PHONE" >> "$ATTENDANT_DIR/.env"
+  fi
 fi
 
 # 3. Seed do tenant — so roda se a chave Anthropic estiver preenchida.

@@ -70,7 +70,9 @@ export const config = {
 
   // Número WhatsApp do suporte (formato internacional sem +, ex: 5511999990000).
   // Exibido para clientes que clicam em "Suporte" na tela de configurações.
-  supportPhone: (process.env.SUPPORT_PHONE || '5513988751089').replace(/\D/g, ''),
+  // Um único contato oficial: o número dedicado em que a Zapi atende qualquer
+  // mensagem. ATTENDANT_PHONE substitui o legado SUPPORT_PHONE.
+  supportPhone: (process.env.ATTENDANT_PHONE || process.env.SUPPORT_PHONE || '').replace(/\D/g, ''),
 
   // Stripe (assinaturas). Se a chave nao for definida, o billing fica
   // desativado e todos os clientes podem usar livremente.
