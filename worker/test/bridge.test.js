@@ -4,7 +4,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { classifyInbound, classifyInterest, forwardToAttendant } from "../src/bridge.js";
+import { classifyInbound, classifyInterest, classifyLeadHeat, forwardToAttendant } from "../src/bridge.js";
 
 const OPTOUT = ["sair", "parar", "pare", "cancelar", "stop"];
 
@@ -36,6 +36,11 @@ test("classifyInterest: reconhece intenção comercial sem marcar saudações", 
   assert.equal(classifyInterest("quanto custa o plano?"), true);
   assert.equal(classifyInterest("quero uma demonstração"), true);
   assert.equal(classifyInterest("oi, tudo bem?"), false);
+});
+test('classifyLeadHeat separa quente, morno e ruído', () => {
+  assert.deepEqual(classifyLeadHeat('quanto custa o plano?'), { level: 'hot', reason: 'perguntou preço' });
+  assert.deepEqual(classifyLeadHeat('sim, pode falar'), { level: 'warm', reason: 'abriu a conversa' });
+  assert.equal(classifyLeadHeat('obrigado'), null);
 });
 
 test("forwardToAttendant: sem URL configurada → false, sem chamar fetch", async () => {
