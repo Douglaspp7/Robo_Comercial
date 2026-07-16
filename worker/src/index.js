@@ -8,6 +8,8 @@ import { startAll } from "./wa.js";
 import { startSender } from "./sender.js";
 import { startScheduler } from "./scheduler.js";
 import { startDailySummary } from "./daily-summary.js";
+import { startLeadAlerts } from './lead-alerts.js';
+import { firstConnectedId, sendText } from './wa.js';
 
 const numbers = getNumbers();
 
@@ -22,6 +24,7 @@ startServer();
 startSender(numbers);
 startScheduler();
 startDailySummary();
+startLeadAlerts({ firstConnectedId, sendText });
 startAll(numbers).catch((e) => {
   console.error("Falha ao iniciar as sessões:", e.message);
 });
