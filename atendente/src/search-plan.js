@@ -1,7 +1,8 @@
 const SOURCES = new Set(['google', 'instagram']);
 
 function cleanText(value, max) {
-  return String(value || '').replace(/[\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
+  const printable = Array.from(String(value || ''), (char) => char.charCodeAt(0) < 32 ? ' ' : char).join('');
+  return printable.replace(/\s+/g, ' ').trim().slice(0, max);
 }
 
 export function sanitizeSearchPlan(raw, city) {
