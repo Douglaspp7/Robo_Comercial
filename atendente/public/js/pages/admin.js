@@ -225,7 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function demoMenu(t) {
     return `<details class="admin-nested-actions">
       <summary>Aplicar demo</summary>
-      <button class="btn btn-primary" onclick="seedDemo('${t.id}','zapien')">Zapien vende Zapien 🤖</button>
+      <button class="btn btn-primary" onclick="seedDemo('${t.id}','zapien')">Zapien especialista em Zapien 🤖</button>
       <button class="btn btn-secondary" onclick="seedDemo('${t.id}','amazonia')">Amazônia Aromas</button>
       <button class="btn btn-secondary" onclick="seedDemo('${t.id}','brinquedo')">Turma do Brinquedo</button>
       <button class="btn btn-secondary" onclick="seedDemo('${t.id}','cafe')">Café & Lar Essencial</button>
@@ -512,7 +512,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!j.error) await load();
   };
 
-  const seedNames = { zapien: 'Zapien vende Zapien 🤖', amazonia: 'Amazônia Aromas 🌿', brinquedo: 'Turma do Brinquedo 🧸', cafe: 'Café & Lar Essencial ☕', pizzaria: 'Bella Napoli Pizzaria 🍕' };
+  const seedNames = { zapien: 'Zapien especialista em Zapien 🤖', amazonia: 'Amazônia Aromas 🌿', brinquedo: 'Turma do Brinquedo 🧸', cafe: 'Café & Lar Essencial ☕', pizzaria: 'Bella Napoli Pizzaria 🍕' };
   window.seedDemo = async (id, seed = 'amazonia') => {
     const label = seedNames[seed] || seed;
     const ok = await window.ZapUI.confirm({
