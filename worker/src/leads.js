@@ -298,6 +298,7 @@ export const leadQueries = {
        SUM(channel='whatsapp')                                    AS whatsapp,
        SUM(channel='email')                                       AS email,
        SUM(channel='whatsapp' AND contacted_at IS NULL AND review_status='approved') AS pending_wa,
+       SUM(channel='email' AND contacted_at IS NULL AND review_status='approved') AS pending_email,
        SUM(channel='whatsapp' AND contacted_at IS NULL AND review_status='review') AS needs_review,
        SUM(review_status='blocked')                               AS blocked,
        SUM(lead_score>=70 AND contacted_at IS NULL)               AS qualified,
@@ -310,6 +311,12 @@ export const leadQueries = {
      FROM leads
      WHERE channel='whatsapp' AND contacted_at IS NULL AND review_status='approved'
      ORDER BY collected_at ASC LIMIT @limit`
+  ),
+  pendingEmail: db.prepare(
+    `SELECT dedup_key, email, name, company_name, source, source_url, lead_score
+     FROM leads
+     WHERE channel='email' AND contacted_at IS NULL AND review_status='approved' AND opted_out_at IS NULL
+     ORDER BY lead_score DESC, collected_at ASC LIMIT @limit`
   ),
   reviewList: db.prepare(
     `SELECT dedup_key, phone, company_name, contact_name, contact_role, segment,
@@ -333,6 +340,7 @@ export function leadStats() {
     whatsapp: s.whatsapp || 0,
     email: s.email || 0,
     pending_wa: s.pending_wa || 0,
+    pending_email: s.pending_email || 0,
     needs_review: s.needs_review || 0,
     blocked: s.blocked || 0,
     qualified: s.qualified || 0,
@@ -380,6 +388,10 @@ export function funnelStats() {
 /** Leads de WhatsApp ainda não contatados, para virar campanha. */
 export function pendingWhatsappLeads(limit = 1000) {
   return leadQueries.pendingWhatsapp.all({ limit });
+}
+
+export function pendingEmailLeads(limit = 50) {
+  return leadQueries.pendingEmail.all({ limit });
 }
 
 export const markLeadsContacted = db.transaction((keys) => {

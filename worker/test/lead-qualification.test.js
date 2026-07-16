@@ -7,7 +7,7 @@ import fs from 'node:fs';
 const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'robo-lead-qualification-'));
 process.env.WORKER_DB_PATH = path.join(testDir, 'worker.sqlite');
 
-const { addLeads, leadQueries, pendingWhatsappLeads, questionFor, reviewLeads } = await import('../src/leads.js');
+const { addLeads, leadQueries, pendingWhatsappLeads, pendingEmailLeads, markLeadsContacted, questionFor, reviewLeads } = await import('../src/leads.js');
 
 test('qualificação multicanal explica a nota e recomenda WhatsApp', () => {
   addLeads([{ id: 'clinic-score', name: 'Clínica Viva', phone: '11988887777', email: 'contato@clinicaviva.com.br', website: 'https://clinicaviva.com.br', source_url: 'https://maps.google.com/clinicaviva', address: 'São Paulo, SP', rating: 4.8, source: 'google', segment: 'clínica estética' }]);
@@ -23,6 +23,16 @@ test('contato fraco fica bloqueado preventivamente', () => {
   const lead = leadQueries.reviewList.all({ limit: 20 }).find((item) => item.company_name === 'Contato sem evidência');
   assert.equal(lead.review_status, 'blocked');
   assert.equal(lead.recommended_channel, 'review');
+});
+
+test('orquestração reserva e-mail aprovado sem misturar com WhatsApp', () => {
+  addLeads([{ id: 'email-only', name: 'Empresa E-mail', email: 'vendas@empresa-email.com.br', website: 'https://empresa-email.com.br', source_url: 'https://empresa-email.com.br', address: 'Campinas, SP', source: 'directory', segment: 'varejo' }]);
+  const lead = leadQueries.reviewList.all({ limit: 30 }).find((item) => item.company_name === 'Empresa E-mail');
+  reviewLeads([{ ...lead, review_status: 'approved' }], 'admin');
+  assert.equal(pendingEmailLeads(50).some((item) => item.dedup_key === lead.dedup_key), true);
+  assert.equal(pendingWhatsappLeads(100).some((item) => item.dedup_key === lead.dedup_key), false);
+  markLeadsContacted([lead.dedup_key]);
+  assert.equal(pendingEmailLeads(50).some((item) => item.dedup_key === lead.dedup_key), false);
 });
 
 test('pergunta inicial é específica para imobiliárias', () => {

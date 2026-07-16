@@ -41,6 +41,7 @@ import {
   addLeads,
   leadStats,
   pendingWhatsappLeads,
+  pendingEmailLeads,
   markLeadsContacted,
   planPerformance,
   leadQueries,
@@ -344,6 +345,16 @@ const server = http.createServer(async (req, res) => {
       const items = Array.isArray(body.items) ? body.items : [body];
       const updated = reviewLeads(items, 'admin');
       return send(res, 200, { updated, stats: leadStats() });
+    }
+    if (req.method === "GET" && path === "/leads/pending-email") {
+      const limit = Math.max(1, Math.min(50, Number(url.searchParams.get('limit')) || 50));
+      return send(res, 200, { items: pendingEmailLeads(limit) });
+    }
+    if (req.method === "POST" && path === "/leads/mark-contacted") {
+      const body = await readJson(req);
+      const keys = Array.isArray(body.keys) ? body.keys.map(String).slice(0, 50) : [];
+      markLeadsContacted(keys);
+      return send(res, 200, { updated: keys.length, stats: leadStats() });
     }
 
     // ── Agendamento ─────────────────────────────────────────────────────────

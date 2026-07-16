@@ -76,6 +76,7 @@ interface PoolStats {
   whatsapp: number;
   email: number;
   pending_wa: number;
+  pending_email: number;
   contacted: number;
   needs_review: number;
   blocked: number;
@@ -315,6 +316,7 @@ export default function Home() {
   const [planRunning, setPlanRunning] = useState(false);
   const [planProgress, setPlanProgress] = useState("");
   const [pendingSending, setPendingSending] = useState(false);
+  const [orchestrating, setOrchestrating] = useState(false);
   // Agendamento (roda a busca sozinho 1x/dia).
   const [schedEnabled, setSchedEnabled] = useState(false);
   const [schedTime, setSchedTime] = useState("09:00");
@@ -1333,6 +1335,25 @@ export default function Home() {
     }
   };
 
+  const orchestrateApproved = async () => {
+    const whatsapp = poolStats?.pending_wa || 0;
+    const emails = poolStats?.pending_email || 0;
+    if (!whatsapp && !emails) return alert("Não há contatos aprovados aguardando envio.");
+    if (!confirm(`Executar os canais aprovados agora?\n\nWhatsApp: ${whatsapp}\nE-mail: ${emails}\n\nCada lead será usado em apenas um canal. E-mails só serão marcados como contatados depois do envio confirmado.`)) return;
+    setOrchestrating(true);
+    try {
+      const response = await fetch("/api/orchestrate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+        message: waMessage, app_url: waAppUrl, approach: waApproach, image: waImage || undefined,
+        email_subject: emailSubject, email_body: emailBody, email_image: emailImage || undefined,
+      }) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Não foi possível executar os canais.");
+      alert(`Orquestração concluída. ✅\n\nWhatsApp na fila: ${data.whatsapp?.count || 0}\nE-mails enviados: ${data.email?.sent || 0}\nE-mails ainda pendentes: ${data.email?.pending || 0}${data.email?.errors?.length ? `\nAvisos: ${data.email.errors.slice(0, 2).join("; ")}` : ""}`);
+      await Promise.all([loadPlan(), fetchCloudStatus()]);
+    } catch (error) { alert(error instanceof Error ? error.message : "Falha na orquestração."); }
+    finally { setOrchestrating(false); }
+  };
+
   const prepareNextDayCampaign = async () => {
     const n = poolStats?.pending_wa || 0;
     if (!n) return alert("Aprove os leads antes de preparar a campanha.");
@@ -1630,6 +1651,7 @@ export default function Home() {
                 {" · "}🔎 <strong>{poolStats?.needs_review ?? 0}</strong> para revisar
                 {" · "}⭐ <strong>{poolStats?.qualified ?? 0}</strong> qualificados
                 {" · "}✅ <strong>{poolStats?.pending_wa ?? 0}</strong> aprovados
+                {" · "}✉️ <strong>{poolStats?.pending_email ?? 0}</strong> para e-mail
                 {" · "}✅ {poolStats?.contacted ?? 0} contatados
               </div>
               <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
@@ -1638,10 +1660,15 @@ export default function Home() {
                   {planRunning ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
                   {planRunning ? "Buscando..." : "Rodar busca"}
                 </button>
-                <button className="btn-primary" onClick={dispatchPending} disabled={pendingSending}
-                  style={{ background: "#25D366", borderColor: "#25D366", display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+                <button className="btn-primary" onClick={orchestrateApproved} disabled={orchestrating}
+                  style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+                  {orchestrating ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                  {orchestrating ? "Executando..." : `Executar canais (${(poolStats?.pending_wa || 0) + (poolStats?.pending_email || 0)})`}
+                </button>
+                <button className="btn-secondary" onClick={dispatchPending} disabled={pendingSending}
+                  style={{ color: "#25D366", borderColor: "#25D366", display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
                   {pendingSending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                  Iniciar campanha ({poolStats?.pending_wa ?? 0})
+                  Somente WhatsApp ({poolStats?.pending_wa ?? 0})
                 </button>
               </div>
             </div>
@@ -1650,7 +1677,7 @@ export default function Home() {
             )}
             <p style={{ fontSize: "0.8rem", color: "var(--text-muted, #888)", marginBottom: "1rem" }}>
               Monte a lista, clique <strong>Rodar busca</strong>, revise evidência e pergunta e só então aprove.
-              <strong> Iniciar campanha</strong> envia exclusivamente os contatos aprovados, sem repetir.
+              <strong> Executar canais</strong> usa WhatsApp quando disponível e e-mail para os demais, sem repetir o lead.
             </p>
             {poolStats?.sources && Object.keys(poolStats.sources).length > 0 && (
               <div style={{ display: "flex", gap: ".45rem", flexWrap: "wrap", marginBottom: "1rem" }}>
