@@ -70,6 +70,8 @@ interface PoolStats {
   pending_wa: number;
   contacted: number;
 }
+interface FunnelStats { found:number; valid:number; contacted:number; replied:number; interested:number; demos:number; sales:number|null; opted_out:number }
+interface SuppressionItem { jid:string; phone:string|null; reason:string|null; created_at:number }
 interface CloudStatus {
   numbers: CloudNumber[];
   paused: boolean;
@@ -264,6 +266,9 @@ export default function Home() {
   const [summaryPhone, setSummaryPhone] = useState("");
   const [summaryTime, setSummaryTime] = useState("20:00");
   const [summarySaving, setSummarySaving] = useState(false);
+  const [funnelStats, setFunnelStats] = useState<FunnelStats | null>(null);
+  const [suppressions, setSuppressions] = useState<SuppressionItem[]>([]);
+  const [suppressionPhone, setSuppressionPhone] = useState("");
   const [leadAlertsEnabled, setLeadAlertsEnabled] = useState(true);
   const [leadAlertsQuietStart, setLeadAlertsQuietStart] = useState(22);
   const [leadAlertsQuietEnd, setLeadAlertsQuietEnd] = useState(8);
@@ -911,6 +916,15 @@ export default function Home() {
       const alerts = await alertsRes.json(); if (alertsRes.ok) { setLeadAlertsEnabled(alerts.enabled !== false); setLeadAlertsQuietStart(alerts.quiet_start ?? 22); setLeadAlertsQuietEnd(alerts.quiet_end ?? 8); }
     } catch { /* worker offline */ }
   };
+  const loadSafetyData = async () => {
+    try { const [f,s]=await Promise.all([fetch('/api/funnel'),fetch('/api/suppressions')]); if(f.ok)setFunnelStats(await f.json()); if(s.ok)setSuppressions((await s.json()).items||[]); } catch { /* worker offline */ }
+  };
+  const addSuppressionManual = async () => {
+    if(!suppressionPhone.trim())return;
+    const r=await fetch('/api/suppressions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phones:[suppressionPhone],reason:'manual'})});
+    if(r.ok){setSuppressionPhone('');await loadSafetyData();}else alert('Não foi possível adicionar o número.');
+  };
+  const deleteSuppression = async (jid:string) => { await fetch(`/api/suppressions?jid=${encodeURIComponent(jid)}`,{method:'DELETE'}); await loadSafetyData(); };
   const saveLeadAlerts = async () => {
     setSummarySaving(true);
     try { const res = await fetch("/api/lead-alerts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: leadAlertsEnabled, quiet_start: leadAlertsQuietStart, quiet_end: leadAlertsQuietEnd }) }); const data = await res.json(); if (!res.ok) throw new Error(data.error); alert("Alertas de leads configurados. ✅"); }
@@ -931,8 +945,9 @@ export default function Home() {
   useEffect(() => {
     const initial = setTimeout(fetchSystemHealth, 0);
     const summaryInitial = setTimeout(loadDailySummary, 0);
+    const safetyInitial = setTimeout(loadSafetyData, 0);
     const interval = setInterval(fetchSystemHealth, 20000);
-    return () => { clearTimeout(initial); clearTimeout(summaryInitial); clearInterval(interval); };
+    return () => { clearTimeout(initial); clearTimeout(summaryInitial); clearTimeout(safetyInitial); clearInterval(interval); };
   }, []);
 
   // Status do atendente Zapien (1x ao abrir a página). setState só no .then
@@ -1472,6 +1487,11 @@ export default function Home() {
               Monte a lista uma vez, clique <strong>Rodar busca</strong> pra juntar os contatos (sem repetir),
               depois <strong>Disparar pendentes</strong> usa a mensagem do “Disparar WhatsApp”. No dia a dia é só repetir esses 2 passos.
             </p>
+            {funnelStats && (
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(105px,1fr))", gap:".45rem", marginBottom:"1rem" }}>
+                {[['Encontrados',funnelStats.found],['Válidos',funnelStats.valid],['Contatados',funnelStats.contacted],['Responderam',funnelStats.replied],['Interessados',funnelStats.interested],['Demonstração',funnelStats.demos],['Vendas',funnelStats.sales ?? '—']].map(([label,value])=><div key={String(label)} style={{padding:'.55rem',border:'1px solid var(--border,rgba(255,255,255,.1))',borderRadius:'8px',textAlign:'center'}}><strong style={{display:'block',fontSize:'1.1rem'}}>{value}</strong><small>{label}</small></div>)}
+              </div>
+            )}
 
             {/* Adicionar linha ao plano */}
             <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
@@ -1653,6 +1673,11 @@ export default function Home() {
               <button className="btn-secondary" type="button" disabled={summarySaving} onClick={saveLeadAlerts}>Salvar alertas</button>
             </div>
           </div>
+          <details style={{ borderTop: "1px solid var(--border, rgba(255,255,255,.1))", marginTop: ".85rem", paddingTop: ".85rem" }}>
+            <summary style={{cursor:'pointer',fontWeight:700}}>🛑 Lista “Não contatar” ({suppressions.length})</summary>
+            <div style={{display:'flex',gap:'.5rem',margin:'.65rem 0',flexWrap:'wrap'}}><input className="input-glass" value={suppressionPhone} onChange={(e)=>setSuppressionPhone(e.target.value)} placeholder="Adicionar telefone" style={{flex:'1 1 180px'}}/><button className="btn-secondary" onClick={addSuppressionManual}>Bloquear</button></div>
+            <div style={{maxHeight:'180px',overflowY:'auto'}}>{suppressions.length?suppressions.map((item)=><div key={item.jid} style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'.5rem',padding:'.4rem 0',fontSize:'.8rem',borderBottom:'1px solid var(--border,rgba(255,255,255,.06))'}}><span><strong>{item.phone||item.jid.split('@')[0]}</strong> · {item.reason==='optout'?'recusou contato':'bloqueio manual'}</span><button className="btn-secondary" style={{padding:'.2rem .45rem',fontSize:'.7rem'}} onClick={()=>deleteSuppression(item.jid)}>Remover</button></div>):<small>Nenhum número bloqueado.</small>}</div>
+          </details>
         </div>
         <small className={styles.healthUpdated}>
           Atualização automática a cada 20 segundos
