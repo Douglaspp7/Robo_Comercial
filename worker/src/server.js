@@ -257,6 +257,17 @@ const server = http.createServer(async (req, res) => {
       const result = await sendDailySummary();
       return send(res, result.sent ? 200 : 503, result);
     }
+    if (req.method === "GET" && path === "/lead-alerts") {
+      return send(res, 200, { enabled: getSetting('lead_alerts_enabled', '1') === '1', quiet_start: Number(getSetting('lead_alerts_quiet_start', '22')), quiet_end: Number(getSetting('lead_alerts_quiet_end', '8')) });
+    }
+    if (req.method === "POST" && path === "/lead-alerts") {
+      const body = await readJson(req);
+      const start = Math.max(0, Math.min(23, Number(body.quiet_start)));
+      const end = Math.max(0, Math.min(23, Number(body.quiet_end)));
+      if (!Number.isFinite(start) || !Number.isFinite(end)) return send(res, 400, { error: 'horário silencioso inválido' });
+      setSetting('lead_alerts_enabled', body.enabled ? '1' : '0'); setSetting('lead_alerts_quiet_start', String(start)); setSetting('lead_alerts_quiet_end', String(end));
+      return send(res, 200, { ok: true, enabled: Boolean(body.enabled), quiet_start: start, quiet_end: end });
+    }
 
     // Pausa/retoma/cancela uma campanha específica.
     const m = path.match(/^\/campaigns\/(\d+)\/status$/);
