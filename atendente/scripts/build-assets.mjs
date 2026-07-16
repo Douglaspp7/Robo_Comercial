@@ -22,8 +22,12 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const publicDir = join(root, 'public');
 
 // HTML processados: caminho + diretório-base para refs relativas.
+// A landing xlander existia no projeto antigo e pode não fazer parte de uma
+// instalação atual. A tela de integrações é obrigatória porque concentra as
+// conexões OAuth e precisa sempre receber o hash novo no deploy.
 const PAGES = [
-  { file: join(publicDir, 'xlander', 'index.html'), baseDir: join(publicDir, 'xlander') },
+  { file: join(publicDir, 'xlander', 'index.html'), baseDir: join(publicDir, 'xlander'), optional: true },
+  { file: join(publicDir, 'integrations.html'), baseDir: publicDir },
 ];
 
 const REF_RE = /(src|href)="([^"]+)"/g;
@@ -48,11 +52,16 @@ function hash8(path) {
 
 for (const page of PAGES) {
   if (!existsSync(page.file)) {
+    if (page.optional) {
+      console.log(`[build] página opcional ausente, ignorada: ${page.file}`);
+      continue;
+    }
     console.error(`[build] ERRO: página não encontrada: ${page.file}`);
     errors++;
     continue;
   }
   let html = readFileSync(page.file, 'utf8');
+  let pageVersioned = 0;
 
   html = html.replace(REF_RE, (full, attr, ref) => {
     const local = resolveLocal(ref, page.baseDir);
@@ -67,12 +76,15 @@ for (const page of PAGES) {
 
     const clean = ref.split(/[?#]/)[0];
     const next = `${clean}?v=${hash8(local)}`;
-    if (next !== ref) versioned++;
+    if (next !== ref) {
+      versioned++;
+      pageVersioned++;
+    }
     return `${attr}="${next}"`;
   });
 
   writeFileSync(page.file, html);
-  console.log(`[build] ${page.file.replace(root + '/', '')}: refs validadas, ${versioned} com hash de cache.`);
+  console.log(`[build] ${page.file.replace(root + '/', '')}: refs validadas, ${pageVersioned} com hash de cache.`);
 }
 
 if (errors > 0) {

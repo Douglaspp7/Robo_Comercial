@@ -39,6 +39,14 @@ services:
         sync: false
       - key: ADMIN_EMAIL
         sync: false
+      # Google OAuth compartilhado por login, Sheets e Calendar.
+      # Redirects autorizados no mesmo cliente:
+      # https://zapien.app/api/auth/google/callback
+      # https://zapien.app/api/google-calendar/oauth/callback
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
       - key: SUPPORT_PHONE
         sync: false
       - key: SESSION_SECRET
