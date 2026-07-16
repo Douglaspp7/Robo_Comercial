@@ -1,4 +1,4 @@
-import { bookingSettingsQueries, bookingBlockQueries, appointmentQueries } from './db.js';
+import { bookingSettingsQueries, bookingBlockQueries, appointmentQueries, googleCalendarBlockQueries } from './db.js';
 
 export const DEFAULT_WEEKLY_AVAILABILITY = {
   0: { enabled: false, intervals: [] },
@@ -129,6 +129,8 @@ export function getAvailableBookingSlots(tenantId, service, dateText, limit = 10
         ends_at: endsAt,
       });
       if (blocked) continue;
+      const googleBusy = googleCalendarBlockQueries.overlapping.get({ tenant_id: tenantId, starts_at: startsAt, ends_at: endsAt });
+      if (googleBusy) continue;
       const conflict = appointmentQueries.findConflict.get({
         tenant_id: tenantId,
         starts_at: new Date(startsMs - bufferMs).toISOString(),

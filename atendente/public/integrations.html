@@ -439,6 +439,21 @@
       </section>
 
       <section class="integration-section">
+        <div class="category-card" data-target="calendar-body">
+          <div class="category-card-info"><h2 class="category-card-title">Agenda</h2><p class="category-card-subtitle">Evite conflitos e sincronize os horários do Zapien.</p></div>
+          <i data-lucide="chevron-down" class="category-chevron"></i>
+        </div>
+        <div class="integration-section-body" id="calendar-body" style="display:none;"><div class="integration-card-grid">
+          <div class="integration-card" id="integration-google-calendar">
+            <div class="integration-header"><div class="integration-logo" style="background:#4285F4;"><i data-lucide="calendar-days" style="color:white"></i></div><div class="integration-header-text"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><h3 class="integration-title">Google Calendar</h3><span class="badge badge-gray text-xs" id="badge-google-calendar">Não conectado</span></div><p class="integration-subtitle">Bloqueia horários ocupados e cria eventos para os agendamentos feitos pelo Zapien.</p></div></div>
+            <div id="google-calendar-disconnected" style="display:block;margin-top:12px;"><a href="/api/google-calendar/oauth/start" class="btn btn-secondary" style="text-decoration:none;"><i data-lucide="link"></i> Conectar Google Calendar</a></div>
+            <div id="google-calendar-connected" style="display:none;margin-top:12px;"><div class="flex items-center gap-3" style="padding:10px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;"><i data-lucide="check-circle" style="color:#16a34a"></i><div><div style="font-weight:600;color:#15803d;font-size:.875rem;">Sincronização ativa</div><div id="google-calendar-name" style="font-size:.75rem;color:#166534;">Agenda principal</div></div></div><div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;"><button id="google-calendar-sync-btn" class="btn btn-secondary"><i data-lucide="refresh-cw"></i> Sincronizar agora</button><button id="google-calendar-disconnect-btn" class="btn btn-danger"><i data-lucide="unlink"></i> Desconectar</button></div></div>
+            <details class="integration-help"><summary>Como funciona</summary><ol><li>Conecte a conta Google e autorize o calendário.</li><li>O Zapien respeita eventos ocupados dos próximos 90 dias.</li><li>Novo agendamento vira evento automaticamente.</li><li>Cancelar no Zapien remove o evento do Google.</li></ol></details>
+          </div>
+        </div></div>
+      </section>
+
+      <section class="integration-section">
         <div class="category-card" data-target="crm-body">
           <div class="category-card-info">
             <h2 class="category-card-title">CRM e dados</h2>

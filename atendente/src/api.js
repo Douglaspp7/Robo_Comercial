@@ -74,6 +74,7 @@ import { createOutboundJob } from './outbound-queue.js';
 import { newProductId } from './products.js';
 import { clampLimit, decodeCursor, paginate } from './pagination.js';
 import { googleOAuthUrl, verifyGoogleOAuthState, connectGoogleSheets, googleSheetsStatus, syncGoogleSheets, disconnectGoogleSheets } from './google-sheets.js';
+import { googleCalendarEnabled, googleCalendarOAuthUrl, verifyGoogleCalendarState, connectGoogleCalendar, googleCalendarStatus, syncGoogleCalendar, createGoogleCalendarEvent, cancelGoogleCalendarEvent, disconnectGoogleCalendar } from './google-calendar.js';
 import { getRepurchaseSuggestions } from './repurchase.js';
 import { getDemandSignals } from './demand-signals.js';
 import { getRevenueRadar } from './opportunities.js';
@@ -1332,6 +1333,7 @@ apiRouter.get('/api/me', requireAuth, (req, res) => {
     mp_token_set: Boolean(t.mp_access_token),
     features: { billingEnabled, mpBillingEnabled, mpOAuthEnabled, mePlatformEnabled, audioTranscriptionEnabled, blingOAuthEnabled, googleSheetsEnabled, nuvemshopOAuthEnabled, trayOAuthEnabled },
     google_sheets: googleSheetsStatus(t.id),
+    google_calendar: googleCalendarStatus(t.id),
     supportPhone: config.supportPhone || '',
     onboarding_required: !t.onboarding_completed_at,
     impersonatedBy,
@@ -1957,6 +1959,23 @@ apiRouter.post('/api/google-sheets/disconnect', requireAuth, requireCsrf, (req, 
   res.json({ ok: true });
 });
 
+apiRouter.get('/api/google-calendar/oauth/start', requireAuth, (req, res) => {
+  if (!googleCalendarEnabled()) return res.redirect('/integrations.html?gcal_error=not_configured');
+  try { res.redirect(googleCalendarOAuthUrl(req.sessionToken)); }
+  catch { res.redirect('/integrations.html?gcal_error=not_configured'); }
+});
+apiRouter.get('/api/google-calendar/oauth/callback', requireAuth, async (req, res) => {
+  if (!req.query.code || !verifyGoogleCalendarState(req.sessionToken, req.query.state)) return res.redirect('/integrations.html?gcal_error=invalid_state');
+  try { await connectGoogleCalendar(req.tenant, String(req.query.code)); res.redirect('/integrations.html?gcal_connected=1'); }
+  catch (err) { console.error('[google-calendar] oauth:', err.message); res.redirect('/integrations.html?gcal_error=oauth_failed'); }
+});
+apiRouter.get('/api/google-calendar/status', requireAuth, (req, res) => res.json(googleCalendarStatus(req.tenant.id)));
+apiRouter.post('/api/google-calendar/sync', requireAuth, requireCsrf, async (req, res) => {
+  try { res.json({ ok: true, ...(await syncGoogleCalendar(req.tenant.id)) }); }
+  catch (err) { console.error('[google-calendar] sync:', err.message); res.status(400).json({ error: 'Não foi possível sincronizar o Google Calendar.' }); }
+});
+apiRouter.post('/api/google-calendar/disconnect', requireAuth, requireCsrf, (req, res) => { disconnectGoogleCalendar(req.tenant.id); res.json({ ok: true }); });
+
 // --- Webhook genérico (Zapier/Make) ---
 apiRouter.post('/api/webhooks/settings', requireAuth, requireCsrf, (req, res) => {
   const t = req.tenant;
@@ -2297,6 +2316,13 @@ apiRouter.post('/api/booking/appointments', requireAuth, requireServiceMode, req
     notes: data.notes || null,
   };
   appointmentQueries.insert.run(appointment);
+  let calendarWarning = null;
+  try {
+    await createGoogleCalendarEvent(req.tenant.id, { ...appointment, service_name: service.name });
+  } catch (err) {
+    console.error('[Agenda] Google Calendar:', err.message);
+    calendarWarning = 'Agendamento salvo, mas não foi enviado ao Google Calendar.';
+  }
 
   let paymentLink = null;
   let paymentWarning = null;
@@ -2339,7 +2365,7 @@ apiRouter.post('/api/booking/appointments', requireAuth, requireServiceMode, req
   res.status(201).json({
     appointment: appointmentQueries.byId.get(appointment.id, req.tenant.id),
     payment_link: paymentLink,
-    warning: paymentWarning,
+    warning: paymentWarning || calendarWarning,
   });
 });
 
@@ -2358,6 +2384,10 @@ apiRouter.patch('/api/booking/appointments/:id/status', requireAuth, requireServ
   const appointment = appointmentQueries.byId.get(req.params.id, req.tenant.id);
 
   let warning = null;
+  if (status === 'cancelado' && before.status !== 'cancelado') {
+    try { await cancelGoogleCalendarEvent(req.tenant.id, before); }
+    catch (err) { console.error('[Agenda] cancelar Google Calendar:', err.message); warning = 'Status atualizado, mas o evento não foi removido do Google Calendar.'; }
+  }
   if (status === 'confirmado' && before.status !== 'confirmado' && appointment.customer_phone) {
     const text = `✅ Agendamento confirmado! ${appointment.service_name} em ${formatBookingDateTime(appointment.starts_at)}. Se precisar alterar, responda por aqui.`;
     try {

@@ -292,6 +292,11 @@ document.addEventListener('DOMContentLoaded', () => {
         not_configured: 'Google Sheets ainda não está configurado na plataforma.',
         invalid_state: 'Sessão expirada. Tente conectar novamente.',
       },
+      gcal: {
+        oauth_failed: 'Falha ao conectar com Google Calendar. Confira a API e o Redirect URI no Google Cloud.',
+        not_configured: 'Google Calendar ainda não está configurado na plataforma.',
+        invalid_state: 'Sessão expirada. Tente conectar novamente.',
+      },
     };
 
     if (params.has('mp_connected')) {
@@ -322,6 +327,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const msg = errMaps.gs[params.get('gs_error')] || 'Erro ao conectar com Google Sheets.';
       setTimeout(() => window.Toast?.show(msg, 'error'), 400);
       clean();
+    } else if (params.has('gcal_connected')) {
+      setTimeout(() => window.Toast?.show('Google Calendar conectado com sucesso! 🎉', 'success'), 400); clean();
+    } else if (params.has('gcal_error')) {
+      const msg = errMaps.gcal[params.get('gcal_error')] || 'Erro ao conectar com Google Calendar.';
+      setTimeout(() => window.Toast?.show(msg, 'error'), 400); clean();
     }
   })();
 
@@ -385,6 +395,26 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       window.Toast?.show('Não foi possível desconectar. Tente novamente.', 'error');
     }
+  });
+
+  function applyGoogleCalendarStatus(status = {}) {
+    const connected = Boolean(status.connected);
+    const badge = document.getElementById('badge-google-calendar');
+    if (badge) { badge.textContent = connected ? 'Conectado' : 'Não conectado'; badge.className = connected ? 'badge badge-success text-xs' : 'badge badge-gray text-xs'; }
+    const off = document.getElementById('google-calendar-disconnected'); if (off) off.style.display = connected ? 'none' : 'block';
+    const on = document.getElementById('google-calendar-connected'); if (on) on.style.display = connected ? 'block' : 'none';
+    const name = document.getElementById('google-calendar-name'); if (name) name.textContent = status.calendar_name || 'Agenda principal';
+  }
+  document.getElementById('google-calendar-sync-btn')?.addEventListener('click', async (event) => {
+    const btn = event.currentTarget; btn.disabled = true;
+    try { const res = await apiFetch('/api/google-calendar/sync', { method:'POST' }); const data = await res.json(); if (!res.ok) throw new Error(data.error); applyGoogleCalendarStatus(data); window.Toast?.show('Google Calendar sincronizado.', 'success'); }
+    catch (err) { window.Toast?.show(err.message || 'Falha ao sincronizar.', 'error'); } finally { btn.disabled = false; }
+  });
+  document.getElementById('google-calendar-disconnect-btn')?.addEventListener('click', async () => {
+    const confirmed = await window.ZapUI.confirm({ title:'Desconectar Google Calendar', message:'Os eventos existentes não serão apagados, mas novos horários deixarão de sincronizar.', confirmText:'Desconectar', cancelText:'Manter conectado', tone:'danger' });
+    if (!confirmed) return;
+    const res = await apiFetch('/api/google-calendar/disconnect', { method:'POST' });
+    if (res.ok) { applyGoogleCalendarStatus({ connected:false }); window.Toast?.show('Google Calendar desconectado.', 'success'); }
   });
 
   // ── Mercado Pago: desconectar ─────────────────────────────────────────────
@@ -749,6 +779,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const me = await meRes.json();
       planFeatures = me.planFeatures || {};
       features = me.features || {};
+      applyGoogleCalendarStatus(me.google_calendar || {});
 
       window.ZapUI.setupProfileDropdown(me, apiFetch);
       window.ZapUI.setupSupportLink(me.supportPhone);
