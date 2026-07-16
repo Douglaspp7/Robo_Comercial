@@ -27,6 +27,8 @@ import { knowledgeHealthMetrics, startKnowledgeWorker } from './knowledge/worker
 import { startMetaHealthScheduler, metaHealthAggregates } from './meta-health.js';
 import { startAutomationWorker, automationHealthMetrics } from './automations/worker.js';
 import { startConversionWorker } from './meta-capi.js';
+import { createAIMessage } from './ai.js';
+import { generateSearchPlan } from './search-plan.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(__dirname, '..', 'public');
@@ -102,6 +104,22 @@ app.post('/stripe/webhook', express.raw({ type: 'application/json' }), async (re
 app.use(express.json({ limit: '1mb' }));
 
 app.use(cookieParser(config.sessionSecret));
+
+// Planejador usado somente pelo painel administrativo no mesmo Raspberry Pi.
+// A IA propõe hipóteses; o painel exige aprovação antes de salvá-las no plano.
+app.post('/internal/search-plan', async (req, res) => {
+  const token = String(req.headers['x-worker-token'] || '');
+  if (!config.gateway.workerToken || token !== config.gateway.workerToken) {
+    return res.status(401).json({ error: 'Não autorizado.' });
+  }
+  try {
+    const suggestions = await generateSearchPlan(req.body, createAIMessage, config.anthropic.model);
+    return res.json({ suggestions, generatedAt: new Date().toISOString() });
+  } catch (error) {
+    console.error('Search plan AI:', error.message);
+    return res.status(502).json({ error: error.message || 'Não foi possível gerar o plano.' });
+  }
+});
 
 // Healthcheck — inclui métricas AGREGADAS da fila de IA para visibilidade de
 // saturação sem ferramenta externa (nenhum dado pessoal, nem ids de tenant).
