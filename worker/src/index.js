@@ -12,6 +12,7 @@ import { startLeadAlerts } from './lead-alerts.js';
 import { firstConnectedId, sendText } from './wa.js';
 import { startChipProtection } from './chip-protection.js';
 import { setPaused } from './sender.js';
+import { startControlPlane } from './control-plane.js';
 
 const numbers = getNumbers();
 
@@ -23,11 +24,13 @@ console.log(
 );
 
 startServer();
-startSender(numbers);
+if (config.dryRun) console.log('  Modo teste ativo: a fila será sincronizada, sem disparos.');
+else startSender(numbers);
 startScheduler();
 startDailySummary();
 startLeadAlerts({ firstConnectedId, sendText });
 startChipProtection({ setPaused });
+startControlPlane(numbers);
 startAll(numbers).catch((e) => {
   console.error("Falha ao iniciar as sessões:", e.message);
 });
