@@ -10,6 +10,8 @@ import { startScheduler } from "./scheduler.js";
 import { startDailySummary } from "./daily-summary.js";
 import { startLeadAlerts } from './lead-alerts.js';
 import { firstConnectedId, sendText } from './wa.js';
+import { startChipProtection } from './chip-protection.js';
+import { setPaused } from './sender.js';
 
 const numbers = getNumbers();
 
@@ -25,6 +27,7 @@ startSender(numbers);
 startScheduler();
 startDailySummary();
 startLeadAlerts({ firstConnectedId, sendText });
+startChipProtection({ setPaused });
 startAll(numbers).catch((e) => {
   console.error("Falha ao iniciar as sessões:", e.message);
 });

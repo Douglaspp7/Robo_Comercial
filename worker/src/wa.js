@@ -25,6 +25,7 @@ import { classifyInbound, classifyInterest, classifyLeadHeat, forwardToAttendant
 import { recordLeadResponse } from "./leads.js";
 import { enqueueLeadAlert, flushLeadAlert } from './lead-alerts.js';
 import { getSetting } from './db.js';
+import { evaluateOptoutProtection } from './chip-protection.js';
 
 const logger = pino({ level: process.env.WA_LOG_LEVEL || "silent" });
 
@@ -115,11 +116,12 @@ export async function startSession({ id, pairPhone }) {
       if (kind === "optout") {
         recordLeadResponse(jid, { optout: true });
         addSuppression(jid, phone, "optout");
+        evaluateOptoutProtection();
         console.log(`  [${id}] opt-out recebido de ...${phone.slice(-4)} → supressão.`);
         continue;
       }
-      recordLeadResponse(jid, { interested: classifyInterest(text) });
       const heat = classifyLeadHeat(text);
+      recordLeadResponse(jid, { interested: classifyInterest(text), demo: heat?.reason === 'pediu demonstração' });
       if (heat) {
         enqueueLeadAlert({ jid, phone, name: msg.pushName || '', heat });
         flushLeadAlert({ firstConnectedId, sendText }).catch(() => {});

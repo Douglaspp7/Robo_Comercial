@@ -271,6 +271,13 @@ export function suppressionCount() {
   return stmtSuppressionCount.get().c;
 }
 
+export function listSuppressions(limit = 200) {
+  return db.prepare(`SELECT jid,phone,reason,created_at FROM suppression ORDER BY created_at DESC LIMIT ?`).all(Math.max(1, Math.min(1000, Number(limit) || 200)));
+}
+export function removeSuppression(jid) {
+  return db.prepare(`DELETE FROM suppression WHERE jid=?`).run(jid).changes;
+}
+
 // ── Settings (chave/valor) — usado pelo agendador ────────────────────────────
 const stmtGetSetting = db.prepare(`SELECT value FROM settings WHERE key=?`);
 const stmtSetSetting = db.prepare(
