@@ -48,6 +48,23 @@ if (!leadCols.has('replied_at')) db.exec(`ALTER TABLE leads ADD COLUMN replied_a
 if (!leadCols.has('interested_at')) db.exec(`ALTER TABLE leads ADD COLUMN interested_at INTEGER`);
 if (!leadCols.has('opted_out_at')) db.exec(`ALTER TABLE leads ADD COLUMN opted_out_at INTEGER`);
 
+db.exec(`CREATE TABLE IF NOT EXISTS lead_alerts (
+  jid TEXT PRIMARY KEY, phone TEXT, name TEXT, level TEXT NOT NULL, reason TEXT,
+  source TEXT, search_query TEXT, created_at INTEGER NOT NULL, sent_at INTEGER
+)`);
+
+export const leadAlertQueries = {
+  context: db.prepare(`SELECT l.name,l.phone,l.source,p.query FROM leads l LEFT JOIN search_plan p ON p.id=l.plan_id WHERE l.jid=?`),
+  enqueue: db.prepare(`INSERT INTO lead_alerts (jid,phone,name,level,reason,source,search_query,created_at,sent_at)
+    VALUES (@jid,@phone,@name,@level,@reason,@source,@search_query,@created_at,NULL)
+    ON CONFLICT(jid) DO UPDATE SET
+      level=CASE WHEN excluded.level='hot' AND lead_alerts.level<>'hot' THEN 'hot' ELSE lead_alerts.level END,
+      reason=CASE WHEN excluded.level='hot' THEN excluded.reason ELSE lead_alerts.reason END,
+      sent_at=CASE WHEN excluded.level='hot' AND lead_alerts.level<>'hot' THEN NULL ELSE lead_alerts.sent_at END`),
+  pending: db.prepare(`SELECT * FROM lead_alerts WHERE sent_at IS NULL ORDER BY CASE level WHEN 'hot' THEN 0 ELSE 1 END, created_at ASC LIMIT 1`),
+  markSent: db.prepare(`UPDATE lead_alerts SET sent_at=@sent_at WHERE jid=@jid`),
+};
+
 // ── Plano de busca ───────────────────────────────────────────────────────────
 const stmtAddPlan = db.prepare(
   `INSERT INTO search_plan (source, mode, query, location, deep, created_at)
