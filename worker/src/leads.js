@@ -323,6 +323,7 @@ export const leadQueries = {
   markContacted: db.prepare(
     `UPDATE leads SET contacted_at=@ts WHERE dedup_key=@dedup_key`
   ),
+  bySource: db.prepare(`SELECT COALESCE(source,'não informada') source, COUNT(*) total FROM leads GROUP BY source ORDER BY total DESC`),
 };
 
 export function leadStats() {
@@ -336,6 +337,7 @@ export function leadStats() {
     blocked: s.blocked || 0,
     qualified: s.qualified || 0,
     contacted: s.contacted || 0,
+    sources: Object.fromEntries(leadQueries.bySource.all().map((row) => [row.source, row.total])),
   };
 }
 

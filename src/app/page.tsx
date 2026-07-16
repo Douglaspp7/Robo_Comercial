@@ -14,6 +14,10 @@ interface Business {
   phone: string;
   website: string;
   email?: string;
+  source?: string;
+  source_url?: string;
+  instagram_url?: string;
+  enrichment_status?: "enriched" | "unavailable";
 }
 
 // Estado do worker de disparo na nuvem (Pi), lido de GET /api/wa-campaign.
@@ -76,6 +80,7 @@ interface PoolStats {
   needs_review: number;
   blocked: number;
   qualified: number;
+  sources?: Record<string, number>;
 }
 interface LeadReview {
   dedup_key: string; phone: string; company_name: string; contact_name: string;
@@ -225,6 +230,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [enriching, setEnriching] = useState(false);
 
   // Email Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -358,6 +364,32 @@ export default function Home() {
     } finally {
       setDiscoveringRegions(false);
     }
+  };
+
+  const enrichBusinesses = async (items: Business[]) => {
+    const output: Business[] = [];
+    for (let index = 0; index < Math.min(items.length, 100); index += 25) {
+      const batch = items.slice(index, index + 25);
+      const response = await fetch("/api/enrich", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ leads: batch }) });
+      if (!response.ok) { output.push(...batch); continue; }
+      const data = await response.json();
+      output.push(...(Array.isArray(data.leads) ? data.leads : batch));
+    }
+    if (items.length > 100) output.push(...items.slice(100));
+    return output;
+  };
+
+  const enrichSelected = async () => {
+    const selected = results.filter((item) => selectedIds.has(item.id));
+    if (!selected.length) return alert("Selecione as empresas que deseja qualificar.");
+    setEnriching(true);
+    try {
+      const enriched = await enrichBusinesses(selected);
+      const byId = new Map(enriched.map((item) => [item.id, item]));
+      setResults((current) => current.map((item) => byId.get(item.id) || item));
+      const found = enriched.filter((item) => item.enrichment_status === "enriched").length;
+      alert(`${found} site(s) analisado(s). Telefones, e-mails e Instagram públicos foram acrescentados quando encontrados.`);
+    } finally { setEnriching(false); }
   };
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -1243,11 +1275,13 @@ export default function Home() {
           /* pula linha com erro (chave não configurada etc.) */
         }
       }
-      setPlanProgress(`Salvando ${collected.length} resultados no pool…`);
+      setPlanProgress(`Qualificando sites e canais de até ${Math.min(collected.length, 100)} resultados…`);
+      const enrichedCollected = await enrichBusinesses(collected);
+      setPlanProgress(`Salvando ${enrichedCollected.length} resultados no pool…`);
       const res = await fetch("/api/leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leads: collected, plan_runs: planRuns }),
+        body: JSON.stringify({ leads: enrichedCollected, plan_runs: planRuns }),
       });
       const out = await res.json();
       setPoolStats(out.stats || null);
@@ -1366,6 +1400,12 @@ export default function Home() {
       : connectedCount > 0
       ? { color: "#22c55e", label: `${connectedCount}/${cloudNumbers.length} conectados` }
       : { color: "#f59e0b", label: "Aguardando pareamento" };
+  const resultChannels = {
+    whatsapp: results.filter((item) => Boolean(getWaLink(item.phone))).length,
+    email: results.filter((item) => Boolean(item.email)).length,
+    site: results.filter((item) => Boolean(item.website)).length,
+    enriched: results.filter((item) => item.enrichment_status === "enriched").length,
+  };
 
   return (
     <main className={styles.container}>
@@ -1388,6 +1428,17 @@ export default function Home() {
           <span>3</span> Resultados
         </button>
       </nav>
+
+      <section className="glass-panel" style={{ padding: "1rem", marginBottom: "1rem" }} aria-label="Como usar o Robô Comercial">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: "0.6rem" }}>
+          {[
+            ["1. Buscar", "Google Maps, Instagram ou Excel"],
+            ["2. Qualificar", "Confere site, canais e evidências"],
+            ["3. Aprovar", "Você revisa pergunta e contatos"],
+            ["4. Disparar", "Agenda e acompanha as conversões"],
+          ].map(([title, text]) => <div key={title} style={{ padding: "0.7rem", border: "1px solid var(--border,rgba(255,255,255,.1))", borderRadius: "10px" }}><strong>{title}</strong><small style={{ display: "block", marginTop: ".2rem", color: "var(--text-muted,#888)" }}>{text}</small></div>)}
+        </div>
+      </section>
 
       <div className={styles.statusStrip}>
         <button type="button" onClick={() => setWorkspaceTab("results")}>
@@ -1601,6 +1652,12 @@ export default function Home() {
               Monte a lista, clique <strong>Rodar busca</strong>, revise evidência e pergunta e só então aprove.
               <strong> Iniciar campanha</strong> envia exclusivamente os contatos aprovados, sem repetir.
             </p>
+            {poolStats?.sources && Object.keys(poolStats.sources).length > 0 && (
+              <div style={{ display: "flex", gap: ".45rem", flexWrap: "wrap", marginBottom: "1rem" }}>
+                <span style={{ fontSize: ".78rem", fontWeight: 700 }}>Origem dos contatos:</span>
+                {Object.entries(poolStats.sources).map(([itemSource, total]) => <span key={itemSource} style={{ fontSize: ".75rem", padding: ".2rem .5rem", borderRadius: "999px", background: "var(--surface,rgba(255,255,255,.06))" }}>{itemSource}: {total}</span>)}
+              </div>
+            )}
             {funnelStats && (
               <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(105px,1fr))", gap:".45rem", marginBottom:"1rem" }}>
                 {[['Encontrados',funnelStats.found],['Válidos',funnelStats.valid],['Contatados',funnelStats.contacted],['Responderam',funnelStats.replied],['Interessados',funnelStats.interested],['Demonstração',funnelStats.demos],['Vendas',funnelStats.sales ?? '—']].map(([label,value])=><div key={String(label)} style={{padding:'.55rem',border:'1px solid var(--border,rgba(255,255,255,.1))',borderRadius:'8px',textAlign:'center'}}><strong style={{display:'block',fontSize:'1.1rem'}}>{value}</strong><small>{label}</small></div>)}
@@ -2088,6 +2145,10 @@ export default function Home() {
                 <Download size={18} style={{ marginRight: 8, display: "inline" }} />
                 Exportar Excel ({results.length})
               </button>
+              <button className="btn-secondary" onClick={enrichSelected} disabled={selectedIds.size === 0 || enriching}>
+                {enriching ? <Loader2 size={18} className="animate-spin" /> : <Search size={18} />}
+                {enriching ? " Qualificando..." : ` Qualificar selecionados (${selectedIds.size})`}
+              </button>
               <button
                 className="btn-secondary"
                 onClick={openWaCampaign}
@@ -2107,6 +2168,14 @@ export default function Home() {
               </button>
             </div>
           </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: ".55rem", marginBottom: "1rem" }}>
+            {[["WhatsApp", resultChannels.whatsapp], ["E-mail", resultChannels.email], ["Com site", resultChannels.site], ["Sites analisados", resultChannels.enriched]].map(([label, value]) =>
+              <div key={String(label)} style={{ padding: ".65rem", border: "1px solid var(--border,rgba(255,255,255,.1))", borderRadius: "9px", textAlign: "center" }}><strong style={{ display: "block", fontSize: "1.1rem" }}>{value}</strong><small>{label}</small></div>)}
+          </div>
+          <p style={{ fontSize: ".8rem", color: "var(--text-muted,#888)", marginBottom: "1rem" }}>
+            <strong>Qualificar selecionados</strong> visita apenas sites públicos, procura telefone, e-mail e Instagram comercial e não envia nenhuma mensagem. O disparo continua dependendo da sua aprovação.
+          </p>
 
           <div className={styles.tableContainer}>
             <table className={styles.table}>
