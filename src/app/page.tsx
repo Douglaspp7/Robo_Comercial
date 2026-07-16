@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, Loader2, Download, Send, X, MessageCircle, SkipForward, Pause, Play } from "lucide-react";
+import { Search, Loader2, Download, Send, X, MessageCircle, SkipForward, Pause, Play, HeartPulse, RefreshCw } from "lucide-react";
 import * as XLSX from "xlsx";
 import QRCode from "qrcode";
 import styles from "./page.module.css";
@@ -61,6 +61,28 @@ interface CloudStatus {
   suppressed?: number;
   campaigns: CloudCampaign[];
   error?: string;
+}
+
+interface SystemHealth {
+  overall: "healthy" | "degraded" | "offline";
+  checkedAt: string;
+  panel: { status: string };
+  worker: { status: string; latencyMs: number | null; paused: boolean; campaigns: number };
+  numbers: CloudNumber[];
+  attendant: {
+    status: string;
+    configured: boolean;
+    latencyMs: number | null;
+    url: string | null;
+    metrics: {
+      uptime_s?: number;
+      memory_mb?: number;
+      ai_queue?: Record<string, number>;
+      outbound_queue?: Record<string, number>;
+      alerts_recent?: unknown[];
+    } | null;
+  };
+  warnings: string[];
 }
 
 const getWaNumber = (phone: string): string | null => {
@@ -220,6 +242,8 @@ export default function Home() {
   const [qrDataUrls, setQrDataUrls] = useState<Record<string, string>>({});
   // Atendente Zapien (a cópia que vende Zapien) — status + link do dashboard.
   const [attendant, setAttendant] = useState<{ configured: boolean; online?: boolean; url?: string } | null>(null);
+  const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
+  const [healthLoading, setHealthLoading] = useState(false);
   // Plano de busca + pool de leads (persistente no worker).
   const [planOpen, setPlanOpen] = useState(false);
   const [planLines, setPlanLines] = useState<PlanLine[]>([]);
@@ -840,6 +864,25 @@ export default function Home() {
     return () => clearTimeout(initial);
   }, []);
 
+  const fetchSystemHealth = async () => {
+    setHealthLoading(true);
+    try {
+      const res = await fetch("/api/system-health", { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setSystemHealth(await res.json());
+    } catch {
+      setSystemHealth(null);
+    } finally {
+      setHealthLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const initial = setTimeout(fetchSystemHealth, 0);
+    const interval = setInterval(fetchSystemHealth, 20000);
+    return () => { clearTimeout(initial); clearInterval(interval); };
+  }, []);
+
   // Status do atendente Zapien (1x ao abrir a página). setState só no .then
   // (assíncrono) para não incorrer no aviso de setState-em-efeito.
   useEffect(() => {
@@ -1411,6 +1454,61 @@ export default function Home() {
       </section>
 
       {/* Painel de acompanhamento do robô na nuvem (Pi) */}
+      <section className={`glass-panel ${workspaceTab !== "results" ? styles.isHidden : ""} ${styles.healthPanel}`}>
+        <div className={styles.healthHeader}>
+          <div>
+            <h2 className={styles.subtitle}><HeartPulse size={21} /> Saúde do sistema</h2>
+            <p>
+              {systemHealth?.overall === "healthy" ? "Tudo funcionando normalmente" :
+                systemHealth?.overall === "degraded" ? "Sistema funcionando com atenção" :
+                  systemHealth ? "Um ou mais serviços estão offline" : "Verificando os serviços…"}
+            </p>
+          </div>
+          <button className="btn-secondary" type="button" onClick={fetchSystemHealth} disabled={healthLoading}>
+            <RefreshCw size={16} className={healthLoading ? "animate-spin" : ""} />
+            Atualizar
+          </button>
+        </div>
+
+        <div className={styles.healthGrid}>
+          {[
+            { name: "Painel", status: systemHealth?.panel.status, detail: "Interface disponível" },
+            { name: "Worker", status: systemHealth?.worker.status, detail: systemHealth?.worker.latencyMs != null ? `${systemHealth.worker.latencyMs} ms` : "Sem resposta" },
+            { name: "Zapien", status: systemHealth?.attendant.status, detail: systemHealth?.attendant.latencyMs != null ? `${systemHealth.attendant.latencyMs} ms` : "Sem resposta" },
+          ].map((service) => (
+            <div className={styles.healthCard} key={service.name}>
+              <i className={styles[`health_${service.status || "checking"}`]} />
+              <span><strong>{service.name}</strong><small>{service.detail}</small></span>
+            </div>
+          ))}
+          {(systemHealth?.numbers || []).map((number, index) => (
+            <div className={styles.healthCard} key={number.id}>
+              <i className={number.connected ? styles.health_healthy : styles.health_degraded} />
+              <span><strong>Chip {index + 1}</strong><small>{number.connected ? `Conectado · ${number.today ?? 0}/${number.limit ?? 0}` : number.lastError || "Desconectado"}</small></span>
+            </div>
+          ))}
+        </div>
+
+        {systemHealth?.attendant.metrics && (
+          <div className={styles.healthMetrics}>
+            <span><strong>{systemHealth.attendant.metrics.memory_mb ?? "—"} MB</strong> memória Zapien</span>
+            <span><strong>{systemHealth.worker.campaigns}</strong> campanhas</span>
+            <span><strong>{Math.round((systemHealth.attendant.metrics.uptime_s ?? 0) / 3600)}h</strong> Zapien no ar</span>
+            <span><strong>{systemHealth.attendant.metrics.alerts_recent?.length ?? 0}</strong> alertas recentes</span>
+          </div>
+        )}
+
+        {(systemHealth?.warnings.length ?? 0) > 0 && (
+          <div className={styles.healthWarnings}>
+            {systemHealth?.warnings.map((warning) => <span key={warning}>⚠ {warning}</span>)}
+          </div>
+        )}
+        <small className={styles.healthUpdated}>
+          Atualização automática a cada 20 segundos
+          {systemHealth?.checkedAt && ` · última verificação ${new Date(systemHealth.checkedAt).toLocaleTimeString("pt-BR")}`}
+        </small>
+      </section>
+
       <section className={`glass-panel ${workspaceTab !== "results" ? styles.isHidden : ""}`} style={{ padding: "1.5rem", marginTop: "1rem" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
           <h2 className={styles.subtitle} style={{ margin: 0, display: "inline-flex", alignItems: "center", gap: "0.6rem" }}>
