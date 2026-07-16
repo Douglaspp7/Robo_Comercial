@@ -1,4 +1,4 @@
-export const ZAPIEN_SALES_SEED_VERSION = 1;
+export const ZAPIEN_SALES_SEED_VERSION = 2;
 
 // --- Seed comercial: Zapien vende Zapien ---
 export const ZAPIEN_BUSINESS = {
@@ -163,6 +163,50 @@ export const ZAPIEN_BUSINESS = {
     },
   ],
   perguntasFrequentes: [
+    {
+      pergunta: 'Como a interface do Zapien está organizada?',
+      resposta: 'A navegação principal separa o trabalho por função: Início para acompanhar conversas e oportunidades; Agenda para serviços e horários; Vendas para funil, checkouts e receita; Automações para rotinas comerciais; Marketing para links e origem de resultados; Integrações para conectar serviços externos; Configurações para ensinar o negócio à IA; e Planos para assinatura e limites. Em celular, parte dessas opções fica no menu “Mais”.',
+    },
+    {
+      pergunta: 'Onde acompanho clientes e assumo uma conversa?',
+      resposta: 'Abra Início. Localize o contato no CRM, entre na conversa e use a ação de atendimento humano quando precisar responder pessoalmente. Ali você vê histórico, etapa do funil, intenção, resumo e avisos de atendimento pendente.',
+    },
+    {
+      pergunta: 'Onde configuro o que a IA sabe sobre minha empresa?',
+      resposta: 'Abra Configurações. Comece em Negócio para descrição, tom de voz, horários, perguntas frequentes, objeções e regras. Depois cadastre Produtos e envie os documentos necessários. Finalize testando no Sandbox antes de divulgar o número.',
+    },
+    {
+      pergunta: 'Onde cadastro produtos, catálogo e documentos?',
+      resposta: 'Em Configurações, use a área de Produtos para cadastrar itens, preços, imagens, variações e links. O catálogo e os documentos complementares também ficam na configuração do conhecimento. Os limites variam conforme o plano e aparecem em Planos e no indicador de uso.',
+    },
+    {
+      pergunta: 'Onde testo a atendente sem falar com clientes reais?',
+      resposta: 'Vá a Configurações e abra o Sandbox. A conversa ali é privada e não envia mensagens ao WhatsApp. Use perguntas reais de clientes, corrija o conteúdo do negócio e repita o teste antes de colocar a atendente em produção.',
+    },
+    {
+      pergunta: 'Onde conecto Google Calendar, WhatsApp, Mercado Pago ou outras ferramentas?',
+      resposta: 'Todas as conexões ficam em Integrações. Google Calendar aparece na categoria Agenda; WhatsApp e Mercado Pago ficam entre as integrações essenciais; Google Sheets em CRM e dados; e as integrações avançadas de loja, estoque e logística aparecem conforme o plano. A tela mostra o estado e os botões de conectar, sincronizar ou desconectar.',
+    },
+    {
+      pergunta: 'Como funciona a Agenda e o Google Calendar?',
+      resposta: 'Em Agenda você cadastra serviços, duração, preço, taxa de reserva, disponibilidade, intervalos e folgas. A conexão da conta Google é feita em Integrações → Agenda → Google Calendar. Depois, horários ocupados sincronizados bloqueiam a disponibilidade e novos agendamentos do Zapien viram eventos no Google.',
+    },
+    {
+      pergunta: 'Onde acompanho vendas, pagamentos e conversão?',
+      resposta: 'Abra Vendas para acompanhar o funil comercial, receita, checkouts e vendas recentes. A conta do Mercado Pago é conectada em Integrações; após a confirmação do pagamento, o Zapien atualiza o status correspondente.',
+    },
+    {
+      pergunta: 'Onde crio follow-ups e outras automações?',
+      resposta: 'Abra Automações. Escolha um modelo ou defina quando a rotina começa, quais condições precisa cumprir e qual ação será executada. O limite de automações ativas depende do plano. Antes de ativar, confira público, mensagem e intervalo para evitar contatos indevidos.',
+    },
+    {
+      pergunta: 'Onde vejo limites do plano e consumo?',
+      resposta: 'Abra Planos para comparar recursos e contratar. Os indicadores de uso no app mostram consumo de respostas de IA, áudio, armazenamento e outros limites aplicáveis. Se um recurso não aparecer, verifique o plano e o status da integração antes de concluir que há erro.',
+    },
+    {
+      pergunta: 'Como peço suporte dentro do app?',
+      resposta: 'Use o botão Suporte no menu lateral ou no menu “Mais” do celular. Todos os links oficiais abrem este mesmo WhatsApp da Zapi. Envie qualquer palavra para iniciar; a atendente tenta orientar pela interface e encaminha para uma pessoa quando a dúvida exige acesso à conta, segurança ou intervenção humana.',
+    },
     {
       pergunta: 'O que é o Zapien?',
       resposta: 'O Zapien é uma plataforma de atendimento e vendas com IA para WhatsApp. Ele responde dúvidas, conhece seus produtos, recomenda opções, organiza os contatos no CRM e chama você quando o atendimento precisa de uma pessoa.',
@@ -348,6 +392,12 @@ export const ZAPIEN_BUSINESS = {
     'Sem problema, obrigado por avisar. Não enviaremos novas mensagens por aqui.',
   ],
   regras: [
+    'Você é especialista também na interface atual do Zapien. Quando alguém perguntar “onde fica”, responda com o caminho de navegação exato usando nomes visíveis da UI e no máximo quatro passos curtos.',
+    'Nunca invente botão, aba ou caminho. Use somente estes destinos confirmados: Início, Agenda, Vendas, Automações, Marketing, Integrações, Configurações e Planos; no celular, opções adicionais podem estar em “Mais”.',
+    'Diferencie configuração de uso: conectar/desconectar serviços externos acontece em Integrações; operar serviços, horários e compromissos acontece em Agenda; ensinar negócio, produtos, FAQs, regras, documentos e testar no Sandbox acontece em Configurações.',
+    'Ao orientar uma tarefa de UI, primeiro diga o caminho, depois a ação esperada e por fim como confirmar que funcionou. Faça uma pergunta de contexto somente se houver mais de um caminho possível.',
+    'Se a pessoa relatar que um botão ou seção não aparece, verifique nesta ordem: tipo de negócio, plano, permissão de administrador, integração configurada e uso do menu “Mais” no celular. Não conclua imediatamente que é defeito.',
+    'Para suporte técnico, peça apenas descrição do erro e tela onde ocorreu. Nunca peça senha, token, código de autenticação ou credenciais. Encaminhe a uma pessoa quando exigir acesso à conta ou análise de dados privados.',
     'Considere que o worker iniciou a conversa com um contato frio usando texto curto. Não envie imagem, áudio, catálogo, preço ou texto longo antes de a pessoa responder.',
     'Na primeira resposta do lead, confirme a dor ou o interesse antes de explicar o produto. Faça somente uma pergunta simples por mensagem.',
     'Se houver interesse, peça permissão antes de enviar uma imagem ou demonstração: “Posso te mandar uma imagem rápida mostrando como funciona?”.',
