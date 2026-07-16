@@ -153,7 +153,7 @@ async function tick(numberId) {
   } catch (e) {
     const attempts = item.attempts + 1;
     if (attempts >= config.maxAttempts) {
-      queries.markFailed.run({ id: item.id, error: e.message });
+      queries.markFailed.run({ id: item.id, error: e.message, ts: Date.now() });
       console.warn(`  [${numberId}] falha definitiva ...${tail}: ${e.message}`);
     } else {
       queries.requeue.run({ id: item.id, error: e.message });

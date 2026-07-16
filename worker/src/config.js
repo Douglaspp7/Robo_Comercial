@@ -97,6 +97,13 @@ export const config = {
   // Segredo que o worker envia ao atendente (header x-worker-token) ao
   // encaminhar uma resposta. O atendente valida com o mesmo valor.
   attendantToken: process.env.ATTENDANT_TOKEN || "",
+
+  // Resumo diário operacional enviado ao WhatsApp do administrador.
+  // Telefone vazio desativa. Horário local do Raspberry Pi no formato HH:MM.
+  adminSummaryPhone: (process.env.ADMIN_SUMMARY_PHONE || "").replace(/\D/g, ""),
+  adminSummaryTime: /^([01]\d|2[0-3]):[0-5]\d$/.test(process.env.ADMIN_SUMMARY_TIME || "")
+    ? process.env.ADMIN_SUMMARY_TIME
+    : "20:00",
 };
 
 /** "9-19" -> { start: 9, end: 19 }; vazio/ inválido -> null (24h). */

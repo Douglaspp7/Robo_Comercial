@@ -18,6 +18,7 @@ import {
   setSetting,
 } from "./db.js";
 import { runPlanOnce } from "./scheduler.js";
+import { sendDailySummary } from "./daily-summary.js";
 import {
   getAllStates,
   firstConnectedId,
@@ -238,6 +239,23 @@ const server = http.createServer(async (req, res) => {
       else if (body.action === "resume") setPaused(false);
       else return send(res, 400, { error: "action deve ser pause|resume" });
       return send(res, 200, { paused: isPaused() });
+    }
+
+    if (req.method === "GET" && path === "/daily-summary") {
+      return send(res, 200, { phone: getSetting('admin_summary_phone', config.adminSummaryPhone) || '', time: getSetting('admin_summary_time', config.adminSummaryTime) || config.adminSummaryTime, last_sent: getSetting('admin_summary_last_day', '') || '' });
+    }
+    if (req.method === "POST" && path === "/daily-summary") {
+      const body = await readJson(req);
+      const phone = normalizeNumber(body.phone || '');
+      const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(body.time || '')) ? String(body.time) : null;
+      if (body.phone && !phone) return send(res, 400, { error: 'telefone inválido' });
+      if (!time) return send(res, 400, { error: 'horário inválido' });
+      setSetting('admin_summary_phone', phone || ''); setSetting('admin_summary_time', time);
+      return send(res, 200, { ok: true, phone: phone || '', time });
+    }
+    if (req.method === "POST" && path === "/daily-summary/test") {
+      const result = await sendDailySummary();
+      return send(res, result.sent ? 200 : 503, result);
     }
 
     // Pausa/retoma/cancela uma campanha específica.
