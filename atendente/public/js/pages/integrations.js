@@ -1501,11 +1501,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Essenciais open by default
+  // Essenciais e Agenda ficam abertas por padrão: Calendar não deve ficar
+  // escondido atrás de uma categoria recolhida.
   const essCard = document.querySelector('.category-card[data-target="essenciais-body"]');
   const essBody = document.getElementById('essenciais-body');
   if (essCard && essBody) {
     essBody.style.display = 'block';
     essCard.classList.add('expanded');
+  }
+  const calendarCard = document.querySelector('.category-card[data-target="calendar-body"]');
+  const calendarBody = document.getElementById('calendar-body');
+  if (calendarCard && calendarBody) {
+    calendarBody.style.display = 'block';
+    calendarCard.classList.add('expanded');
+  }
+
+  // Links vindos da Agenda abrem e destacam diretamente o cartão correto.
+  if (location.hash === '#integration-google-calendar') {
+    calendarBody?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 });
