@@ -38,6 +38,12 @@ async function createMessage(params) {
   }
 }
 
+// Reuso controlado do cliente Anthropic por recursos internos do Zapien.
+// Mantém timeout, alerta de créditos e credenciais em um único lugar.
+export async function createAIMessage(params) {
+  return createMessage(params);
+}
+
 const CALCULAR_FRETE_TOOL = {
   name: 'calcular_frete',
   description:
