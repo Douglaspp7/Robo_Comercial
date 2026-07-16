@@ -264,6 +264,9 @@ export default function Home() {
   const [summaryPhone, setSummaryPhone] = useState("");
   const [summaryTime, setSummaryTime] = useState("20:00");
   const [summarySaving, setSummarySaving] = useState(false);
+  const [leadAlertsEnabled, setLeadAlertsEnabled] = useState(true);
+  const [leadAlertsQuietStart, setLeadAlertsQuietStart] = useState(22);
+  const [leadAlertsQuietEnd, setLeadAlertsQuietEnd] = useState(8);
   // Plano de busca + pool de leads (persistente no worker).
   const [planOpen, setPlanOpen] = useState(false);
   const [planLines, setPlanLines] = useState<PlanLine[]>([]);
@@ -902,7 +905,17 @@ export default function Home() {
   };
 
   const loadDailySummary = async () => {
-    try { const res = await fetch("/api/daily-summary"); const data = await res.json(); if (res.ok) { setSummaryPhone(data.phone || ""); setSummaryTime(data.time || "20:00"); } } catch { /* worker offline */ }
+    try {
+      const [summaryRes, alertsRes] = await Promise.all([fetch("/api/daily-summary"), fetch("/api/lead-alerts")]);
+      const summary = await summaryRes.json(); if (summaryRes.ok) { setSummaryPhone(summary.phone || ""); setSummaryTime(summary.time || "20:00"); }
+      const alerts = await alertsRes.json(); if (alertsRes.ok) { setLeadAlertsEnabled(alerts.enabled !== false); setLeadAlertsQuietStart(alerts.quiet_start ?? 22); setLeadAlertsQuietEnd(alerts.quiet_end ?? 8); }
+    } catch { /* worker offline */ }
+  };
+  const saveLeadAlerts = async () => {
+    setSummarySaving(true);
+    try { const res = await fetch("/api/lead-alerts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: leadAlertsEnabled, quiet_start: leadAlertsQuietStart, quiet_end: leadAlertsQuietEnd }) }); const data = await res.json(); if (!res.ok) throw new Error(data.error); alert("Alertas de leads configurados. ✅"); }
+    catch (error) { alert(error instanceof Error ? error.message : "Falha ao configurar alertas."); }
+    finally { setSummarySaving(false); }
   };
   const saveDailySummary = async (test = false) => {
     setSummarySaving(true);
@@ -1628,6 +1641,17 @@ export default function Home() {
             <input className="input-glass" type="time" value={summaryTime} onChange={(e) => setSummaryTime(e.target.value)} style={{ width: "auto" }} />
             <button className="btn-primary" type="button" disabled={summarySaving} onClick={() => saveDailySummary(false)}>Salvar</button>
             <button className="btn-secondary" type="button" disabled={summarySaving || !summaryPhone.trim()} onClick={() => saveDailySummary(true)}>Enviar teste</button>
+          </div>
+          <div style={{ borderTop: "1px solid var(--border, rgba(255,255,255,.1))", marginTop: ".85rem", paddingTop: ".85rem" }}>
+            <label style={{ display: "flex", gap: ".5rem", alignItems: "center", fontWeight: 700 }}><input type="checkbox" checked={leadAlertsEnabled} onChange={(e) => setLeadAlertsEnabled(e.target.checked)} /> 🔥 Alertar leads mornos e quentes imediatamente</label>
+            <p style={{ fontSize: ".75rem", color: "var(--text-muted, #888)", margin: ".25rem 0 .55rem" }}>Usa o mesmo WhatsApp administrativo acima. Alertas no período silencioso ficam na fila.</p>
+            <div style={{ display: "flex", gap: ".5rem", alignItems: "center", flexWrap: "wrap", opacity: leadAlertsEnabled ? 1 : .55 }}>
+              <span style={{ fontSize: ".8rem" }}>Silêncio das</span>
+              <input className="input-glass" type="number" min={0} max={23} value={leadAlertsQuietStart} onChange={(e) => setLeadAlertsQuietStart(Number(e.target.value))} disabled={!leadAlertsEnabled} style={{ width: "72px" }} />
+              <span style={{ fontSize: ".8rem" }}>às</span>
+              <input className="input-glass" type="number" min={0} max={23} value={leadAlertsQuietEnd} onChange={(e) => setLeadAlertsQuietEnd(Number(e.target.value))} disabled={!leadAlertsEnabled} style={{ width: "72px" }} />
+              <button className="btn-secondary" type="button" disabled={summarySaving} onClick={saveLeadAlerts}>Salvar alertas</button>
+            </div>
           </div>
         </div>
         <small className={styles.healthUpdated}>
