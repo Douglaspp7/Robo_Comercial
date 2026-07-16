@@ -2801,6 +2801,15 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_appointments_contact
     ON appointments(contact_id, starts_at);
 
+  CREATE TABLE IF NOT EXISTS google_calendar_blocks (
+    tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    event_id TEXT NOT NULL,
+    starts_at TEXT NOT NULL,
+    ends_at TEXT NOT NULL,
+    title TEXT,
+    PRIMARY KEY (tenant_id, event_id)
+  );
+
   CREATE TABLE IF NOT EXISTS booking_settings (
     tenant_id           TEXT PRIMARY KEY REFERENCES tenants(id) ON DELETE CASCADE,
     weekly_json         TEXT NOT NULL DEFAULT '{}',
@@ -2821,6 +2830,14 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_booking_blocks_tenant_range
     ON booking_blocks(tenant_id, starts_at, ends_at);
 `);
+const appointmentCols = new Set(db.prepare(`PRAGMA table_info(appointments)`).all().map((c) => c.name));
+if (!appointmentCols.has('google_event_id')) db.exec(`ALTER TABLE appointments ADD COLUMN google_event_id TEXT`);
+
+export const googleCalendarBlockQueries = {
+  clear: db.prepare(`DELETE FROM google_calendar_blocks WHERE tenant_id = ?`),
+  insert: db.prepare(`INSERT OR REPLACE INTO google_calendar_blocks (tenant_id,event_id,starts_at,ends_at,title) VALUES (@tenant_id,@event_id,@starts_at,@ends_at,@title)`),
+  overlapping: db.prepare(`SELECT event_id,title FROM google_calendar_blocks WHERE tenant_id=@tenant_id AND starts_at<@ends_at AND ends_at>@starts_at LIMIT 1`),
+};
 
 export const bookingServiceQueries = {
   list: db.prepare(`
@@ -2952,6 +2969,7 @@ export const appointmentQueries = {
     UPDATE appointments SET notified_at = datetime('now'), updated_at = datetime('now')
     WHERE id = ? AND tenant_id = ?
   `),
+  setGoogleEvent: db.prepare(`UPDATE appointments SET google_event_id=@google_event_id, updated_at=datetime('now') WHERE id=@id AND tenant_id=@tenant_id`),
 };
 
 // --- Sales / orders ---
