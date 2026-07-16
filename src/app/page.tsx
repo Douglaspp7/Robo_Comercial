@@ -261,6 +261,9 @@ export default function Home() {
   const [attendant, setAttendant] = useState<{ configured: boolean; online?: boolean; url?: string } | null>(null);
   const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
   const [healthLoading, setHealthLoading] = useState(false);
+  const [summaryPhone, setSummaryPhone] = useState("");
+  const [summaryTime, setSummaryTime] = useState("20:00");
+  const [summarySaving, setSummarySaving] = useState(false);
   // Plano de busca + pool de leads (persistente no worker).
   const [planOpen, setPlanOpen] = useState(false);
   const [planLines, setPlanLines] = useState<PlanLine[]>([]);
@@ -898,10 +901,25 @@ export default function Home() {
     }
   };
 
+  const loadDailySummary = async () => {
+    try { const res = await fetch("/api/daily-summary"); const data = await res.json(); if (res.ok) { setSummaryPhone(data.phone || ""); setSummaryTime(data.time || "20:00"); } } catch { /* worker offline */ }
+  };
+  const saveDailySummary = async (test = false) => {
+    setSummarySaving(true);
+    try {
+      const saved = await fetch("/api/daily-summary", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone: summaryPhone, time: summaryTime }) });
+      const savedData = await saved.json(); if (!saved.ok) throw new Error(savedData.error || "Não foi possível salvar.");
+      if (test) { const res = await fetch("/api/daily-summary", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ test: true }) }); const data = await res.json(); if (!res.ok) throw new Error(data.error || data.reason || "Não foi possível enviar."); }
+      alert(test ? "Resumo de teste enviado. ✅" : "Resumo diário configurado. ✅");
+    } catch (error) { alert(error instanceof Error ? error.message : "Falha ao configurar o resumo."); }
+    finally { setSummarySaving(false); }
+  };
+
   useEffect(() => {
     const initial = setTimeout(fetchSystemHealth, 0);
+    const summaryInitial = setTimeout(loadDailySummary, 0);
     const interval = setInterval(fetchSystemHealth, 20000);
-    return () => { clearTimeout(initial); clearInterval(interval); };
+    return () => { clearTimeout(initial); clearTimeout(summaryInitial); clearInterval(interval); };
   }, []);
 
   // Status do atendente Zapien (1x ao abrir a página). setState só no .then
@@ -1602,6 +1620,16 @@ export default function Home() {
             {systemHealth?.warnings.map((warning) => <span key={warning}>⚠ {warning}</span>)}
           </div>
         )}
+        <div style={{ marginTop: "1rem", padding: "0.85rem", border: "1px solid var(--border, rgba(255,255,255,.1))", borderRadius: "10px" }}>
+          <strong>📊 Resumo diário no WhatsApp</strong>
+          <p style={{ fontSize: ".78rem", color: "var(--text-muted, #888)", margin: ".2rem 0 .6rem" }}>Receba chips, envios, falhas, respostas e interessados. Deixe o telefone vazio para desativar.</p>
+          <div style={{ display: "flex", gap: ".5rem", flexWrap: "wrap", alignItems: "center" }}>
+            <input className="input-glass" value={summaryPhone} onChange={(e) => setSummaryPhone(e.target.value)} placeholder="WhatsApp do administrador" style={{ flex: "1 1 190px" }} />
+            <input className="input-glass" type="time" value={summaryTime} onChange={(e) => setSummaryTime(e.target.value)} style={{ width: "auto" }} />
+            <button className="btn-primary" type="button" disabled={summarySaving} onClick={() => saveDailySummary(false)}>Salvar</button>
+            <button className="btn-secondary" type="button" disabled={summarySaving || !summaryPhone.trim()} onClick={() => saveDailySummary(true)}>Enviar teste</button>
+          </div>
+        </div>
         <small className={styles.healthUpdated}>
           Atualização automática a cada 20 segundos
           {systemHealth?.checkedAt && ` · última verificação ${new Date(systemHealth.checkedAt).toLocaleTimeString("pt-BR")}`}
