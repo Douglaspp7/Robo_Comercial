@@ -20,6 +20,7 @@ import {
 } from "./db.js";
 import { getSessionState, checkOnWhatsApp, sendText, sendImage } from "./wa.js";
 import { numberToJid, normalizeNumber, renderMessage } from "./phone.js";
+import { recordDeliveryFailure, resetDeliveryFailures } from './chip-protection.js';
 
 let paused = false;
 let stopped = false;
@@ -146,6 +147,7 @@ async function tick(numberId) {
     queries.markSent.run({ id: item.id, ts: Date.now() });
     incTodayCount(numberId);
     incHourCount(numberId);
+    resetDeliveryFailures();
     console.log(
       `  [${numberId}] enviado ...${tail} ` +
         `(${getTodayCount(numberId)}/${effectiveDailyLimit(numberId)} hoje).`
@@ -154,6 +156,7 @@ async function tick(numberId) {
     const attempts = item.attempts + 1;
     if (attempts >= config.maxAttempts) {
       queries.markFailed.run({ id: item.id, error: e.message, ts: Date.now() });
+      recordDeliveryFailure();
       console.warn(`  [${numberId}] falha definitiva ...${tail}: ${e.message}`);
     } else {
       queries.requeue.run({ id: item.id, error: e.message });
