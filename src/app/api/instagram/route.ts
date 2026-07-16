@@ -28,6 +28,7 @@ interface Lead {
   phone: string;
   website: string;
   email?: string;
+  source_url?: string;
 }
 
 // Acumula leads deduplicando pelo telefone normalizado (evita o mesmo número
@@ -83,6 +84,7 @@ async function searchHashtag(userId: string, term: string): Promise<Lead[]> {
           rating: 0,
           website: m.permalink || "",
           email,
+          source_url: m.permalink || "",
         });
       }
     }
@@ -118,6 +120,7 @@ async function searchProfiles(userId: string, list: string): Promise<Lead[]> {
         rating: 0,
         website: bd.website || `https://instagram.com/${bd.username}`,
         email,
+        source_url: `https://instagram.com/${bd.username}`,
       });
     }
   }

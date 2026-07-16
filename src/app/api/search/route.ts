@@ -3,7 +3,7 @@ import { rateLimit } from "@/lib/rate-limit";
 
 const PLACES_URL = "https://places.googleapis.com/v1/places:searchText";
 const FIELD_MASK =
-  "places.id,places.displayName,places.formattedAddress,places.rating,places.nationalPhoneNumber,places.websiteUri,nextPageToken";
+  "places.id,places.displayName,places.formattedAddress,places.rating,places.nationalPhoneNumber,places.websiteUri,places.googleMapsUri,nextPageToken";
 
 // Limites de segurança para evitar custo descontrolado na API do Google
 const MAX_PAGES_PER_QUERY = 3; // A Text Search do Google retorna no máximo ~60 resultados (3 páginas de 20)
@@ -16,6 +16,7 @@ interface PlaceResult {
   rating: number | null;
   phone: string;
   website: string;
+  source_url: string;
 }
 
 interface GooglePlace {
@@ -25,6 +26,7 @@ interface GooglePlace {
   rating?: number;
   nationalPhoneNumber?: string;
   websiteUri?: string;
+  googleMapsUri?: string;
 }
 
 interface PlacesResponse {
@@ -47,6 +49,7 @@ function mapPlaces(data: PlacesResponse): PlaceResult[] {
     rating: place.rating ?? null,
     phone: place.nationalPhoneNumber || "",
     website: place.websiteUri || "",
+    source_url: place.googleMapsUri || place.websiteUri || "",
   }));
 }
 

@@ -9,6 +9,22 @@ process.env.WORKER_DB_PATH = path.join(testDir, 'worker.sqlite');
 
 const { addLeads, leadQueries, pendingWhatsappLeads, questionFor, reviewLeads } = await import('../src/leads.js');
 
+test('qualificação multicanal explica a nota e recomenda WhatsApp', () => {
+  addLeads([{ id: 'clinic-score', name: 'Clínica Viva', phone: '11988887777', email: 'contato@clinicaviva.com.br', website: 'https://clinicaviva.com.br', source_url: 'https://maps.google.com/clinicaviva', address: 'São Paulo, SP', rating: 4.8, source: 'google', segment: 'clínica estética' }]);
+  const lead = leadQueries.reviewList.all({ limit: 20 }).find((item) => item.company_name === 'Clínica Viva');
+  assert.equal(lead.lead_score, 100);
+  assert.equal(lead.recommended_channel, 'whatsapp');
+  assert.deepEqual(JSON.parse(lead.available_channels), ['whatsapp', 'email', 'site']);
+  assert.match(lead.score_reasons, /telefone comercial/);
+});
+
+test('contato fraco fica bloqueado preventivamente', () => {
+  addLeads([{ id: 'weak-email', name: 'Contato sem evidência', email: 'contato@example.com', source: 'unknown' }]);
+  const lead = leadQueries.reviewList.all({ limit: 20 }).find((item) => item.company_name === 'Contato sem evidência');
+  assert.equal(lead.review_status, 'blocked');
+  assert.equal(lead.recommended_channel, 'review');
+});
+
 test('pergunta inicial é específica para imobiliárias', () => {
   assert.match(questionFor('imobiliárias'), /imóvel/);
 });

@@ -75,12 +75,16 @@ interface PoolStats {
   contacted: number;
   needs_review: number;
   blocked: number;
+  qualified: number;
 }
 interface LeadReview {
   dedup_key: string; phone: string; company_name: string; contact_name: string;
   contact_role: string; segment: string; name_confidence: number; context_confidence: number;
   overall_confidence: number; evidence: string; source_url: string | null;
   opening_question: string; review_status: "review" | "approved" | "blocked"; review_reason: string;
+  lead_score: number; score_reasons: string; available_channels: string;
+  recommended_channel: "whatsapp" | "email" | "instagram" | "site" | "review";
+  source: string; email?: string; website?: string;
 }
 interface FunnelStats { found:number; valid:number; contacted:number; replied:number; interested:number; demos:number; sales:number|null; opted_out:number }
 interface SuppressionItem { jid:string; phone:string|null; reason:string|null; created_at:number }
@@ -1339,7 +1343,7 @@ export default function Home() {
   };
 
   const approveHighConfidence = async () => {
-    const items = leadReviews.filter((lead) => lead.review_status === "review" && lead.overall_confidence >= 70 && lead.opening_question.trim());
+    const items = leadReviews.filter((lead) => lead.review_status === "review" && lead.lead_score >= 70 && lead.opening_question.trim());
     if (!items.length) return alert("Nenhum lead elegível para aprovação em lote. Revise os demais individualmente.");
     if (!confirm(`Aprovar ${items.length} lead(s) com contexto confiável? Nomes pessoais abaixo de 85% não serão usados.`)) return;
     setReviewSaving(true);
@@ -1573,6 +1577,7 @@ export default function Home() {
                 Lista: <strong>{poolStats?.total ?? 0}</strong> contatos
                 {" · "}📱 {poolStats?.whatsapp ?? 0}
                 {" · "}🔎 <strong>{poolStats?.needs_review ?? 0}</strong> para revisar
+                {" · "}⭐ <strong>{poolStats?.qualified ?? 0}</strong> qualificados
                 {" · "}✅ <strong>{poolStats?.pending_wa ?? 0}</strong> aprovados
                 {" · "}✅ {poolStats?.contacted ?? 0} contatados
               </div>
@@ -1606,7 +1611,7 @@ export default function Home() {
                 <div>
                   <strong>🔎 Enriquecimento e aprovação</strong>
                   <p style={{ fontSize: "0.76rem", color: "var(--text-muted, #888)", marginTop: "0.2rem" }}>
-                    Confira empresa, evidência e pergunta. Nome pessoal só entra na mensagem com confiança de 85% ou mais.
+                    O robô pontua origem, contato comercial, site, localização e evidência. Nome pessoal só entra na mensagem com confiança de 85% ou mais.
                   </p>
                 </div>
                 <button className="btn-secondary" onClick={approveHighConfidence} disabled={reviewSaving}>Aprovar contexto confiável</button>
@@ -1619,9 +1624,13 @@ export default function Home() {
                     <div key={lead.dedup_key} style={{ padding: "0.7rem", border: "1px solid var(--border, rgba(255,255,255,0.1))", borderRadius: "8px", opacity: lead.review_status === "blocked" ? 0.6 : 1 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.5rem" }}>
                         <span><strong>{lead.company_name || "Empresa sem nome"}</strong> · {lead.phone}</span>
-                        <span style={{ fontSize: "0.75rem", fontWeight: 700, color: lead.overall_confidence >= 70 ? "#25D366" : "#f59e0b" }}>
-                          Contexto {lead.overall_confidence}% · {lead.review_status === "approved" ? "Aprovado" : lead.review_status === "blocked" ? "Bloqueado" : "Revisar"}
+                        <span style={{ fontSize: "0.75rem", fontWeight: 700, color: lead.lead_score >= 70 ? "#25D366" : "#f59e0b" }}>
+                          Nota {lead.lead_score}/100 · {lead.review_status === "approved" ? "Aprovado" : lead.review_status === "blocked" ? "Bloqueado" : "Revisar"}
                         </span>
+                      </div>
+                      <div style={{ fontSize: "0.73rem", color: "var(--text-muted, #888)", marginBottom: "0.45rem" }}>
+                        Origem: <strong>{lead.source || "não informada"}</strong> · Canais: {(() => { try { return JSON.parse(lead.available_channels || "[]").join(", ") || "nenhum"; } catch { return "revisar"; } })()} · Recomendado: <strong>{lead.recommended_channel === "review" ? "revisão manual" : lead.recommended_channel}</strong>
+                        {lead.score_reasons ? <span title={lead.score_reasons}> · Ver composição da nota ⓘ</span> : null}
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: "0.45rem" }}>
                         <input className="input-glass" value={lead.contact_name || ""} placeholder="Nome pessoal (opcional)" onChange={(e) => setLeadReviews((rows) => rows.map((row, i) => i === index ? { ...row, contact_name: e.target.value } : row))} />

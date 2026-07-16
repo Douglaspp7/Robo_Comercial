@@ -63,6 +63,10 @@ for (const [column, definition] of Object.entries({
   review_reason: "TEXT",
   approved_at: "INTEGER",
   approved_by: "TEXT",
+  lead_score: "INTEGER NOT NULL DEFAULT 0",
+  score_reasons: "TEXT",
+  available_channels: "TEXT",
+  recommended_channel: "TEXT NOT NULL DEFAULT 'review'",
 })) {
   if (!leadCols.has(column)) db.exec(`ALTER TABLE leads ADD COLUMN ${column} ${definition}`);
 }
@@ -181,10 +185,12 @@ const stmtInsertLead = db.prepare(
   `INSERT OR IGNORE INTO leads
      (dedup_key, jid, phone, name, channel, source, website, email, address, collected_at, plan_id,
       company_name, contact_name, contact_role, segment, name_confidence, context_confidence,
-      overall_confidence, evidence, source_url, opening_question, review_status, review_reason)
+      overall_confidence, evidence, source_url, opening_question, review_status, review_reason,
+      lead_score, score_reasons, available_channels, recommended_channel)
    VALUES (@dedup_key, @jid, @phone, @name, @channel, @source, @website, @email, @address, @collected_at, @plan_id,
       @company_name, @contact_name, @contact_role, @segment, @name_confidence, @context_confidence,
-      @overall_confidence, @evidence, @source_url, @opening_question, @review_status, @review_reason)`
+      @overall_confidence, @evidence, @source_url, @opening_question, @review_status, @review_reason,
+      @lead_score, @score_reasons, @available_channels, @recommended_channel)`
 );
 
 export function questionFor(segment) {
@@ -207,6 +213,23 @@ export function enrichmentFor(lead) {
   const nameConfidence = explicitNameEvidence ? Math.min(100, Math.max(0, Number(lead.name_confidence) || 90)) : 0;
   const contextConfidence = source === 'google' || source === 'instagram' ? (sourceUrl ? 85 : 70) : (sourceUrl ? 70 : 45);
   const overallConfidence = Math.round((contextConfidence * 0.7) + (explicitNameEvidence ? nameConfidence * 0.3 : 15));
+  const channels = [];
+  if (lead.phone) channels.push('whatsapp');
+  if (String(lead.email || '').trim()) channels.push('email');
+  if (/instagram\.com/i.test(sourceUrl) || source === 'instagram') channels.push('instagram');
+  if (String(lead.website || '').trim()) channels.push('site');
+  const reasons = [];
+  let score = 0;
+  if (['google', 'instagram', 'directory', 'referral', 'excel'].includes(source)) { score += 15; reasons.push('origem identificada +15'); }
+  if (lead.phone) { score += 25; reasons.push('telefone comercial +25'); }
+  if (String(lead.website || '').trim()) { score += 15; reasons.push('site público +15'); }
+  if (String(lead.email || '').trim()) { score += 10; reasons.push('e-mail público +10'); }
+  if (String(lead.address || '').trim()) { score += 10; reasons.push('localização identificada +10'); }
+  if (segment) { score += 10; reasons.push('segmento definido +10'); }
+  if (Number(lead.rating) >= 4) { score += 10; reasons.push('boa presença pública +10'); }
+  if (sourceUrl) { score += 5; reasons.push('evidência verificável +5'); }
+  score = Math.min(100, score);
+  const recommendedChannel = score < 40 ? 'review' : lead.phone ? 'whatsapp' : lead.email ? 'email' : 'review';
   const evidence = String(lead.evidence || (source === 'google'
     ? `Empresa encontrada no Google Maps${sourceUrl ? ' e site comercial informado' : ''}.`
     : source === 'instagram' ? 'Perfil comercial encontrado na busca do Instagram.' : 'Contato importado; origem deve ser revisada.'));
@@ -218,13 +241,19 @@ export function enrichmentFor(lead) {
     name_confidence: nameConfidence,
     context_confidence: contextConfidence,
     overall_confidence: overallConfidence,
+    lead_score: score,
+    score_reasons: reasons.join(' · '),
+    available_channels: JSON.stringify([...new Set(channels)]),
+    recommended_channel: recommendedChannel,
     evidence,
     source_url: sourceUrl || null,
     opening_question: String(lead.opening_question || questionFor(segment)),
-    review_status: 'review',
+    review_status: score < 40 ? 'blocked' : 'review',
     review_reason: explicitNameEvidence
       ? 'Confirmar evidência, nome e pergunta antes do primeiro disparo.'
-      : 'Sem nome pessoal comprovado; abordagem usará somente empresa e contexto.',
+      : score < 40
+        ? 'Pontuação insuficiente ou contato comercial sem evidência; bloqueado preventivamente.'
+        : 'Sem nome pessoal comprovado; abordagem usará somente empresa e contexto.',
   };
 }
 
@@ -271,6 +300,7 @@ export const leadQueries = {
        SUM(channel='whatsapp' AND contacted_at IS NULL AND review_status='approved') AS pending_wa,
        SUM(channel='whatsapp' AND contacted_at IS NULL AND review_status='review') AS needs_review,
        SUM(review_status='blocked')                               AS blocked,
+       SUM(lead_score>=70 AND contacted_at IS NULL)               AS qualified,
        SUM(contacted_at IS NOT NULL)                              AS contacted
      FROM leads`
   ),
@@ -284,7 +314,8 @@ export const leadQueries = {
   reviewList: db.prepare(
     `SELECT dedup_key, phone, company_name, contact_name, contact_role, segment,
             name_confidence, context_confidence, overall_confidence, evidence,
-            source_url, opening_question, review_status, review_reason, collected_at
+            source_url, opening_question, review_status, review_reason, collected_at,
+            lead_score, score_reasons, available_channels, recommended_channel, source, email, website
      FROM leads WHERE contacted_at IS NULL
      ORDER BY CASE review_status WHEN 'review' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,
               overall_confidence DESC, collected_at DESC LIMIT @limit`
@@ -303,6 +334,7 @@ export function leadStats() {
     pending_wa: s.pending_wa || 0,
     needs_review: s.needs_review || 0,
     blocked: s.blocked || 0,
+    qualified: s.qualified || 0,
     contacted: s.contacted || 0,
   };
 }
