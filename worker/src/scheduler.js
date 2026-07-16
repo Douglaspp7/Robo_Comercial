@@ -78,7 +78,7 @@ export async function runPlanOnce() {
           jid: l.jid,
         }));
         const { id } = createCampaign(
-          { name: `Agendada ${todayStr()}`, message, app_url: getSetting("dispatch_app_url", "") || "" },
+          { name: `Agendada ${todayStr()}`, message, app_url: getSetting("dispatch_app_url", "") || "", approach: getSetting("dispatch_approach", "permission") },
           items
         );
         markLeadsContacted(pending.map((l) => l.dedup_key));

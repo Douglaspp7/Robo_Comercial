@@ -78,6 +78,7 @@ const campaignCols = db.prepare(`PRAGMA table_info(campaigns)`).all().map((c) =>
 if (!campaignCols.includes("image_path")) {
   db.exec(`ALTER TABLE campaigns ADD COLUMN image_path TEXT`);
 }
+if (!campaignCols.includes("approach")) db.exec(`ALTER TABLE campaigns ADD COLUMN approach TEXT NOT NULL DEFAULT 'custom'`);
 
 // Migração idempotente: qual número (chip) enviou cada item (atribuição).
 const itemCols = db.prepare(`PRAGMA table_info(campaign_items)`).all().map((c) => c.name);
@@ -96,8 +97,8 @@ db.exec(`UPDATE campaign_items SET status='pending' WHERE status='sending'`);
 
 // ── Campanhas ────────────────────────────────────────────────────────────────
 const stmtInsertCampaign = db.prepare(
-  `INSERT INTO campaigns (name, message, app_url, status, created_at)
-   VALUES (@name, @message, @app_url, 'active', @created_at)`
+  `INSERT INTO campaigns (name, message, app_url, approach, status, created_at)
+   VALUES (@name, @message, @app_url, @approach, 'active', @created_at)`
 );
 const stmtInsertItem = db.prepare(
   `INSERT OR IGNORE INTO campaign_items (campaign_id, lead_id, name, phone, jid, company_name, opening_question)
@@ -110,6 +111,7 @@ export const createCampaign = db.transaction((camp, items) => {
     name: camp.name || "Campanha",
     message: camp.message,
     app_url: camp.app_url || "",
+    approach: camp.approach || "custom",
     created_at: Date.now(),
   });
   const campaignId = info.lastInsertRowid;
@@ -174,7 +176,7 @@ export const queries = {
        )`
   ),
   campaignStats: db.prepare(
-    `SELECT c.id, c.name, c.status, c.created_at,
+    `SELECT c.id, c.name, c.approach, c.status, c.created_at,
             COUNT(i.id)                                    AS total,
             SUM(i.status='sent')                           AS sent,
             SUM(i.status='pending')                        AS pending,

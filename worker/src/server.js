@@ -207,6 +207,7 @@ const server = http.createServer(async (req, res) => {
           name: body.name || "Campanha",
           message,
           app_url: body.app_url || "",
+          approach: body.approach || "custom",
         },
         items
       );
@@ -363,6 +364,7 @@ const server = http.createServer(async (req, res) => {
       setSetting("schedule_auto_dispatch", body.auto_dispatch ? "1" : "0");
       if (typeof body.message === "string") setSetting("dispatch_message", body.message);
       if (typeof body.app_url === "string") setSetting("dispatch_app_url", body.app_url);
+      if (typeof body.approach === "string") setSetting("dispatch_approach", body.approach);
       return send(res, 200, { ok: true });
     }
     // Roda o plano agora (busca imediata pelo worker).
@@ -390,7 +392,7 @@ const server = http.createServer(async (req, res) => {
         jid: l.jid,
       }));
       const { id, added } = createCampaign(
-        { name: body.name || "Campanha", message, app_url: body.app_url || "" },
+        { name: body.name || "Campanha", message, app_url: body.app_url || "", approach: body.approach || "custom" },
         items
       );
       let image = false;

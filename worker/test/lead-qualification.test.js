@@ -2,8 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import os from 'node:os';
 import path from 'node:path';
+import fs from 'node:fs';
 
-process.env.WORKER_DB_PATH = path.join(os.tmpdir(), `robo-lead-qualification-${process.pid}.sqlite`);
+const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'robo-lead-qualification-'));
+process.env.WORKER_DB_PATH = path.join(testDir, 'worker.sqlite');
 
 const { addLeads, leadQueries, pendingWhatsappLeads, questionFor, reviewLeads } = await import('../src/leads.js');
 

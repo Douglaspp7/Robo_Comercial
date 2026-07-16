@@ -27,6 +27,7 @@ interface CloudCampaign {
   pending: number | null;
   failed: number | null;
   invalid: number | null;
+  approach?: string;
 }
 interface CloudNumber {
   id: string;
@@ -161,24 +162,28 @@ const ZAPIEN_LINK = "https://zapien.app/a/HL517";
 // O 1º é o padrão que já vem no modal ao abrir.
 const WA_PRESETS = [
   {
-    label: "Direto",
-    appUrl: ZAPIEN_LINK,
-    text: "{Oi|Olá}! Vi a {empresa} e queria entender uma coisa: {pergunta}",
+    id: "permission",
+    label: "Pedir permissão",
+    description: "Apresenta o Zapien e pergunta se pode mostrar. Sem imagem ou link.",
+    appUrl: "",
+    image: null,
+    text: "{Oi|Olá}! Aqui é do Zapien 😊 Criamos um atendente com IA para empresas responderem clientes pelo WhatsApp 24h. Posso te mostrar em uma imagem como funciona?",
   },
   {
-    label: "Curto",
-    appUrl: ZAPIEN_LINK,
-    text:
-      "{Oi|Olá|Opa} {nome}! Uma IA pode atender seus clientes no WhatsApp e fechar venda por " +
-      "você, sem parar. Quer testar conversando com ela agora? 👇",
+    id: "creative",
+    label: "Criativo direto",
+    description: "Envia a peça 24h com identificação e uma pergunta simples.",
+    appUrl: "",
+    image: "/creatives/zapien-atendimento-24h.jpg",
+    text: "{Oi|Olá}! Aqui é do Zapien 😊 Desenvolvemos uma IA que atende e qualifica clientes pelo WhatsApp 24h. Vocês já usam alguma automação no atendimento?",
   },
   {
-    label: "Prova",
-    appUrl: ZAPIEN_LINK,
-    text:
-      "{Oi|Olá} {nome}, rapidinho: essa própria mensagem faz parte de um atendimento com " +
-      "IA (Zapien). Ela responde, tira dúvida e vende — no seu WhatsApp, 24h. Fala " +
-      "com ela e sente como seria pro seu negócio:",
+    id: "soft_pain",
+    label: "Dor suave",
+    description: "Mostra organização sem perguntar sobre perdas ou falhas internas.",
+    appUrl: "",
+    image: "/creatives/zapien-nenhum-cliente-esperando.jpg",
+    text: "{Oi|Olá}! Aqui é do Zapien 😊 Hoje o atendimento pelo WhatsApp é feito só pela equipe ou vocês já usam alguma automação?",
   },
 ];
 
@@ -224,6 +229,7 @@ export default function Home() {
   const [isWaModalOpen, setIsWaModalOpen] = useState(false);
   const [waMessage, setWaMessage] = useState(WA_PRESETS[0].text);
   const [waAppUrl, setWaAppUrl] = useState(WA_PRESETS[0].appUrl);
+  const [waApproach, setWaApproach] = useState(WA_PRESETS[0].id);
   const [waMinDelay, setWaMinDelay] = useState(30);
   const [waMaxDelay, setWaMaxDelay] = useState(90);
   const [waQueue, setWaQueue] = useState<Business[]>([]);
@@ -775,6 +781,28 @@ export default function Home() {
     setWaImageName("");
   };
 
+  const applyWaPreset = async (preset: (typeof WA_PRESETS)[number]) => {
+    setWaApproach(preset.id);
+    setWaMessage(preset.text);
+    setWaAppUrl(preset.appUrl);
+    if (!preset.image) return clearWaImage();
+    try {
+      const blob = await fetch(preset.image).then((res) => {
+        if (!res.ok) throw new Error("criativo indisponível");
+        return res.blob();
+      });
+      const reader = new FileReader();
+      reader.onload = () => {
+        setWaImage(String(reader.result));
+        setWaImageName(preset.image?.split("/").pop() || "criativo Zapien");
+      };
+      reader.readAsDataURL(blob);
+    } catch {
+      clearWaImage();
+      alert("Não foi possível carregar o criativo deste modelo.");
+    }
+  };
+
   const handleEmailImageChange = (e: React.ChangeEvent<HTMLInputElement>) =>
     readImageAsDataUrl(e, (d, n) => {
       setEmailImage(d);
@@ -799,6 +827,7 @@ export default function Home() {
           name: "Teste",
           message: waMessage,
           app_url: waAppUrl,
+          approach: waApproach,
           image: waImage || undefined,
         }),
       });
@@ -843,6 +872,7 @@ export default function Home() {
           message: waMessage,
           app_url: waAppUrl,
           image: waImage || undefined,
+          approach: waApproach,
           contacts: waQueue.map((b) => ({
             id: b.id,
             name: b.name,
@@ -1089,6 +1119,7 @@ export default function Home() {
           auto_dispatch: schedAuto,
           message: waMessage,
           app_url: waAppUrl,
+          approach: waApproach,
         }),
       });
       if (res.ok) alert("Agendamento salvo. ✅");
@@ -1238,6 +1269,7 @@ export default function Home() {
           message: waMessage,
           app_url: waAppUrl,
           image: waImage || undefined,
+          approach: waApproach,
         }),
       });
       const data = await res.json();
@@ -1880,6 +1912,11 @@ export default function Home() {
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
                         <div style={{ fontWeight: 700 }}>
                           {c.name}{" "}
+                          {c.approach && c.approach !== "custom" && (
+                            <span style={{ fontSize: ".68rem", padding: ".1rem .35rem", borderRadius: "999px", background: "rgba(124,58,237,.14)", marginRight: ".3rem" }}>
+                              {c.approach === "permission" ? "Permissão" : c.approach === "creative" ? "Criativo direto" : "Dor suave"}
+                            </span>
+                          )}
                           <span style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--text-muted, #888)" }}>
                             ({c.status === "active" ? "ativa" : c.status === "paused" ? "pausada" : "concluída"})
                           </span>
@@ -2241,7 +2278,7 @@ export default function Home() {
                 <div className={styles.inputGroup}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem", flexWrap: "wrap" }}>
                     <label className={styles.label} style={{ margin: 0 }}>
-                      Mensagem padrão (use {"{nome}"} para personalizar)
+                      Abordagem inicial transparente
                     </label>
                     <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
                       <span style={{ fontSize: "0.75rem", color: "var(--text-muted, #888)", alignSelf: "center" }}>Modelos:</span>
@@ -2250,11 +2287,9 @@ export default function Home() {
                           key={p.label}
                           type="button"
                           className="btn-secondary"
-                          onClick={() => {
-                            setWaMessage(p.text);
-                            setWaAppUrl(p.appUrl);
-                          }}
-                          style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem" }}
+                          onClick={() => applyWaPreset(p)}
+                          title={p.description}
+                          style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem", borderColor: waApproach === p.id ? "#25D366" : undefined }}
                         >
                           {p.label}
                         </button>
@@ -2267,6 +2302,9 @@ export default function Home() {
                     onChange={(e) => setWaMessage(e.target.value)}
                     rows={4}
                   />
+                  <p style={{ fontSize: "0.75rem", color: "var(--text-muted, #888)", marginTop: "0.25rem" }}>
+                    {WA_PRESETS.find((preset) => preset.id === waApproach)?.description}
+                  </p>
                   <p style={{ fontSize: "0.75rem", color: "var(--text-muted, #888)", marginTop: "0.25rem" }}>
                     Anti-ban: use <strong>{"{opção1|opção2}"}</strong> para variar a mensagem
                     (cada contato recebe uma versão diferente). Ex.: <em>{"{Oi|Olá|Opa}"} {"{nome}"}!</em>
