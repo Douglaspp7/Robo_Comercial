@@ -48,6 +48,24 @@ if (!leadCols.has('replied_at')) db.exec(`ALTER TABLE leads ADD COLUMN replied_a
 if (!leadCols.has('interested_at')) db.exec(`ALTER TABLE leads ADD COLUMN interested_at INTEGER`);
 if (!leadCols.has('opted_out_at')) db.exec(`ALTER TABLE leads ADD COLUMN opted_out_at INTEGER`);
 if (!leadCols.has('demo_at')) db.exec(`ALTER TABLE leads ADD COLUMN demo_at INTEGER`);
+for (const [column, definition] of Object.entries({
+  company_name: "TEXT",
+  contact_name: "TEXT",
+  contact_role: "TEXT",
+  segment: "TEXT",
+  name_confidence: "INTEGER NOT NULL DEFAULT 0",
+  context_confidence: "INTEGER NOT NULL DEFAULT 0",
+  overall_confidence: "INTEGER NOT NULL DEFAULT 0",
+  evidence: "TEXT",
+  source_url: "TEXT",
+  opening_question: "TEXT",
+  review_status: "TEXT NOT NULL DEFAULT 'review'",
+  review_reason: "TEXT",
+  approved_at: "INTEGER",
+  approved_by: "TEXT",
+})) {
+  if (!leadCols.has(column)) db.exec(`ALTER TABLE leads ADD COLUMN ${column} ${definition}`);
+}
 
 db.exec(`CREATE TABLE IF NOT EXISTS lead_alerts (
   jid TEXT PRIMARY KEY, phone TEXT, name TEXT, level TEXT NOT NULL, reason TEXT,
@@ -161,9 +179,54 @@ export function seedPlan() {
 // ── Pool de leads ────────────────────────────────────────────────────────────
 const stmtInsertLead = db.prepare(
   `INSERT OR IGNORE INTO leads
-     (dedup_key, jid, phone, name, channel, source, website, email, address, collected_at, plan_id)
-   VALUES (@dedup_key, @jid, @phone, @name, @channel, @source, @website, @email, @address, @collected_at, @plan_id)`
+     (dedup_key, jid, phone, name, channel, source, website, email, address, collected_at, plan_id,
+      company_name, contact_name, contact_role, segment, name_confidence, context_confidence,
+      overall_confidence, evidence, source_url, opening_question, review_status, review_reason)
+   VALUES (@dedup_key, @jid, @phone, @name, @channel, @source, @website, @email, @address, @collected_at, @plan_id,
+      @company_name, @contact_name, @contact_role, @segment, @name_confidence, @context_confidence,
+      @overall_confidence, @evidence, @source_url, @opening_question, @review_status, @review_reason)`
 );
+
+export function questionFor(segment) {
+  const clean = String(segment || '').toLocaleLowerCase('pt-BR');
+  if (/imobili|corretor/.test(clean)) return 'Quando alguém pergunta por um imóvel, vocês conseguem responder na hora ou alguns contatos acabam esfriando?';
+  if (/cl[ií]nica|est[eé]tica|dent|sa[uú]de/.test(clean)) return 'Hoje vocês conseguem responder rapidamente todos os pedidos de informação e agendamento ou alguns acabam esperando?';
+  if (/loja|moda|roupa|semijoia|varejo/.test(clean)) return 'Quando chegam dúvidas sobre produtos pelo WhatsApp, vocês conseguem acompanhar todas ou algumas oportunidades se perdem?';
+  if (/oficina|assist[eê]ncia|t[eé]cnica/.test(clean)) return 'Quando chegam pedidos de orçamento pelo WhatsApp, vocês conseguem acompanhar todos ou alguns acabam se perdendo?';
+  return 'Hoje vocês conseguem responder rapidamente todos os contatos pelo WhatsApp ou alguns acabam esperando?';
+}
+
+export function enrichmentFor(lead) {
+  const source = String(lead.source || '').toLowerCase();
+  const companyName = String(lead.company_name || lead.name || '').trim();
+  const contactName = String(lead.contact_name || '').trim();
+  const contactRole = String(lead.contact_role || '').trim();
+  const segment = String(lead.segment || lead.search_query || lead.query || '').trim();
+  const sourceUrl = String(lead.source_url || lead.website || '').trim();
+  const explicitNameEvidence = Boolean(contactName && lead.contact_name_source);
+  const nameConfidence = explicitNameEvidence ? Math.min(100, Math.max(0, Number(lead.name_confidence) || 90)) : 0;
+  const contextConfidence = source === 'google' || source === 'instagram' ? (sourceUrl ? 85 : 70) : (sourceUrl ? 70 : 45);
+  const overallConfidence = Math.round((contextConfidence * 0.7) + (explicitNameEvidence ? nameConfidence * 0.3 : 15));
+  const evidence = String(lead.evidence || (source === 'google'
+    ? `Empresa encontrada no Google Maps${sourceUrl ? ' e site comercial informado' : ''}.`
+    : source === 'instagram' ? 'Perfil comercial encontrado na busca do Instagram.' : 'Contato importado; origem deve ser revisada.'));
+  return {
+    company_name: companyName,
+    contact_name: explicitNameEvidence ? contactName : '',
+    contact_role: explicitNameEvidence ? contactRole : '',
+    segment,
+    name_confidence: nameConfidence,
+    context_confidence: contextConfidence,
+    overall_confidence: overallConfidence,
+    evidence,
+    source_url: sourceUrl || null,
+    opening_question: String(lead.opening_question || questionFor(segment)),
+    review_status: 'review',
+    review_reason: explicitNameEvidence
+      ? 'Confirmar evidência, nome e pergunta antes do primeiro disparo.'
+      : 'Sem nome pessoal comprovado; abordagem usará somente empresa e contexto.',
+  };
+}
 
 function toLeadRow(lead) {
   const phone = lead.phone ? normalizeNumber(lead.phone) : null;
@@ -184,6 +247,7 @@ function toLeadRow(lead) {
     address: lead.address || null,
     collected_at: Date.now(),
     plan_id: Number.isInteger(Number(lead.plan_id)) ? Number(lead.plan_id) : null,
+    ...enrichmentFor(lead),
   };
 }
 
@@ -204,14 +268,26 @@ export const leadQueries = {
        COUNT(*)                                                   AS total,
        SUM(channel='whatsapp')                                    AS whatsapp,
        SUM(channel='email')                                       AS email,
-       SUM(channel='whatsapp' AND contacted_at IS NULL)           AS pending_wa,
+       SUM(channel='whatsapp' AND contacted_at IS NULL AND review_status='approved') AS pending_wa,
+       SUM(channel='whatsapp' AND contacted_at IS NULL AND review_status='review') AS needs_review,
+       SUM(review_status='blocked')                               AS blocked,
        SUM(contacted_at IS NOT NULL)                              AS contacted
      FROM leads`
   ),
   pendingWhatsapp: db.prepare(
-    `SELECT dedup_key, jid, phone, name FROM leads
-     WHERE channel='whatsapp' AND contacted_at IS NULL
+    `SELECT dedup_key, jid, phone, name, company_name, contact_name, name_confidence,
+            opening_question, evidence, source_url, overall_confidence
+     FROM leads
+     WHERE channel='whatsapp' AND contacted_at IS NULL AND review_status='approved'
      ORDER BY collected_at ASC LIMIT @limit`
+  ),
+  reviewList: db.prepare(
+    `SELECT dedup_key, phone, company_name, contact_name, contact_role, segment,
+            name_confidence, context_confidence, overall_confidence, evidence,
+            source_url, opening_question, review_status, review_reason, collected_at
+     FROM leads WHERE contacted_at IS NULL
+     ORDER BY CASE review_status WHEN 'review' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,
+              overall_confidence DESC, collected_at DESC LIMIT @limit`
   ),
   markContacted: db.prepare(
     `UPDATE leads SET contacted_at=@ts WHERE dedup_key=@dedup_key`
@@ -225,10 +301,39 @@ export function leadStats() {
     whatsapp: s.whatsapp || 0,
     email: s.email || 0,
     pending_wa: s.pending_wa || 0,
+    needs_review: s.needs_review || 0,
+    blocked: s.blocked || 0,
     contacted: s.contacted || 0,
   };
 }
 
+const stmtReviewLead = db.prepare(`UPDATE leads SET
+  contact_name=@contact_name, contact_role=@contact_role, name_confidence=@name_confidence,
+  opening_question=@opening_question, evidence=@evidence, source_url=@source_url,
+  review_status=@review_status, review_reason=@review_reason,
+  approved_at=@approved_at, approved_by=@approved_by
+  WHERE dedup_key=@dedup_key AND contacted_at IS NULL`);
+
+export const reviewLeads = db.transaction((items, approvedBy = 'admin') => {
+  let updated = 0;
+  for (const item of items) {
+    if (!item?.dedup_key) continue;
+    let status = ['approved', 'review', 'blocked'].includes(item.review_status) ? item.review_status : 'review';
+    const contactName = String(item.contact_name || '').trim();
+    const nameConfidence = contactName ? Math.min(100, Math.max(0, Number(item.name_confidence) || 0)) : 0;
+    if (status === 'approved' && (!String(item.opening_question || '').trim() || !String(item.evidence || '').trim())) status = 'review';
+    updated += stmtReviewLead.run({
+      dedup_key: String(item.dedup_key), contact_name: nameConfidence >= 85 ? contactName : '',
+      contact_role: nameConfidence >= 85 ? String(item.contact_role || '').trim() : '', name_confidence: nameConfidence,
+      opening_question: String(item.opening_question || '').trim(), evidence: String(item.evidence || '').trim(),
+      source_url: String(item.source_url || '').trim() || null, review_status: status,
+      review_reason: String(item.review_reason || (status === 'approved' ? 'Revisado pelo administrador.' : '')).trim(),
+      approved_at: status === 'approved' ? Date.now() : null,
+      approved_by: status === 'approved' ? approvedBy : null,
+    }).changes;
+  }
+  return updated;
+});
 export function funnelStats() {
   const plan = db.prepare(`SELECT COALESCE(SUM(results_found),0) found FROM search_plan`).get();
   const leads = db.prepare(`SELECT COUNT(*) valid,

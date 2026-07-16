@@ -87,6 +87,8 @@ if (!itemCols.includes("number_id")) {
 if (!itemCols.includes("failed_at")) {
   db.exec(`ALTER TABLE campaign_items ADD COLUMN failed_at INTEGER`);
 }
+if (!itemCols.includes("company_name")) db.exec(`ALTER TABLE campaign_items ADD COLUMN company_name TEXT`);
+if (!itemCols.includes("opening_question")) db.exec(`ALTER TABLE campaign_items ADD COLUMN opening_question TEXT`);
 
 // Recuperação de crash: itens que ficaram travados em 'sending' (reserva sem
 // conclusão) voltam para 'pending' no boot.
@@ -98,8 +100,8 @@ const stmtInsertCampaign = db.prepare(
    VALUES (@name, @message, @app_url, 'active', @created_at)`
 );
 const stmtInsertItem = db.prepare(
-  `INSERT OR IGNORE INTO campaign_items (campaign_id, lead_id, name, phone, jid)
-   VALUES (@campaign_id, @lead_id, @name, @phone, @jid)`
+  `INSERT OR IGNORE INTO campaign_items (campaign_id, lead_id, name, phone, jid, company_name, opening_question)
+   VALUES (@campaign_id, @lead_id, @name, @phone, @jid, @company_name, @opening_question)`
 );
 
 /** Cria uma campanha + itens numa transação. Retorna { id, added }. */
@@ -119,6 +121,8 @@ export const createCampaign = db.transaction((camp, items) => {
       name: it.name || "",
       phone: it.phone,
       jid: it.jid ?? null,
+      company_name: it.company_name || "",
+      opening_question: it.opening_question || "",
     });
     added += res.changes;
   }

@@ -45,7 +45,7 @@ async function searchLine(line) {
   });
   const data = await res.json();
   return Array.isArray(data.results)
-    ? data.results.map((r) => ({ ...r, source: line.source }))
+    ? data.results.map((r) => ({ ...r, source: line.source, segment: line.query }))
     : [];
 }
 
@@ -71,7 +71,9 @@ export async function runPlanOnce() {
       if (pending.length > 0) {
         const items = pending.map((l) => ({
           lead_id: l.dedup_key,
-          name: l.name,
+          name: l.name_confidence >= 85 ? l.contact_name : "",
+          company_name: l.company_name,
+          opening_question: l.opening_question,
           phone: l.phone,
           jid: l.jid,
         }));

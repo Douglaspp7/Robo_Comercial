@@ -42,9 +42,11 @@ export function expandSpintax(text) {
 }
 
 /** Expande spintax, aplica {nome} e anexa a URL do app. */
-export function renderMessage(template, name, appUrl) {
+export function renderMessage(template, name, appUrl, context = {}) {
   let text = expandSpintax(template || "");
   text = text.replace(/\{nome\}/gi, name || "");
+  text = text.replace(/\{empresa\}/gi, context.company_name || "");
+  text = text.replace(/\{pergunta\}/gi, context.opening_question || "");
   if (appUrl && appUrl.trim()) {
     text = `${text}\n\n${appUrl.trim()}`;
   }

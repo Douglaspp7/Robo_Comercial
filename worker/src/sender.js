@@ -135,7 +135,7 @@ async function tick(numberId) {
   }
 
   const camp = stmtCampaign.get(item.campaign_id);
-  let text = renderMessage(camp.message, item.name, camp.app_url);
+  let text = renderMessage(camp.message, item.name, camp.app_url, item);
   if (config.optoutFooter) text += `\n\n${config.optoutFooter}`;
   const tail = number.slice(-4);
   try {

@@ -69,6 +69,14 @@ interface PoolStats {
   email: number;
   pending_wa: number;
   contacted: number;
+  needs_review: number;
+  blocked: number;
+}
+interface LeadReview {
+  dedup_key: string; phone: string; company_name: string; contact_name: string;
+  contact_role: string; segment: string; name_confidence: number; context_confidence: number;
+  overall_confidence: number; evidence: string; source_url: string | null;
+  opening_question: string; review_status: "review" | "approved" | "blocked"; review_reason: string;
 }
 interface FunnelStats { found:number; valid:number; contacted:number; replied:number; interested:number; demos:number; sales:number|null; opted_out:number }
 interface SuppressionItem { jid:string; phone:string|null; reason:string|null; created_at:number }
@@ -127,7 +135,9 @@ const buildWaMessageLink = (
 ): string | null => {
   const num = getWaNumber(biz.phone);
   if (!num) return null;
-  let text = (message || "").replace(/\{nome\}/gi, biz.name || "");
+  let text = (message || "").replace(/\{nome\}/gi, "");
+  text = text.replace(/\{empresa\}/gi, biz.name || "");
+  text = text.replace(/\{pergunta\}/gi, "Hoje vocês conseguem responder rapidamente todos os contatos pelo WhatsApp ou alguns acabam esperando?");
   if (appUrl.trim()) {
     text = `${text}\n\n${appUrl.trim()}`;
   }
@@ -153,10 +163,7 @@ const WA_PRESETS = [
   {
     label: "Direto",
     appUrl: ZAPIEN_LINK,
-    text:
-      "{Oi|Olá|Opa} {nome}, tudo bem? 😊 Aqui é do Zapien. Esse atendimento que você está " +
-      "recebendo é feito por uma IA — a mesma que pode atender os seus clientes " +
-      "no WhatsApp e vender por você, 24h. Dá uma olhada (pode até conversar com ela):",
+    text: "{Oi|Olá}! Vi a {empresa} e queria entender uma coisa: {pergunta}",
   },
   {
     label: "Curto",
@@ -276,6 +283,8 @@ export default function Home() {
   const [planOpen, setPlanOpen] = useState(false);
   const [planLines, setPlanLines] = useState<PlanLine[]>([]);
   const [poolStats, setPoolStats] = useState<PoolStats | null>(null);
+  const [leadReviews, setLeadReviews] = useState<LeadReview[]>([]);
+  const [reviewSaving, setReviewSaving] = useState(false);
   const [planGNiche, setPlanGNiche] = useState("");
   const [planGLoc, setPlanGLoc] = useState("");
   const [planIgMode, setPlanIgMode] = useState<"hashtag" | "profiles">("hashtag");
@@ -1031,12 +1040,13 @@ export default function Home() {
   // ── Plano de busca + pool de leads ────────────────────────────────────────
   const loadPlan = async () => {
     try {
-      const [p, s] = await Promise.all([
+      const [p, detail] = await Promise.all([
         fetch("/api/plan", { cache: "no-store" }).then((r) => r.json()),
-        fetch("/api/leads", { cache: "no-store" }).then((r) => r.json()),
+        fetch("/api/leads?detail=1", { cache: "no-store" }).then((r) => r.json()),
       ]);
       setPlanLines(Array.isArray(p.plan) ? p.plan : []);
-      setPoolStats(s && typeof s.total === "number" ? s : null);
+      setPoolStats(detail?.stats && typeof detail.stats.total === "number" ? detail.stats : null);
+      setLeadReviews(Array.isArray(detail?.items) ? detail.items : []);
     } catch {
       /* worker offline */
     }
@@ -1047,13 +1057,14 @@ export default function Home() {
     let alive = true;
     Promise.all([
       fetch("/api/plan", { cache: "no-store" }).then((r) => r.json()),
-      fetch("/api/leads", { cache: "no-store" }).then((r) => r.json()),
+      fetch("/api/leads?detail=1", { cache: "no-store" }).then((r) => r.json()),
       fetch("/api/schedule", { cache: "no-store" }).then((r) => r.json()),
     ])
-      .then(([p, s, sc]) => {
+      .then(([p, detail, sc]) => {
         if (!alive) return;
         setPlanLines(Array.isArray(p.plan) ? p.plan : []);
-        setPoolStats(s && typeof s.total === "number" ? s : null);
+        setPoolStats(detail?.stats && typeof detail.stats.total === "number" ? detail.stats : null);
+        setLeadReviews(Array.isArray(detail?.items) ? detail.items : []);
         if (sc && !sc.error) {
           setSchedEnabled(Boolean(sc.enabled));
           if (sc.time) setSchedTime(sc.time);
@@ -1182,7 +1193,7 @@ export default function Home() {
           const data: { results?: Business[] } = await res.json();
           if (Array.isArray(data.results)) {
             planRuns.push({ id: line.id, found: data.results.length });
-            collected.push(...data.results.map((r) => ({ ...r, source: line.source, plan_id: line.id })));
+            collected.push(...data.results.map((r) => ({ ...r, source: line.source, plan_id: line.id, segment: line.query })));
           }
         } catch {
           /* pula linha com erro (chave não configurada etc.) */
@@ -1241,6 +1252,31 @@ export default function Home() {
     } finally {
       setPendingSending(false);
     }
+  };
+
+  const saveLeadReview = async (lead: LeadReview, status: LeadReview["review_status"]) => {
+    if (status === "approved" && !lead.opening_question.trim()) return alert("Revise a pergunta antes de aprovar.");
+    setReviewSaving(true);
+    try {
+      const res = await fetch("/api/leads", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...lead, review_status: status }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Não foi possível revisar o lead.");
+      await loadPlan();
+    } catch (error) { alert(error instanceof Error ? error.message : "Falha ao revisar o lead."); }
+    finally { setReviewSaving(false); }
+  };
+
+  const approveHighConfidence = async () => {
+    const items = leadReviews.filter((lead) => lead.review_status === "review" && lead.overall_confidence >= 70 && lead.opening_question.trim());
+    if (!items.length) return alert("Nenhum lead elegível para aprovação em lote. Revise os demais individualmente.");
+    if (!confirm(`Aprovar ${items.length} lead(s) com contexto confiável? Nomes pessoais abaixo de 85% não serão usados.`)) return;
+    setReviewSaving(true);
+    try {
+      const res = await fetch("/api/leads", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: items.map((lead) => ({ ...lead, review_status: "approved" })) }) });
+      if (!res.ok) throw new Error("Não foi possível aprovar a lista.");
+      await loadPlan();
+    } catch (error) { alert(error instanceof Error ? error.message : "Falha ao aprovar a lista."); }
+    finally { setReviewSaving(false); }
   };
 
   // Indicador de conexão agregado (X/Y números conectados).
@@ -1462,9 +1498,10 @@ export default function Home() {
             {/* Pool + ações principais */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem", marginBottom: "1rem" }}>
               <div style={{ fontSize: "0.9rem" }}>
-                  Lista: <strong>{poolStats?.total ?? 0}</strong> contatos
+                Lista: <strong>{poolStats?.total ?? 0}</strong> contatos
                 {" · "}📱 {poolStats?.whatsapp ?? 0}
-                {" · "}⏳ <strong>{poolStats?.pending_wa ?? 0}</strong> pendentes
+                {" · "}🔎 <strong>{poolStats?.needs_review ?? 0}</strong> para revisar
+                {" · "}✅ <strong>{poolStats?.pending_wa ?? 0}</strong> aprovados
                 {" · "}✅ {poolStats?.contacted ?? 0} contatados
               </div>
               <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
@@ -1484,14 +1521,56 @@ export default function Home() {
               <div style={{ fontSize: "0.82rem", color: "var(--text-muted, #888)", marginBottom: "1rem" }}>{planProgress}</div>
             )}
             <p style={{ fontSize: "0.8rem", color: "var(--text-muted, #888)", marginBottom: "1rem" }}>
-              Monte a lista uma vez, clique <strong>Rodar busca</strong> pra juntar os contatos (sem repetir),
-              depois <strong>Disparar pendentes</strong> usa a mensagem do “Disparar WhatsApp”. No dia a dia é só repetir esses 2 passos.
+              Monte a lista, clique <strong>Rodar busca</strong>, revise evidência e pergunta e só então aprove.
+              <strong> Iniciar campanha</strong> envia exclusivamente os contatos aprovados, sem repetir.
             </p>
             {funnelStats && (
               <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(105px,1fr))", gap:".45rem", marginBottom:"1rem" }}>
                 {[['Encontrados',funnelStats.found],['Válidos',funnelStats.valid],['Contatados',funnelStats.contacted],['Responderam',funnelStats.replied],['Interessados',funnelStats.interested],['Demonstração',funnelStats.demos],['Vendas',funnelStats.sales ?? '—']].map(([label,value])=><div key={String(label)} style={{padding:'.55rem',border:'1px solid var(--border,rgba(255,255,255,.1))',borderRadius:'8px',textAlign:'center'}}><strong style={{display:'block',fontSize:'1.1rem'}}>{value}</strong><small>{label}</small></div>)}
               </div>
             )}
+            <div style={{ marginBottom: "1rem", padding: "0.9rem", border: "1px solid var(--border, rgba(255,255,255,0.1))", borderRadius: "10px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
+                <div>
+                  <strong>🔎 Enriquecimento e aprovação</strong>
+                  <p style={{ fontSize: "0.76rem", color: "var(--text-muted, #888)", marginTop: "0.2rem" }}>
+                    Confira empresa, evidência e pergunta. Nome pessoal só entra na mensagem com confiança de 85% ou mais.
+                  </p>
+                </div>
+                <button className="btn-secondary" onClick={approveHighConfidence} disabled={reviewSaving}>Aprovar contexto confiável</button>
+              </div>
+              {leadReviews.length === 0 ? (
+                <p style={{ fontSize: "0.82rem", color: "var(--text-muted, #888)", marginTop: "0.7rem" }}>Rode uma busca para formar a fila de revisão.</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.55rem", marginTop: "0.75rem", maxHeight: "430px", overflowY: "auto" }}>
+                  {leadReviews.map((lead, index) => (
+                    <div key={lead.dedup_key} style={{ padding: "0.7rem", border: "1px solid var(--border, rgba(255,255,255,0.1))", borderRadius: "8px", opacity: lead.review_status === "blocked" ? 0.6 : 1 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.5rem" }}>
+                        <span><strong>{lead.company_name || "Empresa sem nome"}</strong> · {lead.phone}</span>
+                        <span style={{ fontSize: "0.75rem", fontWeight: 700, color: lead.overall_confidence >= 70 ? "#25D366" : "#f59e0b" }}>
+                          Contexto {lead.overall_confidence}% · {lead.review_status === "approved" ? "Aprovado" : lead.review_status === "blocked" ? "Bloqueado" : "Revisar"}
+                        </span>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: "0.45rem" }}>
+                        <input className="input-glass" value={lead.contact_name || ""} placeholder="Nome pessoal (opcional)" onChange={(e) => setLeadReviews((rows) => rows.map((row, i) => i === index ? { ...row, contact_name: e.target.value } : row))} />
+                        <input className="input-glass" type="number" min="0" max="100" value={lead.name_confidence || 0} title="Confiança do nome" onChange={(e) => setLeadReviews((rows) => rows.map((row, i) => i === index ? { ...row, name_confidence: Number(e.target.value) } : row))} />
+                      </div>
+                      <textarea className="input-glass" value={lead.opening_question || ""} rows={2} style={{ width: "100%", marginTop: "0.45rem", resize: "vertical" }} onChange={(e) => setLeadReviews((rows) => rows.map((row, i) => i === index ? { ...row, opening_question: e.target.value } : row))} />
+                      <input className="input-glass" value={lead.evidence || ""} placeholder="Evidência usada" style={{ width: "100%", marginTop: "0.45rem" }} onChange={(e) => setLeadReviews((rows) => rows.map((row, i) => i === index ? { ...row, evidence: e.target.value } : row))} />
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.45rem", marginTop: "0.5rem", flexWrap: "wrap" }}>
+                        <span style={{ fontSize: "0.73rem", color: "var(--text-muted, #888)" }}>
+                          {lead.source_url ? <a href={lead.source_url} target="_blank" rel="noreferrer">Abrir fonte ↗</a> : "Sem URL de fonte"}
+                        </span>
+                        <span style={{ display: "flex", gap: "0.4rem" }}>
+                          <button className="btn-secondary" onClick={() => saveLeadReview(lead, "blocked")} disabled={reviewSaving}>Bloquear</button>
+                          <button className="btn-primary" onClick={() => saveLeadReview(lead, "approved")} disabled={reviewSaving}>Aprovar</button>
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Adicionar linha ao plano */}
             <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>

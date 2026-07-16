@@ -43,6 +43,8 @@ import {
   pendingWhatsappLeads,
   markLeadsContacted,
   planPerformance,
+  leadQueries,
+  reviewLeads,
   recordPlanRun,
   funnelStats,
 } from "./leads.js";
@@ -191,6 +193,8 @@ const server = http.createServer(async (req, res) => {
         .map((c) => ({
           lead_id: c.id != null ? String(c.id) : null,
           name: c.name || "",
+          company_name: c.company_name || c.name || "",
+          opening_question: c.opening_question || "Hoje vocês conseguem responder rapidamente todos os contatos pelo WhatsApp ou alguns acabam esperando?",
           phone: String(c.phone),
           jid: numberToJid(c.phone),
         }))
@@ -330,6 +334,16 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && path === "/leads/stats") {
       return send(res, 200, leadStats());
     }
+    if (req.method === "GET" && path === "/leads/review") {
+      const limit = Math.max(1, Math.min(1000, Number(url.searchParams.get('limit')) || 200));
+      return send(res, 200, { items: leadQueries.reviewList.all({ limit }), stats: leadStats() });
+    }
+    if (req.method === "PATCH" && path === "/leads/review") {
+      const body = await readJson(req);
+      const items = Array.isArray(body.items) ? body.items : [body];
+      const updated = reviewLeads(items, 'admin');
+      return send(res, 200, { updated, stats: leadStats() });
+    }
 
     // ── Agendamento ─────────────────────────────────────────────────────────
     if (req.method === "GET" && path === "/schedule") {
@@ -369,7 +383,9 @@ const server = http.createServer(async (req, res) => {
       }
       const items = pending.map((l) => ({
         lead_id: l.dedup_key,
-        name: l.name,
+        name: l.name_confidence >= 85 ? l.contact_name : "",
+        company_name: l.company_name,
+        opening_question: l.opening_question,
         phone: l.phone,
         jid: l.jid,
       }));
