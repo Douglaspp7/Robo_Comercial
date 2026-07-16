@@ -14,6 +14,8 @@ import {
   todayTotal,
   suppressionCount,
   addSuppression,
+  listSuppressions,
+  removeSuppression,
   getSetting,
   setSetting,
 } from "./db.js";
@@ -42,6 +44,7 @@ import {
   markLeadsContacted,
   planPerformance,
   recordPlanRun,
+  funnelStats,
 } from "./leads.js";
 
 // Estado por número (chip): conexão + cota do dia.
@@ -143,6 +146,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, {
         numbers: numbersStatus(),
         paused: isPaused(),
+        auto_pause_reason: getSetting('auto_pause_reason', '') || '',
         today: todayTotal(),
         limit: aggregateLimit(),
         suppressed: suppressionCount(),
@@ -163,6 +167,17 @@ const server = http.createServer(async (req, res) => {
         }
       }
       return send(res, 200, { added, total: suppressionCount() });
+    }
+    if (req.method === "GET" && path === "/suppression") {
+      return send(res, 200, { items: listSuppressions(), total: suppressionCount() });
+    }
+    if (req.method === "DELETE" && path === "/suppression") {
+      const jid = new URL(req.url, 'http://localhost').searchParams.get('jid');
+      if (!jid) return send(res, 400, { error: 'jid obrigatório' });
+      return send(res, 200, { removed: removeSuppression(jid), total: suppressionCount() });
+    }
+    if (req.method === "GET" && path === "/funnel") {
+      return send(res, 200, funnelStats());
     }
 
     // Cria campanha a partir dos contatos selecionados no painel.
