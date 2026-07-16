@@ -98,6 +98,13 @@ export const config = {
   // encaminhar uma resposta. O atendente valida com o mesmo valor.
   attendantToken: process.env.ATTENDANT_TOKEN || "",
 
+  // Render é a fonte oficial; o Pi inicia a conexão e nenhuma porta doméstica é exposta.
+  controlPlaneUrl: (process.env.CONTROL_PLANE_URL || "").replace(/\/$/, ""),
+  controlPlaneToken: process.env.CONTROL_PLANE_TOKEN || "",
+  workerId: (process.env.WORKER_ID || "pi-casa").trim(),
+  controlPollSec: Math.max(2, num(process.env.CONTROL_POLL_SEC, 10)),
+  dryRun: String(process.env.WORKER_DRY_RUN || "true").toLowerCase() !== "false",
+
   // Resumo diário operacional enviado ao WhatsApp do administrador.
   // Telefone vazio desativa. Horário local do Raspberry Pi no formato HH:MM.
   adminSummaryPhone: (process.env.ADMIN_SUMMARY_PHONE || "").replace(/\D/g, ""),
