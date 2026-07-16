@@ -4,7 +4,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { classifyInbound, forwardToAttendant } from "../src/bridge.js";
+import { classifyInbound, classifyInterest, forwardToAttendant } from "../src/bridge.js";
 
 const OPTOUT = ["sair", "parar", "pare", "cancelar", "stop"];
 
@@ -30,6 +30,12 @@ test("classifyInbound: qualquer outra palavra → forward", () => {
   assert.equal(classifyInbound("oi", OPTOUT), "forward");
   assert.equal(classifyInbound("sim", OPTOUT), "forward");
   assert.equal(classifyInbound("quanto custa?", OPTOUT), "forward");
+});
+
+test("classifyInterest: reconhece intenção comercial sem marcar saudações", () => {
+  assert.equal(classifyInterest("quanto custa o plano?"), true);
+  assert.equal(classifyInterest("quero uma demonstração"), true);
+  assert.equal(classifyInterest("oi, tudo bem?"), false);
 });
 
 test("forwardToAttendant: sem URL configurada → false, sem chamar fetch", async () => {
