@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
+import { randomUUID } from "node:crypto";
 
 // Ponte entre o painel e o worker de disparo (Baileys) que roda no Pi.
 // O token do worker fica só no servidor (nunca vai pro navegador).
@@ -8,6 +9,8 @@ const WORKER_URL = (process.env.WORKER_URL || "http://localhost:8787").replace(
   ""
 );
 const WORKER_TOKEN = process.env.WORKER_API_TOKEN || "";
+const CONTROL_URL = (process.env.CONTROL_PLANE_URL || "").replace(/\/$/, "");
+const CONTROL_TOKEN = process.env.CONTROL_PLANE_TOKEN || "";
 
 function workerHeaders(): Record<string, string> {
   const h: Record<string, string> = { "Content-Type": "application/json" };
@@ -18,6 +21,11 @@ function workerHeaders(): Record<string, string> {
 // GET → estado do worker + progresso das campanhas (para o painel exibir).
 export async function GET() {
   try {
+    if (CONTROL_URL && CONTROL_TOKEN) {
+      const res = await fetch(`${CONTROL_URL}/api/robo/control/status`, { headers: { "x-robo-control-token": CONTROL_TOKEN }, cache: "no-store" });
+      const data = await res.json(); const worker = data.workers?.[0];
+      return NextResponse.json({ control_plane:true, numbers:worker?.numbers||[], paused:worker?.paused??false, dry_run:worker?.dry_run??true, campaigns:worker?.campaigns||[], jobs:data.jobs||[], worker_online:Boolean(worker?.online) }, { status:res.status });
+    }
     const res = await fetch(`${WORKER_URL}/status`, {
       headers: workerHeaders(),
       cache: "no-store",
@@ -50,6 +58,11 @@ export async function POST(request: Request) {
   }
 
   try {
+    if (CONTROL_URL && CONTROL_TOKEN) {
+      const payload = body as Record<string, unknown>;
+      const res = await fetch(`${CONTROL_URL}/api/robo/control/jobs`, { method:"POST", headers:{"Content-Type":"application/json","x-robo-control-token":CONTROL_TOKEN}, body:JSON.stringify({type:"campaign",payload,idempotency_key:`campaign-${randomUUID()}`,available_at:Number(payload.scheduled_for)||Date.now()}), cache:"no-store" });
+      const data = await res.json(); return NextResponse.json({...data,queued_centrally:res.ok},{status:res.status});
+    }
     const res = await fetch(`${WORKER_URL}/campaigns`, {
       method: "POST",
       headers: workerHeaders(),
