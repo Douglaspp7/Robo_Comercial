@@ -47,6 +47,7 @@ if (!leadCols.has('plan_id')) db.exec(`ALTER TABLE leads ADD COLUMN plan_id INTE
 if (!leadCols.has('replied_at')) db.exec(`ALTER TABLE leads ADD COLUMN replied_at INTEGER`);
 if (!leadCols.has('interested_at')) db.exec(`ALTER TABLE leads ADD COLUMN interested_at INTEGER`);
 if (!leadCols.has('opted_out_at')) db.exec(`ALTER TABLE leads ADD COLUMN opted_out_at INTEGER`);
+if (!leadCols.has('demo_at')) db.exec(`ALTER TABLE leads ADD COLUMN demo_at INTEGER`);
 
 db.exec(`CREATE TABLE IF NOT EXISTS lead_alerts (
   jid TEXT PRIMARY KEY, phone TEXT, name TEXT, level TEXT NOT NULL, reason TEXT,
@@ -99,6 +100,7 @@ const stmtPlanPerformance = db.prepare(`
     SUM(l.contacted_at IS NOT NULL) AS contacted,
     SUM(l.replied_at IS NOT NULL) AS replied,
     SUM(l.interested_at IS NOT NULL) AS interested,
+    SUM(l.demo_at IS NOT NULL) AS demos,
     SUM(l.opted_out_at IS NOT NULL) AS opted_out
   FROM search_plan p LEFT JOIN leads l ON l.plan_id=p.id
   GROUP BY p.id ORDER BY p.id ASC
@@ -111,6 +113,7 @@ export function planPerformance() {
     contacted: row.contacted || 0,
     replied: row.replied || 0,
     interested: row.interested || 0,
+    demos: row.demos || 0,
     opted_out: row.opted_out || 0,
     recommendation: recommendPlan(row),
   }));
@@ -226,6 +229,15 @@ export function leadStats() {
   };
 }
 
+export function funnelStats() {
+  const plan = db.prepare(`SELECT COALESCE(SUM(results_found),0) found FROM search_plan`).get();
+  const leads = db.prepare(`SELECT COUNT(*) valid,
+    SUM(contacted_at IS NOT NULL) contacted, SUM(replied_at IS NOT NULL) replied,
+    SUM(interested_at IS NOT NULL) interested, SUM(demo_at IS NOT NULL) demos,
+    SUM(opted_out_at IS NOT NULL) opted_out FROM leads`).get();
+  return { found: plan.found || 0, valid: leads.valid || 0, contacted: leads.contacted || 0, replied: leads.replied || 0, interested: leads.interested || 0, demos: leads.demos || 0, sales: null, opted_out: leads.opted_out || 0 };
+}
+
 /** Leads de WhatsApp ainda não contatados, para virar campanha. */
 export function pendingWhatsappLeads(limit = 1000) {
   return leadQueries.pendingWhatsapp.all({ limit });
@@ -239,10 +251,11 @@ export const markLeadsContacted = db.transaction((keys) => {
 const stmtInbound = db.prepare(`UPDATE leads SET
   replied_at=COALESCE(replied_at, @ts),
   interested_at=CASE WHEN @interested=1 THEN COALESCE(interested_at, @ts) ELSE interested_at END,
+  demo_at=CASE WHEN @demo=1 THEN COALESCE(demo_at, @ts) ELSE demo_at END,
   opted_out_at=CASE WHEN @optout=1 THEN COALESCE(opted_out_at, @ts) ELSE opted_out_at END
   WHERE jid=@jid`);
 
-export function recordLeadResponse(jid, { interested = false, optout = false } = {}) {
+export function recordLeadResponse(jid, { interested = false, demo = false, optout = false } = {}) {
   if (!jid) return 0;
-  return stmtInbound.run({ jid, interested: interested ? 1 : 0, optout: optout ? 1 : 0, ts: Date.now() }).changes;
+  return stmtInbound.run({ jid, interested: interested ? 1 : 0, demo: demo ? 1 : 0, optout: optout ? 1 : 0, ts: Date.now() }).changes;
 }
