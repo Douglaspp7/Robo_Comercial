@@ -21,8 +21,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { config } from "./config.js";
 import { addSuppression } from "./db.js";
-import { classifyInbound, classifyInterest, forwardToAttendant } from "./bridge.js";
+import { classifyInbound, classifyInterest, classifyLeadHeat, forwardToAttendant } from "./bridge.js";
 import { recordLeadResponse } from "./leads.js";
+import { enqueueLeadAlert, flushLeadAlert } from './lead-alerts.js';
+import { getSetting } from './db.js';
 
 const logger = pino({ level: process.env.WA_LOG_LEVEL || "silent" });
 
@@ -109,6 +111,7 @@ export async function startSession({ id, pairPhone }) {
       const kind = classifyInbound(text);
       if (kind === "ignore") continue;
       const phone = jid.split("@")[0];
+      if (phone === String(getSetting('admin_summary_phone', '')).replace(/\D/g, '')) continue;
       if (kind === "optout") {
         recordLeadResponse(jid, { optout: true });
         addSuppression(jid, phone, "optout");
@@ -116,6 +119,11 @@ export async function startSession({ id, pairPhone }) {
         continue;
       }
       recordLeadResponse(jid, { interested: classifyInterest(text) });
+      const heat = classifyLeadHeat(text);
+      if (heat) {
+        enqueueLeadAlert({ jid, phone, name: msg.pushName || '', heat });
+        flushLeadAlert({ firstConnectedId, sendText }).catch(() => {});
+      }
       // kind === "forward": a resposta do lead vai para o atendente, que
       // responde pelo MESMO chip (number_id) via POST /send do worker.
       forwardToAttendant({
