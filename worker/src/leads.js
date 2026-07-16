@@ -37,6 +37,17 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_leads_pending ON leads(channel, contacted_at);
 `);
 
+// Migrações aditivas para instalações existentes no Raspberry Pi.
+const planCols = new Set(db.prepare(`PRAGMA table_info(search_plan)`).all().map((c) => c.name));
+if (!planCols.has('runs')) db.exec(`ALTER TABLE search_plan ADD COLUMN runs INTEGER NOT NULL DEFAULT 0`);
+if (!planCols.has('results_found')) db.exec(`ALTER TABLE search_plan ADD COLUMN results_found INTEGER NOT NULL DEFAULT 0`);
+if (!planCols.has('last_run_at')) db.exec(`ALTER TABLE search_plan ADD COLUMN last_run_at INTEGER`);
+const leadCols = new Set(db.prepare(`PRAGMA table_info(leads)`).all().map((c) => c.name));
+if (!leadCols.has('plan_id')) db.exec(`ALTER TABLE leads ADD COLUMN plan_id INTEGER`);
+if (!leadCols.has('replied_at')) db.exec(`ALTER TABLE leads ADD COLUMN replied_at INTEGER`);
+if (!leadCols.has('interested_at')) db.exec(`ALTER TABLE leads ADD COLUMN interested_at INTEGER`);
+if (!leadCols.has('opted_out_at')) db.exec(`ALTER TABLE leads ADD COLUMN opted_out_at INTEGER`);
+
 // ── Plano de busca ───────────────────────────────────────────────────────────
 const stmtAddPlan = db.prepare(
   `INSERT INTO search_plan (source, mode, query, location, deep, created_at)
@@ -47,6 +58,46 @@ export const planQueries = {
   del: db.prepare(`DELETE FROM search_plan WHERE id=?`),
   count: db.prepare(`SELECT COUNT(*) AS c FROM search_plan`),
 };
+
+const stmtPlanRun = db.prepare(`UPDATE search_plan SET runs=runs+1, results_found=results_found+@found, last_run_at=@ts WHERE id=@id`);
+
+export function recordPlanRun(id, found) {
+  if (!Number.isInteger(Number(id))) return;
+  stmtPlanRun.run({ id: Number(id), found: Math.max(0, Number(found) || 0), ts: Date.now() });
+}
+
+export function recommendPlan(stats) {
+  if ((stats.contacted || 0) < 10) return { action: 'observe', label: 'Coletar mais dados', reason: 'Menos de 10 contatos enviados.' };
+  const replyRate = stats.replied / stats.contacted;
+  const interestRate = stats.interested / stats.contacted;
+  const optoutRate = stats.opted_out / stats.contacted;
+  if (optoutRate >= 0.15 || (stats.contacted >= 20 && replyRate < 0.05)) return { action: 'pause', label: 'Revisar ou pausar', reason: 'Baixa resposta ou rejeição elevada.' };
+  if (interestRate >= 0.08 || replyRate >= 0.2) return { action: 'repeat', label: 'Repetir e expandir', reason: 'Resposta ou interesse acima do mínimo inicial.' };
+  return { action: 'observe', label: 'Continuar testando', reason: 'Ainda sem sinal forte para repetir ou pausar.' };
+}
+
+const stmtPlanPerformance = db.prepare(`
+  SELECT p.*,
+    COUNT(l.dedup_key) AS leads,
+    SUM(l.contacted_at IS NOT NULL) AS contacted,
+    SUM(l.replied_at IS NOT NULL) AS replied,
+    SUM(l.interested_at IS NOT NULL) AS interested,
+    SUM(l.opted_out_at IS NOT NULL) AS opted_out
+  FROM search_plan p LEFT JOIN leads l ON l.plan_id=p.id
+  GROUP BY p.id ORDER BY p.id ASC
+`);
+
+export function planPerformance() {
+  return stmtPlanPerformance.all().map((row) => ({
+    ...row,
+    leads: row.leads || 0,
+    contacted: row.contacted || 0,
+    replied: row.replied || 0,
+    interested: row.interested || 0,
+    opted_out: row.opted_out || 0,
+    recommendation: recommendPlan(row),
+  }));
+}
 
 export function addPlanLine(line) {
   const source = line.source === "instagram" ? "instagram" : "google";
@@ -90,8 +141,8 @@ export function seedPlan() {
 // ── Pool de leads ────────────────────────────────────────────────────────────
 const stmtInsertLead = db.prepare(
   `INSERT OR IGNORE INTO leads
-     (dedup_key, jid, phone, name, channel, source, website, email, address, collected_at)
-   VALUES (@dedup_key, @jid, @phone, @name, @channel, @source, @website, @email, @address, @collected_at)`
+     (dedup_key, jid, phone, name, channel, source, website, email, address, collected_at, plan_id)
+   VALUES (@dedup_key, @jid, @phone, @name, @channel, @source, @website, @email, @address, @collected_at, @plan_id)`
 );
 
 function toLeadRow(lead) {
@@ -112,6 +163,7 @@ function toLeadRow(lead) {
     email,
     address: lead.address || null,
     collected_at: Date.now(),
+    plan_id: Number.isInteger(Number(lead.plan_id)) ? Number(lead.plan_id) : null,
   };
 }
 
@@ -166,3 +218,14 @@ export const markLeadsContacted = db.transaction((keys) => {
   const ts = Date.now();
   for (const k of keys) leadQueries.markContacted.run({ dedup_key: k, ts });
 });
+
+const stmtInbound = db.prepare(`UPDATE leads SET
+  replied_at=COALESCE(replied_at, @ts),
+  interested_at=CASE WHEN @interested=1 THEN COALESCE(interested_at, @ts) ELSE interested_at END,
+  opted_out_at=CASE WHEN @optout=1 THEN COALESCE(opted_out_at, @ts) ELSE opted_out_at END
+  WHERE jid=@jid`);
+
+export function recordLeadResponse(jid, { interested = false, optout = false } = {}) {
+  if (!jid) return 0;
+  return stmtInbound.run({ jid, interested: interested ? 1 : 0, optout: optout ? 1 : 0, ts: Date.now() }).changes;
+}

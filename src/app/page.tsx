@@ -45,6 +45,14 @@ interface PlanLine {
   query: string;
   location: string | null;
   deep: number;
+  runs?: number;
+  results_found?: number;
+  leads?: number;
+  contacted?: number;
+  replied?: number;
+  interested?: number;
+  opted_out?: number;
+  recommendation?: { action: "repeat" | "observe" | "pause"; label: string; reason: string };
 }
 interface PlanSuggestion {
   source: "google" | "instagram";
@@ -1106,7 +1114,8 @@ export default function Home() {
   const runPlanSearch = async () => {
     if (planLines.length === 0) return alert("Adicione linhas ao plano ou gere sugestões com IA.");
     setPlanRunning(true);
-    const collected: (Business & { source?: string })[] = [];
+    const collected: (Business & { source?: string; plan_id?: number })[] = [];
+    const planRuns: { id: number; found: number }[] = [];
     try {
       for (let i = 0; i < planLines.length; i++) {
         const line = planLines[i];
@@ -1126,7 +1135,8 @@ export default function Home() {
                 });
           const data: { results?: Business[] } = await res.json();
           if (Array.isArray(data.results)) {
-            collected.push(...data.results.map((r) => ({ ...r, source: line.source })));
+            planRuns.push({ id: line.id, found: data.results.length });
+            collected.push(...data.results.map((r) => ({ ...r, source: line.source, plan_id: line.id })));
           }
         } catch {
           /* pula linha com erro (chave não configurada etc.) */
@@ -1136,7 +1146,7 @@ export default function Home() {
       const res = await fetch("/api/leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leads: collected }),
+        body: JSON.stringify({ leads: collected, plan_runs: planRuns }),
       });
       const out = await res.json();
       setPoolStats(out.stats || null);
@@ -1497,6 +1507,15 @@ export default function Home() {
                       <strong>{l.query}</strong>
                       {l.source === "google" && l.location ? ` · ${l.location}` : ""}
                       {l.source === "instagram" ? ` · ${l.mode}` : ""}
+                      <span style={{ display: "block", marginTop: "0.2rem", fontSize: "0.75rem", color: "var(--text-muted, #888)" }}>
+                        {l.leads || 0} novos · {l.contacted || 0} enviados · {l.replied || 0} respostas · {l.interested || 0} interessados
+                        {(l.opted_out || 0) > 0 ? ` · ${l.opted_out} recusas` : ""}
+                      </span>
+                      {l.recommendation && (
+                        <span style={{ display: "inline-block", marginTop: "0.25rem", padding: "0.12rem 0.4rem", borderRadius: "999px", fontSize: "0.7rem", fontWeight: 700, color: l.recommendation.action === "repeat" ? "#25D366" : l.recommendation.action === "pause" ? "var(--error)" : "#f59e0b", background: "rgba(255,255,255,0.06)" }} title={l.recommendation.reason}>
+                          {l.recommendation.label}
+                        </span>
+                      )}
                     </span>
                     <button className="btn-secondary" onClick={() => removePlanLine(l.id)} style={{ fontSize: "0.72rem", padding: "0.2rem 0.5rem", color: "var(--error)", borderColor: "var(--error)" }}>
                       Remover

@@ -29,6 +29,14 @@ export function classifyInbound(text, optoutKeywords = config.optoutKeywords) {
   return "forward";
 }
 
+/** Sinal simples e auditável de interesse. A IA do atendente continua fazendo
+ * a qualificação completa; aqui só marcamos intenção inicial para o relatório. */
+export function classifyInterest(text) {
+  const clean = String(text || '').trim().toLowerCase();
+  if (!clean) return false;
+  return /\b(pre[cç]o|valor|quanto|demonstra[cç][aã]o|demo|quero|tenho interesse|como funciona|plano|contratar|assinatura)\b/u.test(clean);
+}
+
 /**
  * Encaminha uma resposta ao atendente. Best-effort: nunca lança — uma falha de
  * rede não pode derrubar a sessão do WhatsApp. Retorna true se entregou (2xx).

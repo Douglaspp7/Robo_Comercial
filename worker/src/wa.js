@@ -21,7 +21,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { config } from "./config.js";
 import { addSuppression } from "./db.js";
-import { classifyInbound, forwardToAttendant } from "./bridge.js";
+import { classifyInbound, classifyInterest, forwardToAttendant } from "./bridge.js";
+import { recordLeadResponse } from "./leads.js";
 
 const logger = pino({ level: process.env.WA_LOG_LEVEL || "silent" });
 
@@ -109,10 +110,12 @@ export async function startSession({ id, pairPhone }) {
       if (kind === "ignore") continue;
       const phone = jid.split("@")[0];
       if (kind === "optout") {
+        recordLeadResponse(jid, { optout: true });
         addSuppression(jid, phone, "optout");
         console.log(`  [${id}] opt-out recebido de ...${phone.slice(-4)} → supressão.`);
         continue;
       }
+      recordLeadResponse(jid, { interested: classifyInterest(text) });
       // kind === "forward": a resposta do lead vai para o atendente, que
       // responde pelo MESMO chip (number_id) via POST /send do worker.
       forwardToAttendant({
