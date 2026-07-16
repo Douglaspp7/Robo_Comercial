@@ -13,12 +13,17 @@
  *   schedule_last_run      "YYYY-MM-DD" (controle interno anti-duplicação)
  */
 import { config } from "./config.js";
+import fs from "node:fs";
 import {
   getSetting,
   setSetting,
   todayStr,
   createCampaign,
+  db,
+  queries,
 } from "./db.js";
+import { getAllStates, firstConnectedId, sendText } from "./wa.js";
+import { numberToJid } from "./phone.js";
 import {
   planQueries,
   addLeads,
@@ -28,6 +33,47 @@ import {
 } from "./leads.js";
 
 let timer = null;
+let scheduledCheckRunning = false;
+
+export function campaignReadiness({ connected = 0, attendantConfigured = false, items = 0, imageRequired = false, imageAvailable = true } = {}) {
+  if (connected < 1) return { ready: false, reason: 'nenhum chip conectado' };
+  if (!attendantConfigured) return { ready: false, reason: 'atendente Zapien não configurado' };
+  if (items < 1) return { ready: false, reason: 'campanha sem contatos' };
+  if (imageRequired && !imageAvailable) return { ready: false, reason: 'criativo da campanha não encontrado' };
+  return { ready: true, reason: '' };
+}
+
+async function notifySchedule(text) {
+  if (!config.adminSummaryPhone) return;
+  const numberId = firstConnectedId();
+  const jid = numberToJid(config.adminSummaryPhone);
+  if (numberId && jid) await sendText(numberId, jid, text).catch(() => {});
+}
+
+export async function checkScheduledCampaigns(now = Date.now()) {
+  const campaigns = queries.scheduledDue.all({ until: now + 5 * 60_000 });
+  for (const campaign of campaigns) {
+    const connected = getAllStates().filter((number) => number.connected).length;
+    const itemCount = db.prepare(`SELECT COUNT(*) count FROM campaign_items WHERE campaign_id=? AND status='pending'`).get(campaign.id).count;
+    const readiness = campaignReadiness({
+      connected,
+      attendantConfigured: Boolean(config.attendantUrl),
+      items: itemCount,
+      imageRequired: Boolean(campaign.image_path),
+      imageAvailable: !campaign.image_path || fs.existsSync(campaign.image_path),
+    });
+    if (!readiness.ready) {
+      queries.preflightFail.run({ id: campaign.id, ts: now, reason: readiness.reason });
+      await notifySchedule(`⚠️ Campanha "${campaign.name}" não iniciada: ${readiness.reason}.`);
+      continue;
+    }
+    queries.preflightOk.run({ id: campaign.id, ts: now });
+    if (campaign.scheduled_for <= now) {
+      queries.activateScheduled.run({ id: campaign.id, ts: now });
+      await notifySchedule(`🚀 Campanha "${campaign.name}" iniciada com ${itemCount} contatos e ${connected} chip(s).`);
+    }
+  }
+}
 
 async function searchLine(line) {
   const url =
@@ -91,6 +137,10 @@ export async function runPlanOnce() {
 
 function tick() {
   try {
+    if (!scheduledCheckRunning) {
+      scheduledCheckRunning = true;
+      checkScheduledCampaigns().catch((e) => console.error('  [campanha agendada]', e.message)).finally(() => { scheduledCheckRunning = false; });
+    }
     if (getSetting("schedule_enabled") !== "1") return;
     const time = getSetting("schedule_time", "");
     if (!time) return;

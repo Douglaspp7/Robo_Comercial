@@ -378,6 +378,10 @@ const server = http.createServer(async (req, res) => {
       const body = await readJson(req);
       const message = String(body.message || "").trim();
       if (!message) return send(res, 400, { error: "mensagem obrigatória" });
+      const scheduledFor = body.scheduled_for == null ? null : Number(body.scheduled_for);
+      if (scheduledFor != null && (!Number.isFinite(scheduledFor) || scheduledFor < Date.now() + 60_000 || scheduledFor > Date.now() + 30 * 86_400_000)) {
+        return send(res, 400, { error: "data de início deve estar entre 1 minuto e 30 dias" });
+      }
       const limit = Math.max(1, Math.min(5000, Number(body.limit) || 1000));
       const pending = pendingWhatsappLeads(limit);
       if (pending.length === 0) {
@@ -392,7 +396,11 @@ const server = http.createServer(async (req, res) => {
         jid: l.jid,
       }));
       const { id, added } = createCampaign(
-        { name: body.name || "Campanha", message, app_url: body.app_url || "", approach: body.approach || "custom" },
+        {
+          name: body.name || "Campanha", message, app_url: body.app_url || "",
+          approach: body.approach || "custom", status: scheduledFor ? "scheduled" : "active",
+          scheduled_for: scheduledFor,
+        },
         items
       );
       let image = false;
@@ -405,7 +413,12 @@ const server = http.createServer(async (req, res) => {
       }
       // Marca os leads como contatados (não voltam para "pendentes").
       markLeadsContacted(pending.map((l) => l.dedup_key));
-      return send(res, 201, { id, added, count: pending.length, image });
+      return send(res, 201, {
+        id, added, count: pending.length, image,
+        status: scheduledFor ? "scheduled" : "active",
+        scheduled_for: scheduledFor,
+        preflight_at: scheduledFor ? scheduledFor - 5 * 60_000 : null,
+      });
     }
 
     // ── Gateway de envio para o ATENDENTE ────────────────────────────────

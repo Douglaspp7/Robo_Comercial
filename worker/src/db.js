@@ -79,6 +79,10 @@ if (!campaignCols.includes("image_path")) {
   db.exec(`ALTER TABLE campaigns ADD COLUMN image_path TEXT`);
 }
 if (!campaignCols.includes("approach")) db.exec(`ALTER TABLE campaigns ADD COLUMN approach TEXT NOT NULL DEFAULT 'custom'`);
+if (!campaignCols.includes("scheduled_for")) db.exec(`ALTER TABLE campaigns ADD COLUMN scheduled_for INTEGER`);
+if (!campaignCols.includes("preflight_at")) db.exec(`ALTER TABLE campaigns ADD COLUMN preflight_at INTEGER`);
+if (!campaignCols.includes("preflight_status")) db.exec(`ALTER TABLE campaigns ADD COLUMN preflight_status TEXT`);
+if (!campaignCols.includes("preflight_reason")) db.exec(`ALTER TABLE campaigns ADD COLUMN preflight_reason TEXT`);
 
 // Migração idempotente: qual número (chip) enviou cada item (atribuição).
 const itemCols = db.prepare(`PRAGMA table_info(campaign_items)`).all().map((c) => c.name);
@@ -97,8 +101,8 @@ db.exec(`UPDATE campaign_items SET status='pending' WHERE status='sending'`);
 
 // ── Campanhas ────────────────────────────────────────────────────────────────
 const stmtInsertCampaign = db.prepare(
-  `INSERT INTO campaigns (name, message, app_url, approach, status, created_at)
-   VALUES (@name, @message, @app_url, @approach, 'active', @created_at)`
+  `INSERT INTO campaigns (name, message, app_url, approach, status, created_at, scheduled_for)
+   VALUES (@name, @message, @app_url, @approach, @status, @created_at, @scheduled_for)`
 );
 const stmtInsertItem = db.prepare(
   `INSERT OR IGNORE INTO campaign_items (campaign_id, lead_id, name, phone, jid, company_name, opening_question)
@@ -112,6 +116,8 @@ export const createCampaign = db.transaction((camp, items) => {
     message: camp.message,
     app_url: camp.app_url || "",
     approach: camp.approach || "custom",
+    status: camp.status === "scheduled" ? "scheduled" : "active",
+    scheduled_for: Number(camp.scheduled_for) || null,
     created_at: Date.now(),
   });
   const campaignId = info.lastInsertRowid;
@@ -176,7 +182,8 @@ export const queries = {
        )`
   ),
   campaignStats: db.prepare(
-    `SELECT c.id, c.name, c.approach, c.status, c.created_at,
+    `SELECT c.id, c.name, c.approach, c.status, c.created_at, c.scheduled_for,
+            c.preflight_at, c.preflight_status, c.preflight_reason,
             COUNT(i.id)                                    AS total,
             SUM(i.status='sent')                           AS sent,
             SUM(i.status='pending')                        AS pending,
@@ -194,6 +201,10 @@ export const queries = {
   setAllPaused: db.prepare(
     `UPDATE campaigns SET status='paused' WHERE status='active'`
   ),
+  scheduledDue: db.prepare(`SELECT * FROM campaigns WHERE status='scheduled' AND scheduled_for<=@until ORDER BY scheduled_for ASC`),
+  preflightOk: db.prepare(`UPDATE campaigns SET preflight_at=@ts, preflight_status='ready', preflight_reason=NULL WHERE id=@id`),
+  preflightFail: db.prepare(`UPDATE campaigns SET status='paused', preflight_at=@ts, preflight_status='failed', preflight_reason=@reason WHERE id=@id`),
+  activateScheduled: db.prepare(`UPDATE campaigns SET status='active', preflight_at=COALESCE(preflight_at,@ts), preflight_status='ready', preflight_reason=NULL WHERE id=@id AND status='scheduled'`),
 };
 
 // ── Cota diária ──────────────────────────────────────────────────────────────

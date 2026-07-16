@@ -28,6 +28,9 @@ interface CloudCampaign {
   failed: number | null;
   invalid: number | null;
   approach?: string;
+  scheduled_for?: number | null;
+  preflight_status?: string | null;
+  preflight_reason?: string | null;
 }
 interface CloudNumber {
   id: string;
@@ -307,6 +310,12 @@ export default function Home() {
   const [schedTime, setSchedTime] = useState("09:00");
   const [schedAuto, setSchedAuto] = useState(false);
   const [schedSaving, setSchedSaving] = useState(false);
+  const [nextDayDate, setNextDayDate] = useState(() => {
+    const date = new Date(); date.setDate(date.getDate() + 1);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  });
+  const [nextDayTime, setNextDayTime] = useState("09:00");
+  const [nextDayPreparing, setNextDayPreparing] = useState(false);
 
   const handleDiscoverRegions = async () => {
     if (!location.trim()) {
@@ -1286,6 +1295,37 @@ export default function Home() {
     }
   };
 
+  const prepareNextDayCampaign = async () => {
+    const n = poolStats?.pending_wa || 0;
+    if (!n) return alert("Aprove os leads antes de preparar a campanha.");
+    if (!waMessage.trim()) return alert("Escolha e revise uma abordagem primeiro.");
+    const scheduledFor = new Date(`${nextDayDate}T${nextDayTime}:00`).getTime();
+    if (!Number.isFinite(scheduledFor) || scheduledFor <= Date.now() + 60_000) return alert("Escolha uma data e horário futuros.");
+    const chips = Math.max(1, (cloudStatus?.numbers || []).filter((number) => number.connected).length);
+    const avgDelay = Math.max(1, (waMinDelay + waMaxDelay) / 2);
+    const minutes = Math.ceil((n * avgDelay) / chips / 60);
+    const approach = WA_PRESETS.find((preset) => preset.id === waApproach)?.label || "Personalizada";
+    if (!confirm(`Preparar campanha para ${new Date(scheduledFor).toLocaleString("pt-BR")}\n\n${n} leads aprovados\nAbordagem: ${approach}\nChips conectados agora: ${chips}\nDuração estimada: ${Math.floor(minutes / 60)}h${String(minutes % 60).padStart(2, "0")}\n\nO robô fará a pré-checagem 5 minutos antes.`)) return;
+    setNextDayPreparing(true);
+    try {
+      const res = await fetch("/api/campaign-from-pending", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: `Campanha ${new Date(scheduledFor).toLocaleDateString("pt-BR")} ${nextDayTime}`,
+          message: waMessage, app_url: waAppUrl, image: waImage || undefined,
+          approach: waApproach, scheduled_for: scheduledFor,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Não foi possível preparar a campanha.");
+      alert(`Campanha congelada com ${data.count} leads. ✅\nPré-checagem: ${new Date(data.preflight_at).toLocaleString("pt-BR")}\nInício: ${new Date(data.scheduled_for).toLocaleString("pt-BR")}`);
+      await Promise.all([loadPlan(), fetchCloudStatus()]);
+      setWorkspaceTab("results");
+      setCloudPanelOpen(true);
+    } catch (error) { alert(error instanceof Error ? error.message : "Falha ao preparar a campanha."); }
+    finally { setNextDayPreparing(false); }
+  };
+
   const saveLeadReview = async (lead: LeadReview, status: LeadReview["review_status"]) => {
     if (status === "approved" && !lead.opening_question.trim()) return alert("Revise a pergunta antes de aprovar.");
     setReviewSaving(true);
@@ -1687,6 +1727,23 @@ export default function Home() {
               </div>
             )}
 
+            <div style={{ marginTop: "1.25rem", padding: "1rem", border: "1px solid rgba(37,211,102,.35)", background: "rgba(37,211,102,.05)", borderRadius: "10px" }}>
+              <strong>🌙 Campanha do dia seguinte</strong>
+              <p style={{ fontSize: ".78rem", color: "var(--text-muted, #888)", margin: ".25rem 0 .75rem" }}>
+                Congele os leads aprovados agora. Cinco minutos antes, o Pi verifica chips, atendente, fila e criativo; se algo falhar, não dispara.
+              </p>
+              <div style={{ display: "flex", gap: ".55rem", alignItems: "center", flexWrap: "wrap" }}>
+                <input type="date" className="input-glass" value={nextDayDate} min={todayStr()} onChange={(event) => setNextDayDate(event.target.value)} style={{ width: "auto" }} />
+                <input type="time" className="input-glass" value={nextDayTime} onChange={(event) => setNextDayTime(event.target.value)} style={{ width: "auto" }} />
+                <span style={{ fontSize: ".78rem", color: "var(--text-muted, #888)" }}>
+                  {poolStats?.pending_wa ?? 0} aprovados · {WA_PRESETS.find((preset) => preset.id === waApproach)?.label}
+                </span>
+                <button className="btn-primary" onClick={prepareNextDayCampaign} disabled={nextDayPreparing || !(poolStats?.pending_wa)}>
+                  {nextDayPreparing ? "Preparando…" : "Preparar e agendar"}
+                </button>
+              </div>
+            </div>
+
             {/* Agendamento: rodar a busca sozinho 1x/dia */}
             <div style={{ marginTop: "1.25rem", padding: "0.85rem", border: "1px solid var(--border, rgba(255,255,255,0.1))", borderRadius: "10px" }}>
               <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontWeight: 600, cursor: "pointer" }}>
@@ -1918,8 +1975,18 @@ export default function Home() {
                             </span>
                           )}
                           <span style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--text-muted, #888)" }}>
-                            ({c.status === "active" ? "ativa" : c.status === "paused" ? "pausada" : "concluída"})
+                            ({c.status === "scheduled" ? "agendada" : c.status === "active" ? "ativa" : c.status === "paused" ? "pausada" : "concluída"})
                           </span>
+                          {c.scheduled_for && c.status === "scheduled" && (
+                            <span style={{ display: "block", fontSize: ".72rem", fontWeight: 500, color: "#25D366", marginTop: ".2rem" }}>
+                              Início: {new Date(c.scheduled_for).toLocaleString("pt-BR")} · pré-checagem 5 min antes
+                            </span>
+                          )}
+                          {c.preflight_status === "failed" && c.preflight_reason && (
+                            <span style={{ display: "block", fontSize: ".72rem", fontWeight: 600, color: "var(--error)", marginTop: ".2rem" }}>
+                              Não iniciada: {c.preflight_reason}
+                            </span>
+                          )}
                         </div>
                         <div style={{ display: "flex", gap: "0.4rem" }}>
                           {c.status !== "done" && (
@@ -1928,7 +1995,7 @@ export default function Home() {
                               onClick={() => cloudCampaignAction(c.id, c.status === "paused" ? "resume" : "pause")}
                               style={{ fontSize: "0.75rem", padding: "0.3rem 0.6rem" }}
                             >
-                              {c.status === "paused" ? "Retomar" : "Pausar"}
+                              {c.status === "paused" ? "Iniciar agora" : "Pausar"}
                             </button>
                           )}
                           {c.status !== "done" && (
