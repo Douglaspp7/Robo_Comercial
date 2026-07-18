@@ -24,15 +24,13 @@ services:
         value: /var/data/gestowhatz.db
       - key: BACKUP_DIR
         value: /var/data/backups
-      - key: ANTHROPIC_MODEL
-        value: claude-haiku-4-5
+      - key: OPENAI_CHAT_MODEL
+        value: gpt-5.6-terra
       - key: WHATSAPP_API_VERSION
         value: v21.0
       - key: TRIAL_DAYS
         value: "7"
       # Preencha estes no painel do Render (marcados como sync:false = secretos):
-      - key: ANTHROPIC_API_KEY
-        sync: false
       - key: WHATSAPP_VERIFY_TOKEN
         sync: false
       - key: APP_URL
