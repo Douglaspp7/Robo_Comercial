@@ -23,12 +23,11 @@ export const config = {
   port: Number(process.env.PORT) || 3000,
   appUrl: process.env.APP_URL || (process.env.NODE_ENV === 'production' ? 'https://zapien.app' : `http://localhost:${process.env.PORT || 3000}`),
 
-  anthropic: {
-    apiKey: required('ANTHROPIC_API_KEY'),
-    // Padrao: Claude Haiku 4.5 — o modelo mais rapido e economico, ideal para
-    // atendimento de vendas em alto volume. Troque por claude-sonnet-4-6 se
-    // quiser respostas mais elaboradas.
-    model: process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5',
+  openai: {
+    apiKey: required('OPENAI_API_KEY'),
+    // Terra e a camada equilibrada da familia GPT-5.6: melhor qualidade para
+    // atendimento sem usar a opcao leve/nano de alto volume.
+    model: process.env.OPENAI_CHAT_MODEL || 'gpt-5.6-terra',
   },
 
   whatsapp: {
@@ -60,7 +59,7 @@ export const config = {
   databasePath: process.env.DATABASE_PATH || './data/zapien.db',
 
   // Escala: quantas respostas de IA processar em paralelo (protege o limite
-  // de requisicoes da Anthropic) e quanto esperar para juntar mensagens
+  // de requisicoes da OpenAI) e quanto esperar para juntar mensagens
   // rapidas do mesmo contato (debounce).
   aiConcurrency: Number(process.env.AI_CONCURRENCY) || 5,
   debounceMs: Number(process.env.DEBOUNCE_MS) || 3000,
