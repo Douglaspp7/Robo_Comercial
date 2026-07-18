@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 process.env.SESSION_SECRET = process.env.SESSION_SECRET || 'test-secret-para-urlsign';
-process.env.ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || 'test';
+process.env.OPENAI_API_KEY = process.env.OPENAI_API_KEY || 'test';
 process.env.WHATSAPP_VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'test';
 const { signedQuery, verifySignedQuery } = await import('../src/urlsign.js');
 
