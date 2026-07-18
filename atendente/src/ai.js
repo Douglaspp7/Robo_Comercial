@@ -1,4 +1,3 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { config, STAGE_IDS } from './config.js';
 import { calcularFrete } from './melhorenvio.js';
 import {
@@ -10,7 +9,7 @@ import {
   contactQueries,
 } from './db.js';
 import { normalizeBusiness } from './business.js';
-import { checkAnthropicCreditError } from './alerts.js';
+import { checkOpenAiQuota } from './alerts.js';
 import { getPlanLimits } from './plans.js';
 import { formatKnowledgeContext, logKnowledgeSearchMetrics, searchKnowledge } from './knowledge/search.js';
 import { normalizeForSearch } from './knowledge/text.js';
@@ -26,24 +25,109 @@ function compactText(value, max = 240) {
   return String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 }
 
-const client = new Anthropic({ apiKey: config.anthropic.apiKey, timeout: 60_000 });
-
-/**
- * Wrapper de client.messages.create que detecta erro de saldo/crédito da
- * Anthropic e dispara um alerta ANTES de o atendimento parar. Rethrow para o
- * fluxo normal de tratamento de erro continuar igual.
- */
-async function createMessage(params) {
-  try {
-    return await client.messages.create(params);
-  } catch (err) {
-    checkAnthropicCreditError(err);
-    throw err;
-  }
+function openAiContent(content) {
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return String(content || '');
+  return content.flatMap((part) => {
+    if (part?.type === 'text') return [{ type: 'text', text: part.text || '' }];
+    if (part?.type === 'image' && part.source?.type === 'base64') {
+      return [{
+        type: 'image_url',
+        image_url: { url: `data:${part.source.media_type};base64,${part.source.data}` },
+      }];
+    }
+    return [];
+  });
 }
 
-// Reuso controlado do cliente Anthropic por recursos internos do Zapien.
-// Mantém timeout, alerta de créditos e credenciais em um único lugar.
+function openAiMessages(messages) {
+  const converted = [];
+  for (const message of messages || []) {
+    if (message.role === 'assistant' && Array.isArray(message.content)) {
+      const text = message.content.filter((part) => part?.type === 'text').map((part) => part.text || '').join('\n');
+      const calls = message.content.filter((part) => part?.type === 'tool_use').map((part) => ({
+        id: part.id,
+        type: 'function',
+        function: { name: part.name, arguments: JSON.stringify(part.input || {}) },
+      }));
+      converted.push({ role: 'assistant', content: text || null, ...(calls.length ? { tool_calls: calls } : {}) });
+      continue;
+    }
+    if (message.role === 'user' && Array.isArray(message.content)) {
+      const results = message.content.filter((part) => part?.type === 'tool_result');
+      const regular = message.content.filter((part) => part?.type !== 'tool_result');
+      if (regular.length) converted.push({ role: 'user', content: openAiContent(regular) });
+      for (const result of results) {
+        converted.push({ role: 'tool', tool_call_id: result.tool_use_id, content: String(result.content || '') });
+      }
+      continue;
+    }
+    converted.push({ role: message.role, content: openAiContent(message.content) });
+  }
+  return converted;
+}
+
+function anthropicShapedResponse(payload) {
+  const message = payload.choices?.[0]?.message || {};
+  const content = [];
+  if (message.content) content.push({ type: 'text', text: message.content });
+  for (const call of message.tool_calls || []) {
+    let input = {};
+    try { input = JSON.parse(call.function?.arguments || '{}'); } catch { input = {}; }
+    content.push({ type: 'tool_use', id: call.id, name: call.function?.name, input });
+  }
+  return {
+    content,
+    stop_reason: payload.choices?.[0]?.finish_reason || null,
+    usage: {
+      input_tokens: payload.usage?.prompt_tokens || 0,
+      output_tokens: payload.usage?.completion_tokens || 0,
+      cache_creation_input_tokens: 0,
+      cache_read_input_tokens: payload.usage?.prompt_tokens_details?.cached_tokens || 0,
+    },
+  };
+}
+
+async function createMessage(params) {
+  const system = Array.isArray(params.system)
+    ? params.system.map((part) => part?.text || '').join('\n')
+    : String(params.system || '');
+  const body = {
+    model: params.model || config.openai.model,
+    messages: [
+      ...(system ? [{ role: 'developer', content: system }] : []),
+      ...openAiMessages(params.messages),
+    ],
+    max_completion_tokens: params.max_tokens,
+    reasoning_effort: 'none',
+  };
+  if (params.tools?.length) {
+    body.tools = params.tools.map((tool) => ({
+      type: 'function',
+      function: { name: tool.name, description: tool.description, parameters: tool.input_schema },
+    }));
+    body.tool_choice = params.tool_choice?.type === 'any' ? 'required' : 'auto';
+  }
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${config.openai.apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(60_000),
+  });
+  const raw = await response.text();
+  if (!response.ok) {
+    checkOpenAiQuota(response.status, raw);
+    const error = new Error(`OpenAI ${response.status}: ${raw.slice(0, 500)}`);
+    error.status = response.status;
+    throw error;
+  }
+  return anthropicShapedResponse(JSON.parse(raw));
+}
+
+// Reuso controlado do cliente OpenAI por recursos internos do Zapien.
 export async function createAIMessage(params) {
   return createMessage(params);
 }
@@ -529,7 +613,7 @@ DIRETRIZES DE ATENDIMENTO:
  */
 export async function generateBusinessConfig(descricao, businessName) {
   const response = await createMessage({
-    model: config.anthropic.model,
+    model: config.openai.model,
     max_tokens: 4096,
     messages: [
       {
@@ -569,7 +653,7 @@ export async function generateBusinessConfig(descricao, businessName) {
  */
 export async function parseCatalogImage(buffer, mediaType) {
   const response = await createMessage({
-    model: config.anthropic.model,
+    model: config.openai.model,
     max_tokens: 4096,
     messages: [
       {
@@ -606,7 +690,7 @@ export async function parseCatalogImage(buffer, mediaType) {
 export async function parseCatalogText(text) {
   const snippet = text.slice(0, 12000);
   const response = await createMessage({
-    model: config.anthropic.model,
+    model: config.openai.model,
     max_tokens: 4096,
     messages: [
       {
@@ -763,7 +847,7 @@ ${serializedContext}`;
 
   try {
     const response = await createMessage({
-      model: config.anthropic.model,
+      model: config.openai.model,
       max_tokens: 1200,
       messages: [{ role: 'user', content: prompt }],
     });
@@ -846,7 +930,7 @@ export async function analyzeBusinessSetup(tenant, hasCatalog = false) {
 
 /**
  * Gera a resposta e a classificacao para uma mensagem do cliente.
- * Se o tenant tiver Melhor Envio configurado, o Claude pode chamar
+ * Se o tenant tiver Melhor Envio configurado, a IA pode chamar
  * "calcular_frete" antes de responder — o loop processa ate 4 iteracoes.
  */
 function textFromContent(content) {
@@ -970,9 +1054,9 @@ REGRAS: para disponibilidade use consultar_horarios; mostre até 4 opções; só
   let fallbackReason = 'limite_de_iteracoes';
 
   for (let iter = 0; iter < 4; iter++) {
-    console.log(`[AI] iter=${iter} chamando Anthropic model="${config.anthropic.model}" msgs=${currentMessages.length}`);
+    console.log(`[AI] iter=${iter} chamando OpenAI model="${config.openai.model}" msgs=${currentMessages.length}`);
     const response = await createMessage({
-      model: config.anthropic.model,
+      model: config.openai.model,
       max_tokens: planLimits.aiMaxOutputTokens,
       system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
       tools,
@@ -1004,7 +1088,7 @@ REGRAS: para disponibilidade use consultar_horarios; mostre até 4 opções; só
         aiUsageQueries.insert.run(
           tenant.id,
           contactId || null,
-          config.anthropic.model,
+          config.openai.model,
           usage.input_tokens || 0,
           usage.output_tokens || 0,
           usage.cache_creation_input_tokens || 0,
@@ -1038,7 +1122,7 @@ REGRAS: para disponibilidade use consultar_horarios; mostre até 4 opções; só
         aiUsageQueries.insert.run(
           tenant.id,
           contactId || null,
-          config.anthropic.model,
+          config.openai.model,
           usage.input_tokens || 0,
           usage.output_tokens || 0,
           usage.cache_creation_input_tokens || 0,
