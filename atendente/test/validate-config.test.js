@@ -97,7 +97,7 @@ test('detecta RESET_EMAIL_SENDER=resend sem RESEND_API_KEY', () => {
 });
 
 const PROD_OK_ENV = {
-  ANTHROPIC_API_KEY: 'sk-ant-api03-real-key-000',
+  OPENAI_API_KEY: 'sk-proj-real-key-000',
   WHATSAPP_VERIFY_TOKEN: 'token-verificacao-real-1234',
   SESSION_SECRET: 'a'.repeat(64),
   DATA_ENCRYPTION_KEY: 'ab'.repeat(32),
