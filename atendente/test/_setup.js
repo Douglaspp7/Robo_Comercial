@@ -12,7 +12,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-process.env.ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || 'test-key';
+process.env.OPENAI_API_KEY = process.env.OPENAI_API_KEY || 'test-key';
 process.env.WHATSAPP_VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'test-token';
 process.env.SESSION_SECRET = process.env.SESSION_SECRET || 'test-session-secret';
 // Habilita mpBillingEnabled — sem isso, subscriptionState() trata todo mundo
