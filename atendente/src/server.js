@@ -113,7 +113,7 @@ app.post('/internal/search-plan', async (req, res) => {
     return res.status(401).json({ error: 'Não autorizado.' });
   }
   try {
-    const suggestions = await generateSearchPlan(req.body, createAIMessage, config.anthropic.model);
+    const suggestions = await generateSearchPlan(req.body, createAIMessage, config.openai.model);
     return res.json({ suggestions, generatedAt: new Date().toISOString() });
   } catch (error) {
     console.error('Search plan AI:', error.message);
@@ -193,7 +193,7 @@ app.use((err, req, res, _next) => {
 
 app.listen(config.port, () => {
   console.log(`Zapien rodando em ${config.appUrl} (porta ${config.port})`);
-  console.log(`Modelo de IA: ${config.anthropic.model}`);
+  console.log(`Modelo de IA: ${config.openai.model}`);
   console.log(`Billing: ${billingEnabled ? 'ativo' : 'desativado'}`);
   startFollowUpScheduler();
   startDailySummaryScheduler();
