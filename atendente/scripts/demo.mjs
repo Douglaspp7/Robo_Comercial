@@ -6,7 +6,7 @@
 
 import { rmSync } from 'node:fs';
 
-process.env.ANTHROPIC_API_KEY ||= 'demo-sem-chave-real';
+process.env.OPENAI_API_KEY ||= 'demo-sem-chave-real';
 process.env.WHATSAPP_VERIFY_TOKEN ||= 'demo-verify';
 process.env.SESSION_SECRET ||= 'demo-session-secret-aaaaaaaaaaaaaaaa';
 process.env.DATABASE_PATH ||= './data/demo.db';
