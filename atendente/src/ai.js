@@ -22,6 +22,10 @@ function getMeToken(tenant) {
   return tenant.melhor_envio_token || config.mePlatformToken || null;
 }
 
+function compactText(value, max = 240) {
+  return String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
 const client = new Anthropic({ apiKey: config.anthropic.apiKey, timeout: 60_000 });
 
 /**
@@ -961,6 +965,9 @@ REGRAS: para disponibilidade use consultar_horarios; mostre até 4 opções; só
   const currentMessages = appendTurnContext(messages, turnContext);
   const systemPrompt = buildSystemPrompt(tenant, melhorEnvioAtivo, hasCatalog);
   let bookingCheckoutUrl = null;
+  let lastToolSignature = '';
+  let repeatedToolCalls = 0;
+  let fallbackReason = 'limite_de_iteracoes';
 
   for (let iter = 0; iter < 4; iter++) {
     console.log(`[AI] iter=${iter} chamando Anthropic model="${config.anthropic.model}" msgs=${currentMessages.length}`);
@@ -975,7 +982,19 @@ REGRAS: para disponibilidade use consultar_horarios; mostre até 4 opções; só
 
     console.log(`[AI] resposta recebida stop_reason="${response.stop_reason}" blocos=${response.content.length}`);
     const toolUse = response.content.find((blk) => blk.type === 'tool_use');
-    if (!toolUse) break;
+    if (!toolUse) {
+      fallbackReason = `sem_ferramenta:${response.stop_reason || 'desconhecido'}`;
+      break;
+    }
+
+    const toolSignature = `${toolUse.name}:${JSON.stringify(toolUse.input || {})}`;
+    repeatedToolCalls = toolSignature === lastToolSignature ? repeatedToolCalls + 1 : 0;
+    lastToolSignature = toolSignature;
+    if (repeatedToolCalls >= 1) {
+      fallbackReason = `ferramenta_repetida:${toolUse.name}`;
+      console.warn(`[AI] interrompendo ciclo de ferramenta repetida: ${toolUse.name}`);
+      break;
+    }
 
     if (toolUse.name === 'responder_cliente') {
       const out = toolUse.input;
@@ -1162,15 +1181,19 @@ REGRAS: para disponibilidade use consultar_horarios; mostre até 4 opções; só
       continue;
     }
 
+    fallbackReason = `ferramenta_desconhecida:${toolUse.name || 'sem_nome'}`;
     break;
   }
 
+  const currentContact = contactId ? contactQueries.byId.get(contactId) : null;
+  console.error(`[AI] resposta não concluída; contingência humana acionada (${fallbackReason})`);
   return {
-    mensagem: 'Desculpe, tive um problema ao responder agora. Pode repetir?',
-    etapa: 'novo_contato',
-    intencao_compra: 'baixa',
-    resumo: '',
-    precisa_humano: false,
+    mensagem: 'Entendi sua solicitação. Não consegui concluir esta resposta com segurança agora, então encaminhei a conversa para uma pessoa continuar daqui — você não precisa repetir. 🙏',
+    etapa: currentContact?.stage || 'duvida',
+    intencao_compra: currentContact?.buy_intent || 'baixa',
+    resumo: `A IA não concluiu a resposta (${fallbackReason}). Solicitação mais recente: ${compactText(customerQuery)}`,
+    precisa_humano: true,
+    motivo: 'outro',
     pedido: null,
     knowledge_chunks: knowledge.chunks,
   };
