@@ -20,7 +20,7 @@ const COOLDOWN_MS = (Number(process.env.ALERT_COOLDOWN_MIN) || 30) * 60 * 1000;
 const LABELS = {
   queue: 'Fila de atendimento sobrecarregada',
   anthropic: 'Créditos da IA (Anthropic) esgotando ou esgotados',
-  openai: 'Créditos de transcrição de áudio (OpenAI) esgotados',
+  openai: 'Créditos da IA (OpenAI) esgotando ou esgotados',
   meta: 'WhatsApp (Meta) com problema de pagamento ou limite de envio',
   email: 'Falha no envio de e-mail transacional (recuperação de senha)',
 };
