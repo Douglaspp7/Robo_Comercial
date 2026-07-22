@@ -209,6 +209,11 @@ export default function Home() {
   // Plano de busca + pool de leads (persistente no worker).
   const [planOpen, setPlanOpen] = useState(false);
   const [planLines, setPlanLines] = useState<PlanLine[]>([]);
+  // Sugestão de palavras com IA (Claude) para o plano de busca.
+  const [aiWhat, setAiWhat] = useState("Zapien — atendente de vendas com IA no WhatsApp");
+  const [aiCity, setAiCity] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiSugg, setAiSugg] = useState<{ nichos: string[]; hashtags: string[] } | null>(null);
   const [poolStats, setPoolStats] = useState<PoolStats | null>(null);
   const [planGNiche, setPlanGNiche] = useState("");
   const [planGLoc, setPlanGLoc] = useState("");
@@ -1010,6 +1015,50 @@ export default function Home() {
     loadPlan();
   };
 
+  // Pede à IA nichos + hashtags a partir do que você vende.
+  const suggestWithAI = async () => {
+    if (!aiWhat.trim()) return alert("Descreva o que você vende.");
+    setAiLoading(true);
+    setAiSugg(null);
+    try {
+      const r = await fetch("/api/suggest-keywords", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: aiWhat, city: aiCity }),
+      });
+      const d = await r.json();
+      if (!r.ok) return alert(d.error || "Falha ao sugerir.");
+      setAiSugg({ nichos: d.nichos || [], hashtags: d.hashtags || [] });
+    } catch {
+      alert("Não foi possível chamar a IA.");
+    } finally {
+      setAiLoading(false);
+    }
+  };
+  // Adiciona as sugestões ao plano (nichos = Google por cidade + profunda; hashtags = Instagram).
+  const addSuggestionsToPlan = async () => {
+    if (!aiSugg) return;
+    if (aiSugg.nichos.length > 0 && !aiCity.trim()) {
+      return alert("Informe a cidade base para os nichos do Google Maps.");
+    }
+    for (const q of aiSugg.nichos) {
+      await fetch("/api/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: "google", query: q, location: aiCity, deep: true }),
+      });
+    }
+    for (const h of aiSugg.hashtags) {
+      await fetch("/api/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: "instagram", mode: "hashtag", query: h }),
+      });
+    }
+    setAiSugg(null);
+    loadPlan();
+  };
+
   const runPlanSearch = async () => {
     if (planLines.length === 0) return alert("Adicione linhas ao plano (ou use 'Sugerir Zapien').");
     setPlanRunning(true);
@@ -1329,6 +1378,36 @@ export default function Home() {
                 onChange={(e) => setPlanIgQuery(e.target.value)} style={{ flex: "1 1 200px" }} />
               <button className="btn-secondary" onClick={addPlanInstagram}>+ Instagram</button>
               <button className="btn-secondary" onClick={seedPlanReq} title="Preenche com nichos/hashtags do Zapien">✨ Sugerir Zapien</button>
+            </div>
+
+            {/* Sugerir palavras com IA — a partir do que você vende */}
+            <div style={{ marginBottom: "0.75rem", padding: "0.85rem", border: "1px dashed var(--border, rgba(255,255,255,0.15))", borderRadius: "10px" }}>
+              <div style={{ fontWeight: 600, marginBottom: "0.5rem" }}>✨ Sugerir palavras com IA</div>
+              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                <input className="input-glass" placeholder="O que você vende?" value={aiWhat}
+                  onChange={(e) => setAiWhat(e.target.value)} style={{ flex: "2 1 240px" }} />
+                <input className="input-glass" placeholder="Cidade base (ex.: São Paulo, SP)" value={aiCity}
+                  onChange={(e) => setAiCity(e.target.value)} style={{ flex: "1 1 160px" }} />
+                <button className="btn-secondary" onClick={suggestWithAI} disabled={aiLoading}>
+                  {aiLoading ? "Pensando…" : "Sugerir ✨"}
+                </button>
+              </div>
+              {aiSugg && (
+                <div style={{ marginTop: "0.75rem" }}>
+                  <div style={{ fontSize: "0.82rem", color: "var(--text-muted, #94a3b8)", marginBottom: "0.4rem" }}>
+                    {aiSugg.nichos.length} nichos + {aiSugg.hashtags.length} hashtags — revise e adicione:
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", marginBottom: "0.6rem", maxHeight: "140px", overflowY: "auto" }}>
+                    {aiSugg.nichos.map((n) => (
+                      <span key={`n-${n}`} style={{ fontSize: "0.8rem", padding: "0.2rem 0.5rem", border: "1px solid var(--border, rgba(255,255,255,0.15))", borderRadius: "999px" }}>📍 {n}</span>
+                    ))}
+                    {aiSugg.hashtags.map((h) => (
+                      <span key={`h-${h}`} style={{ fontSize: "0.8rem", padding: "0.2rem 0.5rem", border: "1px solid var(--border, rgba(255,255,255,0.15))", borderRadius: "999px" }}>#{h}</span>
+                    ))}
+                  </div>
+                  <button className="btn-secondary" onClick={addSuggestionsToPlan}>+ Adicionar todos ao plano</button>
+                </div>
+              )}
             </div>
 
             {/* Lista do plano */}

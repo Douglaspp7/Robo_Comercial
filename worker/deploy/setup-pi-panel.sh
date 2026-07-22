@@ -46,6 +46,8 @@ WORKER_URL=http://localhost:8787
 WORKER_API_TOKEN=$TOKEN
 # Atendente local (mostra o card "Atendente Zapien" com status + abrir dashboard).
 ATTENDANT_URL=http://localhost:3001
+# IA para "Sugerir palavras" no plano (pode ser a mesma chave do Zapien):
+ANTHROPIC_API_KEY=
 # Preencha conforme os canais/fontes que for usar:
 GOOGLE_PLACES_API_KEY=
 IG_ACCESS_TOKEN=
